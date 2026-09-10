@@ -1,0 +1,82 @@
+# --------------------------------------------------
+# Secrets, Environment & Credential Files
+# --------------------------------------------------
+.env
+.env.*
+*.env
+*.env.*
+*.local
+atlas-credentials.env
+**/atlas-credentials.env
+*.pem
+*.key
+*.cert
+*.crt
+credentials.json
+client_secrets.json
+
+# Whitelist safe example templates
+!**/.env.example
+
+# --------------------------------------------------
+# Dependencies
+# --------------------------------------------------
+node_modules/
+**/node_modules/
+.pnpm-store/
+
+# --------------------------------------------------
+# Build Outputs & Bundles
+# --------------------------------------------------
+dist/
+**/dist/
+dist-ssr/
+**/dist-ssr/
+build/
+**/build/
+out/
+**/out/
+
+# --------------------------------------------------
+# Debug & Runtime Logs
+# --------------------------------------------------
+logs/
+**/logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --------------------------------------------------
+# IDE & System Files
+# --------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# --------------------------------------------------
+# Local Cache, Scratch & Private Archives
+# --------------------------------------------------
+cache/
+cache
+**/cache/
+.cache/
+.cache
+**/.cache/
+*.cache
+
+# --------------------------------------------------
+# Internal Architecture & Roadmap Plans
+# --------------------------------------------------
+Plans/
+Plans
+**/Plans/
