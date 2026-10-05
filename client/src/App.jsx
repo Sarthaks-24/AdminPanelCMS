@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 // Admin CMS pages
 import AdminLogin from './pages/admin/AdminLogin';
@@ -19,42 +20,44 @@ import ProtectedRoute from './components/admin/ProtectedRoute';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Root Redirect to Admin Dashboard */}
-          <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Root Redirect to Admin Dashboard */}
+            <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
 
-          {/* Admin Authentication */}
-          <Route path="/admin/login" element={<AdminLogin />} />
+            {/* Admin Authentication */}
+            <Route path="/admin/login" element={<AdminLogin />} />
 
-          {/* Admin CMS Protected Routes */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute>
-                <AdminLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="dashboard" element={<DashboardHome />} />
-            <Route path="profile" element={<ProfileEditor />} />
-            <Route path="socials" element={<SocialsManager />} />
-            <Route path="skills" element={<SkillsMatrix />} />
-            <Route path="projects" element={<ProjectList />} />
-            <Route path="projects/new" element={<ProjectForm />} />
-            <Route path="projects/edit/:id" element={<ProjectForm />} />
-            <Route path="experience" element={<ExperienceList />} />
-            <Route path="education" element={<EducationManager />} />
-            <Route path="certifications" element={<CertificationsManager />} />
-            <Route path="resume" element={<ResumeManager />} />
-          </Route>
+            {/* Admin CMS Protected Routes */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="/admin/dashboard" replace />} />
+              <Route path="dashboard" element={<DashboardHome />} />
+              <Route path="profile" element={<ProfileEditor />} />
+              <Route path="socials" element={<SocialsManager />} />
+              <Route path="skills" element={<SkillsMatrix />} />
+              <Route path="projects" element={<ProjectList />} />
+              <Route path="projects/new" element={<ProjectForm />} />
+              <Route path="projects/edit/:id" element={<ProjectForm />} />
+              <Route path="experience" element={<ExperienceList />} />
+              <Route path="education" element={<EducationManager />} />
+              <Route path="certifications" element={<CertificationsManager />} />
+              <Route path="resume" element={<ResumeManager />} />
+            </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

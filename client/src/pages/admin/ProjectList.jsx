@@ -78,25 +78,25 @@ export default function ProjectList() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#1a2333]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-t-border">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded bg-[#090d15] text-[#0078d4] border border-[#1a2333]">
+            <div className="p-2 rounded bg-t-surface text-t-accent border border-t-border">
               <FolderGit2 size={20} />
             </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Engineering Projects Studio</h1>
-            <span className="px-2 py-0.5 rounded bg-[#0f141f] text-[11px] font-mono text-slate-300 border border-[#1e293b]">
+            <h1 className="text-xl font-bold text-t-text tracking-tight">Engineering Projects Studio</h1>
+            <span className="px-2 py-0.5 rounded bg-t-surface-hi text-[11px] font-mono text-t-muted border border-t-border-hi">
               {projects.length} Total
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-t-muted mt-1">
             Case studies, architectural deep dives, and solo/team engineering systems served across client applications.
           </p>
         </div>
 
         <Link
           to="/admin/projects/new"
-          className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded bg-[#0078d4] hover:bg-[#1e90ff] text-white font-semibold text-xs transition-all shadow-sm cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs transition-all shadow-sm cursor-pointer"
         >
           <Plus size={15} />
           <span>New Case Study</span>
@@ -104,21 +104,21 @@ export default function ProjectList() {
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="bg-[#070a10] border border-[#1a2333] rounded p-3.5 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="bg-t-surface border border-t-border rounded p-3.5 flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Search */}
         <div className="relative w-full md:w-80">
-          <Search size={14} className="absolute left-3 top-2.5 text-slate-500" />
+          <Search size={14} className="absolute left-3 top-2.5 text-t-dim" />
           <input
             type="text"
             placeholder="Search by title, slug, or tech stack..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 rounded bg-black border border-[#1e293b] text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#0078d4] transition-colors"
+            className="w-full pl-9 pr-4 py-1.5 rounded bg-t-bg border border-t-border-hi text-xs text-t-text placeholder-slate-500 focus:outline-none focus:border-t-accent transition-colors"
           />
         </div>
 
         {/* Mode Filter Tabs */}
-        <div className="flex items-center gap-1 bg-black border border-[#1e293b] p-1 rounded w-full md:w-auto">
+        <div className="flex items-center gap-1 bg-t-bg border border-t-border-hi p-1 rounded w-full md:w-auto">
           {[
             { id: 'all', label: `All (${projects.length})` },
             { id: 'solo', label: `Solo (${soloCount})` },
@@ -130,8 +130,8 @@ export default function ProjectList() {
               onClick={() => setFilterMode(tab.id)}
               className={`flex-1 md:flex-none px-3 py-1 text-xs font-mono rounded transition-all cursor-pointer ${
                 filterMode === tab.id
-                  ? 'bg-[#0078d4] text-white font-bold shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-t-accent text-t-on-accent font-bold shadow-sm'
+                  : 'text-t-muted hover:text-t-text'
               }`}
             >
               {tab.label}
@@ -142,11 +142,11 @@ export default function ProjectList() {
 
       {/* Project Cards Grid */}
       {loading ? (
-        <div className="p-12 text-center text-xs font-mono text-[#0078d4] animate-pulse">
+        <div className="p-12 text-center text-xs font-mono text-t-accent animate-pulse">
           Querying engineering case studies...
         </div>
       ) : filteredProjects.length === 0 ? (
-        <div className="p-12 text-center text-xs font-mono text-slate-500 border border-dashed border-[#1a2333] rounded bg-[#070a10]">
+        <div className="p-12 text-center text-xs font-mono text-t-dim border border-dashed border-t-border rounded bg-t-surface">
           No projects found matching the filter criteria.
         </div>
       ) : (
@@ -154,12 +154,12 @@ export default function ProjectList() {
           {filteredProjects.map((p) => (
             <div
               key={p._id}
-              className="rounded bg-[#070a10] border border-[#1a2333] hover:border-[#0078d4] transition-all flex flex-col justify-between overflow-hidden group"
+              className="rounded bg-t-surface border border-t-border hover:border-t-accent transition-all flex flex-col justify-between overflow-hidden group"
             >
               <div>
                 {/* Thumbnail Preview Banner */}
                 {p.thumbnail ? (
-                  <div className="h-36 w-full overflow-hidden bg-black relative border-b border-[#1a2333]">
+                  <div className="h-36 w-full overflow-hidden bg-t-bg relative border-b border-t-border">
                     <img
                       src={p.thumbnail}
                       alt={p.title}
@@ -167,14 +167,14 @@ export default function ProjectList() {
                       onError={(e) => (e.target.style.display = 'none')}
                     />
                     <div className="absolute top-2 left-2 flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 rounded bg-black/80 backdrop-blur-md text-[10px] font-mono text-[#1e90ff] border border-[#1e293b] uppercase">
+                      <span className="px-2 py-0.5 rounded bg-t-bg/80 backdrop-blur-md text-[10px] font-mono text-t-accent-br border border-t-border-hi uppercase">
                         {p.mode}
                       </span>
                     </div>
                   </div>
                 ) : (
-                  <div className="h-20 w-full bg-black p-3 flex items-center justify-between border-b border-[#1a2333]">
-                    <span className="px-2 py-0.5 rounded bg-[#090d15] text-[10px] font-mono text-[#1e90ff] border border-[#1e293b] uppercase">
+                  <div className="h-20 w-full bg-t-bg p-3 flex items-center justify-between border-b border-t-border">
+                    <span className="px-2 py-0.5 rounded bg-t-surface text-[10px] font-mono text-t-accent-br border border-t-border-hi uppercase">
                       {p.mode}
                     </span>
                   </div>
@@ -185,7 +185,7 @@ export default function ProjectList() {
                   <div className="flex items-start justify-between gap-2">
                     <Link
                       to={`/admin/projects/edit/${p._id}`}
-                      className="text-sm font-bold text-white hover:text-[#1e90ff] transition-colors leading-tight line-clamp-1"
+                      className="text-sm font-bold text-t-text hover:text-t-accent-br transition-colors leading-tight line-clamp-1"
                     >
                       {p.title}
                     </Link>
@@ -193,7 +193,7 @@ export default function ProjectList() {
                     <button
                       onClick={() => handleToggleFeatured(p)}
                       className={`p-1 rounded transition-colors cursor-pointer shrink-0 ${
-                        p.featured ? 'text-[#10b981]' : 'text-slate-600 hover:text-slate-300'
+                        p.featured ? 'text-t-accent2' : 'text-t-dim hover:text-t-muted'
                       }`}
                       title={p.featured ? 'Featured on homepage' : 'Mark as featured'}
                     >
@@ -202,20 +202,20 @@ export default function ProjectList() {
                   </div>
 
                   {/* Slug & Role */}
-                  <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400">
-                    <span className="text-[#0078d4]">/{p.slug}</span>
-                    <span className="text-slate-600">·</span>
+                  <div className="flex items-center gap-2 text-[11px] font-mono text-t-muted">
+                    <span className="text-t-accent">/{p.slug}</span>
+                    <span className="text-t-dim">·</span>
                     <span className="truncate">{p.role}</span>
                   </div>
 
                   {/* Metric Pill */}
                   {p.keyMetric && (
-                    <div className="inline-block px-2 py-0.5 rounded bg-black border border-[#10b981]/30 text-[10px] font-mono text-[#10b981]">
+                    <div className="inline-block px-2 py-0.5 rounded bg-t-bg border border-t-accent2/30 text-[10px] font-mono text-t-accent2">
                       {p.keyMetric}
                     </div>
                   )}
 
-                  <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                  <p className="text-xs text-t-muted line-clamp-2 leading-relaxed">
                     {p.shortDescription}
                   </p>
 
@@ -225,13 +225,13 @@ export default function ProjectList() {
                       {p.stack.slice(0, 4).map((tech, i) => (
                         <span
                           key={i}
-                          className="px-1.5 py-0.5 rounded bg-black text-[10px] font-mono text-slate-300 border border-[#1e293b]"
+                          className="px-1.5 py-0.5 rounded bg-t-bg text-[10px] font-mono text-t-muted border border-t-border-hi"
                         >
                           {tech}
                         </span>
                       ))}
                       {p.stack.length > 4 && (
-                        <span className="px-1.5 py-0.5 rounded bg-black text-[10px] font-mono text-slate-500 border border-[#1e293b]">
+                        <span className="px-1.5 py-0.5 rounded bg-t-bg text-[10px] font-mono text-t-dim border border-t-border-hi">
                           +{p.stack.length - 4}
                         </span>
                       )}
@@ -241,14 +241,14 @@ export default function ProjectList() {
               </div>
 
               {/* Card Footer Actions */}
-              <div className="p-3 border-t border-[#1a2333] bg-black flex items-center justify-between">
-                <div className="flex items-center gap-2 text-slate-500">
+              <div className="p-3 border-t border-t-border bg-t-bg flex items-center justify-between">
+                <div className="flex items-center gap-2 text-t-dim">
                   {p.links?.github && (
                     <a
                       href={p.links.github}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1 hover:text-[#0078d4] transition-colors"
+                      className="p-1 hover:text-t-accent transition-colors"
                       title="GitHub Repository"
                     >
                       <GitBranch size={13} />
@@ -259,7 +259,7 @@ export default function ProjectList() {
                       href={p.links.live}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1 hover:text-[#10b981] transition-colors"
+                      className="p-1 hover:text-t-accent2 transition-colors"
                       title="Live Production URL"
                     >
                       <Globe size={13} />
@@ -281,14 +281,14 @@ export default function ProjectList() {
                 <div className="flex items-center gap-1">
                   <Link
                     to={`/admin/projects/edit/${p._id}`}
-                    className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-[#111827] transition-all cursor-pointer"
+                    className="p-1.5 rounded text-t-muted hover:text-t-text hover:bg-t-surface-hi transition-all cursor-pointer"
                     title="Edit Case Study"
                   >
                     <Edit2 size={13} />
                   </Link>
                   <button
                     onClick={() => handleDelete(p._id, p.title)}
-                    className="p-1.5 rounded text-red-400 hover:text-white hover:bg-red-950 transition-all cursor-pointer"
+                    className="p-1.5 rounded text-t-danger hover:text-t-text hover:bg-red-950 transition-all cursor-pointer"
                     title="Delete Case Study"
                   >
                     <Trash2 size={13} />

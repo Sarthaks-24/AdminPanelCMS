@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme, THEME_GROUPS } from '../../context/ThemeContext';
 import {
   LayoutDashboard,
   User,
@@ -17,13 +18,18 @@ import {
   Plus,
   ChevronRight,
   Terminal,
+  Palette,
+  Check,
 } from 'lucide-react';
 
 export default function AdminLayout() {
   const { admin, logout } = useAuth();
+  const { themeId, changeTheme, themes, groups } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const [topThemePickerOpen, setTopThemePickerOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -58,46 +64,74 @@ export default function AdminLayout() {
     return 'admin > console';
   };
 
+  const currentTheme = themes[themeId];
+
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col md:flex-row antialiased font-sans">
+    <div
+      className="min-h-screen text-t-text flex flex-col md:flex-row antialiased font-sans"
+      style={{ backgroundColor: 'var(--theme-bg)' }}
+    >
       {/* Mobile Drawer Overlay */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-t-bg/80 backdrop-blur-sm z-40 md:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
       {/* Sidebar Navigation */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#070a10] border-r border-[#1a2333] flex flex-col justify-between transition-transform duration-200 ease-in-out md:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-64 flex flex-col justify-between transition-transform duration-200 ease-in-out md:translate-x-0 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{
+          backgroundColor: 'var(--theme-surface)',
+          borderRight: '1px solid var(--theme-border)',
+        }}
       >
-        <div>
+        <div className="flex flex-col flex-1 min-h-0">
           {/* Brand Header */}
-          <div className="p-4 border-b border-[#1a2333] flex items-center justify-between bg-black">
+          <div
+            className="p-4 flex items-center justify-between"
+            style={{
+              backgroundColor: 'var(--theme-bg)',
+              borderBottom: '1px solid var(--theme-border)',
+            }}
+          >
             <Link to="/admin/dashboard" className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded bg-[#0078d4] text-white flex items-center justify-center font-mono font-bold text-xs shadow-md shadow-[#0078d4]/30 border border-[#1e90ff]/40">
+              <div
+                className="w-8 h-8 rounded flex items-center justify-center font-mono font-bold text-xs shadow-md"
+                style={{
+                  backgroundColor: 'var(--theme-accent)',
+                  color: 'var(--theme-on-accent)',
+                  boxShadow: '0 0 12px var(--theme-brand-glow)',
+                  border: '1px solid var(--theme-accent-bright)',
+                }}
+              >
                 PS
               </div>
               <div>
-                <span className="font-bold text-sm tracking-tight text-white block">Admin Panel CMS</span>
-                <span className="text-[10px] text-[#10b981] font-mono tracking-wider">v2.0 · PowerShell Active</span>
+                <span className="font-bold text-sm tracking-tight block" style={{ color: 'var(--theme-text)' }}>
+                  Admin Panel CMS
+                </span>
+                <span className="text-[10px] font-mono tracking-wider" style={{ color: 'var(--theme-accent2)' }}>
+                  v2.0 · PowerShell Active
+                </span>
               </div>
             </Link>
 
             <button
               onClick={() => setMobileMenuOpen(false)}
-              className="p-1 rounded text-slate-400 hover:text-white md:hidden"
+              className="p-1 rounded md:hidden"
+              style={{ color: 'var(--theme-text-muted)' }}
             >
               <X size={18} />
             </button>
           </div>
 
           {/* Navigation Links */}
-          <div className="p-3 space-y-1">
-            <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest text-slate-400">
+          <div className="p-3 space-y-1 flex-1 overflow-y-auto">
+            <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest" style={{ color: 'var(--theme-text-dim)' }}>
               System Modules
             </div>
             {navLinks.map(({ to, label, icon: Icon, exact }) => {
@@ -110,52 +144,235 @@ export default function AdminLayout() {
                   key={to}
                   to={to}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center justify-between px-3 py-2 rounded text-xs font-medium transition-all group ${
+                  className="flex items-center justify-between px-3 py-2 rounded text-xs font-medium transition-all group"
+                  style={
                     active
-                      ? 'bg-[#0078d4] text-white shadow-sm font-semibold'
-                      : 'text-slate-300 hover:bg-[#111827] hover:text-white'
-                  }`}
+                      ? {
+                          backgroundColor: 'var(--theme-accent)',
+                          color: 'var(--theme-on-accent)',
+                          fontWeight: 600,
+                        }
+                      : {
+                          color: 'var(--theme-text-muted)',
+                        }
+                  }
+                  onMouseEnter={(e) => {
+                    if (!active) {
+                      e.currentTarget.style.backgroundColor = 'var(--theme-surface-hi)';
+                      e.currentTarget.style.color = 'var(--theme-text)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!active) {
+                      e.currentTarget.style.backgroundColor = '';
+                      e.currentTarget.style.color = 'var(--theme-text-muted)';
+                    }
+                  }}
                 >
                   <div className="flex items-center gap-2.5">
                     <Icon
                       size={16}
-                      className={active ? 'text-white' : 'text-slate-400 group-hover:text-[#1e90ff] transition-colors'}
+                      style={{ color: active ? 'var(--theme-on-accent)' : 'var(--theme-text-dim)' }}
                     />
                     <span>{label}</span>
                   </div>
-                  {active && <ChevronRight size={12} className="text-white/80" />}
+                  {active && <ChevronRight size={12} style={{ color: 'var(--theme-on-accent)', opacity: 0.85 }} />}
                 </Link>
               );
             })}
           </div>
         </div>
 
-        {/* Sidebar Footer / Telemetry */}
-        <div className="p-3 border-t border-[#1a2333] bg-black">
-          <div className="p-3 rounded bg-[#090d15] border border-[#1a2333] space-y-2.5">
+        {/* Sidebar Footer */}
+        <div className="p-3" style={{ borderTop: '1px solid var(--theme-border)', backgroundColor: 'var(--theme-bg)' }}>
+          <div
+            className="p-3 rounded space-y-2.5"
+            style={{ backgroundColor: 'var(--theme-surface)', border: '1px solid var(--theme-border)' }}
+          >
+            {/* System Status */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#10b981] shadow-sm shadow-[#10b981]"></span>
-                <span className="text-[11px] font-mono text-[#10b981]">System Online</span>
+                <span
+                  className="w-2 h-2 rounded-full shadow-sm"
+                  style={{ backgroundColor: 'var(--theme-accent2)', boxShadow: '0 0 6px var(--theme-accent2)' }}
+                />
+                <span className="text-[11px] font-mono" style={{ color: 'var(--theme-accent2)' }}>
+                  System Online
+                </span>
               </div>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black text-slate-400 border border-[#1e293b]">
+              <span
+                className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                style={{
+                  color: 'var(--theme-text-muted)',
+                  backgroundColor: 'var(--theme-bg)',
+                  border: '1px solid var(--theme-border-hi)',
+                }}
+              >
                 PORT: 5000
               </span>
             </div>
 
-            <div className="flex items-center gap-2 pt-1 border-t border-[#1a2333]">
-              <div className="w-7 h-7 rounded bg-[#111827] text-[#0078d4] border border-[#1e293b] flex items-center justify-center font-mono font-bold text-xs uppercase">
+            {/* ── Theme Picker ──────────────────────────────── */}
+            <div style={{ borderTop: '1px solid var(--theme-border)' }} className="pt-2">
+              <button
+                onClick={() => setThemePickerOpen((p) => !p)}
+                className="w-full flex items-center justify-between px-2 py-1.5 rounded text-xs font-mono transition-all cursor-pointer"
+                style={{
+                  backgroundColor: 'var(--theme-surface-hi)',
+                  border: '1px solid var(--theme-border-hi)',
+                  color: 'var(--theme-text-muted)',
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <Palette size={13} style={{ color: 'var(--theme-accent)' }} />
+                  <span style={{ color: 'var(--theme-text)' }}>{currentTheme?.label ?? 'Theme'}</span>
+                  {currentTheme?.isLight !== undefined && (
+                    <span
+                      className="text-[9px] font-bold px-1 py-0.5 rounded uppercase tracking-wider"
+                      style={{
+                        backgroundColor: currentTheme.isLight ? 'rgba(255,200,50,0.15)' : 'rgba(100,150,255,0.15)',
+                        color: currentTheme.isLight ? '#c8870a' : '#7090e0',
+                        border: `1px solid ${currentTheme.isLight ? 'rgba(200,135,10,0.3)' : 'rgba(100,150,255,0.3)'}`,
+                      }}
+                    >
+                      {currentTheme.isLight ? '☀ Light' : '☾ Dark'}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  {currentTheme?.preview.map((c, i) => (
+                    <span
+                      key={i}
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: c, border: '1px solid rgba(128,128,128,0.35)' }}
+                    />
+                  ))}
+                </div>
+              </button>
+
+              {themePickerOpen && (
+                <div
+                  className="mt-1.5 rounded overflow-hidden"
+                  style={{
+                    border: '1px solid var(--theme-border-hi)',
+                    backgroundColor: 'var(--theme-bg)',
+                    maxHeight: '340px',
+                    overflowY: 'auto',
+                  }}
+                >
+                  {(groups || THEME_GROUPS).map((group) => {
+                    const groupThemes = Object.values(themes).filter((t) => t.group === group);
+                    if (groupThemes.length === 0) return null;
+                    return (
+                      <div key={group}>
+                        {/* Group Header */}
+                        <div
+                          className="px-3 py-1 text-[9px] font-bold uppercase tracking-widest sticky top-0"
+                          style={{
+                            backgroundColor: 'var(--theme-surface-hi)',
+                            color: 'var(--theme-accent)',
+                            borderBottom: '1px solid var(--theme-border)',
+                            letterSpacing: '0.12em',
+                          }}
+                        >
+                          {group === 'Dark' && '🌑 '}
+                          {group === 'Light' && '☀️ '}
+                          {group === 'Funky' && '⚡ '}
+                          {group === 'Unique' && '✦ '}
+                          {group}
+                        </div>
+                        {/* Theme Rows */}
+                        {groupThemes.map((t) => {
+                          const isActive = t.id === themeId;
+                          return (
+                            <button
+                              key={t.id}
+                              onClick={() => {
+                                changeTheme(t.id);
+                                setThemePickerOpen(false);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-[11px] transition-all cursor-pointer"
+                              style={{
+                                backgroundColor: isActive ? 'var(--theme-surface-hi)' : 'transparent',
+                                borderBottom: '1px solid var(--theme-border)',
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!isActive) e.currentTarget.style.backgroundColor = 'var(--theme-surface)';
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
+                              }}
+                            >
+                              {/* Swatch stack */}
+                              <div className="flex -space-x-1 shrink-0">
+                                {t.preview.map((c, i) => (
+                                  <span
+                                    key={i}
+                                    className="w-3 h-3 rounded-full"
+                                    style={{
+                                      backgroundColor: c,
+                                      border: '1px solid rgba(128,128,128,0.4)',
+                                      position: 'relative',
+                                      zIndex: t.preview.length - i,
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold truncate" style={{ color: 'var(--theme-text)', fontSize: '11px' }}>
+                                  {t.label}
+                                </div>
+                              </div>
+                              {isActive && (
+                                <Check size={11} style={{ color: 'var(--theme-accent)', flexShrink: 0 }} />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            {/* ─────────────────────────────────────────────── */}
+
+            {/* Admin User Info */}
+            <div className="flex items-center gap-2 pt-1" style={{ borderTop: '1px solid var(--theme-border)' }}>
+              <div
+                className="w-7 h-7 rounded flex items-center justify-center font-mono font-bold text-xs uppercase"
+                style={{
+                  backgroundColor: 'var(--theme-surface-hi)',
+                  color: 'var(--theme-accent)',
+                  border: '1px solid var(--theme-border-hi)',
+                }}
+              >
                 {admin?.email ? admin.email.substring(0, 2) : 'AD'}
               </div>
               <div className="truncate flex-1">
-                <div className="text-xs font-semibold text-white truncate">{admin?.email}</div>
-                <div className="text-[10px] text-slate-400 font-mono">Administrator</div>
+                <div className="text-xs font-semibold truncate" style={{ color: 'var(--theme-text)' }}>
+                  {admin?.email}
+                </div>
+                <div className="text-[10px] font-mono" style={{ color: 'var(--theme-text-muted)' }}>
+                  Administrator
+                </div>
               </div>
             </div>
 
             <button
               onClick={handleLogout}
-              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded bg-[#1f1619] hover:bg-red-900/60 text-red-400 hover:text-red-200 text-xs font-semibold border border-red-900/40 transition-all cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded text-xs font-semibold transition-all cursor-pointer"
+              style={{
+                backgroundColor: 'var(--theme-danger-dim)',
+                color: 'var(--theme-danger)',
+                border: '1px solid color-mix(in srgb, var(--theme-danger) 30%, transparent)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--theme-danger) 20%, transparent)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--theme-danger-dim)';
+              }}
             >
               <LogOut size={12} />
               <span>Sign Out</span>
@@ -165,27 +382,155 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 md:pl-64 flex flex-col min-h-screen bg-black">
+      <div className="flex-1 md:pl-64 flex flex-col min-h-screen" style={{ backgroundColor: 'var(--theme-bg)' }}>
         {/* Top Header */}
-        <header className="sticky top-0 z-30 bg-black/95 backdrop-blur-md border-b border-[#1a2333] px-4 sm:px-8 py-3 flex items-center justify-between">
+        <header
+          className="sticky top-0 z-30 backdrop-blur-md px-4 sm:px-8 py-3 flex items-center justify-between"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--theme-bg) 95%, transparent)',
+            borderBottom: '1px solid var(--theme-border)',
+          }}
+        >
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="p-1.5 rounded bg-[#0f141f] text-slate-300 hover:text-white border border-[#1a2333] md:hidden"
+              className="p-1.5 rounded md:hidden"
+              style={{
+                backgroundColor: 'var(--theme-surface-hi)',
+                color: 'var(--theme-text-muted)',
+                border: '1px solid var(--theme-border)',
+              }}
             >
               <Menu size={16} />
             </button>
-            <div className="flex items-center gap-2 font-mono text-xs text-slate-400">
-              <Terminal size={14} className="text-[#10b981]" />
-              <span className="text-[#0078d4]">PS C:\admin-panel-cms&gt;</span>
-              <span className="text-slate-200">{getBreadcrumb()}</span>
+            <div className="flex items-center gap-2 font-mono text-xs" style={{ color: 'var(--theme-text-muted)' }}>
+              <Terminal size={14} style={{ color: 'var(--theme-accent2)' }} />
+              <span style={{ color: 'var(--theme-accent)' }}>PS C:\admin-panel-cms&gt;</span>
+              <span style={{ color: 'var(--theme-text)' }}>{getBreadcrumb()}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Top Bar Quick Theme Switcher */}
+            <div className="relative">
+              <button
+                onClick={() => setTopThemePickerOpen((p) => !p)}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-all cursor-pointer"
+                style={{
+                  backgroundColor: 'var(--theme-surface)',
+                  border: '1px solid var(--theme-border)',
+                  color: 'var(--theme-text)',
+                }}
+                title="Change Dashboard Theme"
+              >
+                <Palette size={14} style={{ color: 'var(--theme-accent)' }} />
+                <span className="hidden sm:inline font-mono">{currentTheme?.label || 'Theme'}</span>
+                <div className="flex items-center gap-1">
+                  {currentTheme?.preview?.map((c, i) => (
+                    <span
+                      key={i}
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: c, border: '1px solid rgba(128,128,128,0.3)' }}
+                    />
+                  ))}
+                </div>
+              </button>
+
+              {topThemePickerOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setTopThemePickerOpen(false)}
+                  />
+                  <div
+                    className="absolute right-0 mt-2 w-64 rounded shadow-2xl z-50 overflow-hidden"
+                    style={{
+                      border: '1px solid var(--theme-border-hi)',
+                      backgroundColor: 'var(--theme-surface)',
+                      maxHeight: '380px',
+                      overflowY: 'auto',
+                    }}
+                  >
+                    {(groups || THEME_GROUPS).map((group) => {
+                      const groupThemes = Object.values(themes).filter((t) => t.group === group);
+                      if (groupThemes.length === 0) return null;
+                      return (
+                        <div key={group}>
+                          <div
+                            className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider sticky top-0"
+                            style={{
+                              backgroundColor: 'var(--theme-surface-hi)',
+                              color: 'var(--theme-accent)',
+                              borderBottom: '1px solid var(--theme-border)',
+                            }}
+                          >
+                            {group === 'Dark' && '🌑 '}
+                            {group === 'Light' && '☀️ '}
+                            {group === 'Funky' && '⚡ '}
+                            {group === 'Unique' && '✦ '}
+                            {group} Themes
+                          </div>
+                          {groupThemes.map((t) => {
+                            const isActive = t.id === themeId;
+                            return (
+                              <button
+                                key={t.id}
+                                onClick={() => {
+                                  changeTheme(t.id);
+                                  setTopThemePickerOpen(false);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs transition-all cursor-pointer"
+                                style={{
+                                  backgroundColor: isActive ? 'var(--theme-surface-hi)' : 'transparent',
+                                  borderBottom: '1px solid var(--theme-border)',
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isActive) e.currentTarget.style.backgroundColor = 'var(--theme-surface-hi)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
+                                }}
+                              >
+                                <div className="flex -space-x-1 shrink-0">
+                                  {t.preview.map((c, i) => (
+                                    <span
+                                      key={i}
+                                      className="w-3.5 h-3.5 rounded-full"
+                                      style={{
+                                        backgroundColor: c,
+                                        border: '1px solid rgba(128,128,128,0.4)',
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate" style={{ color: 'var(--theme-text)' }}>
+                                    {t.label}
+                                  </div>
+                                </div>
+                                {isActive && (
+                                  <Check size={13} style={{ color: 'var(--theme-accent)', flexShrink: 0 }} />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+
             <Link
               to="/admin/projects/new"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#0078d4] hover:bg-[#1e90ff] text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer"
+              style={{
+                backgroundColor: 'var(--theme-accent)',
+                color: 'var(--theme-on-accent)',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--theme-accent-bright)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--theme-accent)')}
             >
               <Plus size={14} />
               <span>New Project</span>
@@ -194,7 +539,7 @@ export default function AdminLayout() {
         </header>
 
         {/* Main Body */}
-        <main className="flex-1 p-4 sm:p-8 overflow-y-auto bg-black">
+        <main className="flex-1 p-4 sm:p-8 overflow-y-auto" style={{ backgroundColor: 'var(--theme-bg)' }}>
           <Outlet />
         </main>
       </div>

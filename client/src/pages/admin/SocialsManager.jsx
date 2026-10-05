@@ -169,25 +169,25 @@ export default function SocialsManager() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#1a2333]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-t-border">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded bg-[#090d15] text-[#0078d4] border border-[#1a2333]">
+            <div className="p-2 rounded bg-t-surface text-t-accent border border-t-border">
               <Share2 size={20} />
             </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Social Media &amp; Developer Coordinates</h1>
-            <span className="px-2 py-0.5 rounded bg-[#0f141f] text-[11px] font-mono text-slate-300 border border-[#1e293b]">
+            <h1 className="text-xl font-bold text-t-text tracking-tight">Social Media &amp; Developer Coordinates</h1>
+            <span className="px-2 py-0.5 rounded bg-t-surface-hi text-[11px] font-mono text-t-muted border border-t-border-hi">
               {socials.length}
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-t-muted mt-1">
             External platform links, developer handles, and spotlight contact coordinates.
           </p>
         </div>
 
         <button
           onClick={openAddModal}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-[#0078d4] hover:bg-[#1e90ff] text-white font-semibold text-xs transition-all shadow-sm cursor-pointer"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs transition-all shadow-sm cursor-pointer"
         >
           <Plus size={15} />
           <span>Add Social Link</span>
@@ -196,35 +196,35 @@ export default function SocialsManager() {
 
       {/* Notifications */}
       {successMsg && (
-        <div className="p-3 rounded bg-[#062419] border border-[#10b981]/50 text-[#10b981] text-xs flex items-center gap-2 font-mono">
+        <div className="p-3 rounded bg-t-accent2-dim border border-t-accent2/50 text-t-accent2 text-xs flex items-center gap-2 font-mono">
           <CheckCircle size={15} />
           <span>{successMsg}</span>
         </div>
       )}
       {errorMsg && (
-        <div className="p-3 rounded bg-[#2a0b12] border border-red-500/50 text-red-300 text-xs flex items-center gap-2 font-mono">
+        <div className="p-3 rounded bg-t-danger-dim border border-t-danger/50 text-t-danger text-xs flex items-center gap-2 font-mono">
           <AlertCircle size={15} />
           <span>{errorMsg}</span>
         </div>
       )}
 
       {/* Table / Card List */}
-      <div className="rounded bg-[#070a10] border border-[#1a2333] overflow-hidden">
-        <div className="p-3.5 border-b border-[#1a2333] flex items-center justify-between bg-black">
-          <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">
+      <div className="rounded bg-t-surface border border-t-border overflow-hidden">
+        <div className="p-3.5 border-b border-t-border flex items-center justify-between bg-t-bg">
+          <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted">
             Registered Coordinates
           </span>
-          <span className="text-[11px] font-mono text-slate-500">
+          <span className="text-[11px] font-mono text-t-dim">
             Sorted by Execution Order
           </span>
         </div>
 
         {loading ? (
-          <div className="p-8 text-center text-xs font-mono text-[#0078d4] animate-pulse">
+          <div className="p-8 text-center text-xs font-mono text-t-accent animate-pulse">
             Querying social link graph...
           </div>
         ) : socials.length === 0 ? (
-          <div className="p-8 text-center text-xs font-mono text-slate-500">
+          <div className="p-8 text-center text-xs font-mono text-t-dim">
             No social coordinates defined. Click "Add Social Link" to initialize.
           </div>
         ) : (
@@ -232,14 +232,14 @@ export default function SocialsManager() {
             {socials.map((item, idx) => (
               <div
                 key={item._id}
-                className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#0c1018] transition-colors"
+                className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-t-surface transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex flex-col gap-0.5">
                     <button
                       onClick={() => moveOrder(idx, -1)}
                       disabled={idx === 0}
-                      className="text-slate-500 hover:text-[#0078d4] disabled:opacity-20 cursor-pointer"
+                      className="text-t-dim hover:text-t-accent disabled:opacity-20 cursor-pointer"
                       title="Move up"
                     >
                       <ChevronUp size={13} />
@@ -247,29 +247,29 @@ export default function SocialsManager() {
                     <button
                       onClick={() => moveOrder(idx, 1)}
                       disabled={idx === socials.length - 1}
-                      className="text-slate-500 hover:text-[#0078d4] disabled:opacity-20 cursor-pointer"
+                      className="text-t-dim hover:text-t-accent disabled:opacity-20 cursor-pointer"
                       title="Move down"
                     >
                       <ChevronDown size={13} />
                     </button>
                   </div>
 
-                  <div className="w-8 h-8 rounded bg-black border border-[#1e293b] flex items-center justify-center font-mono font-bold text-xs text-[#0078d4]">
+                  <div className="w-8 h-8 rounded bg-t-bg border border-t-border-hi flex items-center justify-center font-mono font-bold text-xs text-t-accent">
                     {item.platform.substring(0, 2).toUpperCase()}
                   </div>
 
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-white">{item.platform}</span>
+                      <span className="text-xs font-bold text-t-text">{item.platform}</span>
                       {item.featured && (
-                        <span className="px-1.5 py-0.2 rounded bg-[#0d2a1d] text-[#10b981] border border-[#10b981]/30 text-[10px] font-mono">
+                        <span className="px-1.5 py-0.2 rounded bg-t-accent2-dim text-t-accent2 border border-t-accent2/30 text-[10px] font-mono">
                           ★ spotlight
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5">
+                    <div className="flex items-center gap-2 text-[11px] text-t-muted font-mono mt-0.5">
                       <span>{item.label}</span>
-                      {item.username && <span className="text-slate-500">({item.username})</span>}
+                      {item.username && <span className="text-t-dim">({item.username})</span>}
                     </div>
                   </div>
                 </div>
@@ -279,20 +279,20 @@ export default function SocialsManager() {
                     href={item.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-[11px] font-mono text-[#0078d4] hover:text-[#1e90ff] flex items-center gap-1 truncate max-w-[200px]"
+                    className="text-[11px] font-mono text-t-accent hover:text-t-accent-br flex items-center gap-1 truncate max-w-[200px]"
                     title={item.url}
                   >
                     <span className="truncate">{item.url}</span>
                     <ExternalLink size={11} className="shrink-0" />
                   </a>
 
-                  <div className="flex items-center gap-1 border-l border-[#1a2333] pl-3">
+                  <div className="flex items-center gap-1 border-l border-t-border pl-3">
                     <button
                       onClick={() => handleToggleFeatured(item)}
                       className={`p-1.5 rounded transition-all cursor-pointer ${
                         item.featured
-                          ? 'text-[#10b981] hover:bg-[#062419]'
-                          : 'text-slate-500 hover:text-slate-300 hover:bg-[#111827]'
+                          ? 'text-t-accent2 hover:bg-t-accent2-dim'
+                          : 'text-t-dim hover:text-t-muted hover:bg-t-surface-hi'
                       }`}
                       title={item.featured ? 'Remove from spotlight' : 'Add to spotlight'}
                     >
@@ -300,14 +300,14 @@ export default function SocialsManager() {
                     </button>
                     <button
                       onClick={() => openEditModal(item)}
-                      className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-[#111827] transition-all cursor-pointer"
+                      className="p-1.5 rounded text-t-muted hover:text-t-text hover:bg-t-surface-hi transition-all cursor-pointer"
                       title="Edit"
                     >
                       <Edit2 size={14} />
                     </button>
                     <button
                       onClick={() => handleDelete(item._id, item.platform)}
-                      className="p-1.5 rounded text-red-400 hover:text-white hover:bg-red-950 transition-all cursor-pointer"
+                      className="p-1.5 rounded text-t-danger hover:text-t-text hover:bg-red-950 transition-all cursor-pointer"
                       title="Delete"
                     >
                       <Trash2 size={14} />
@@ -322,15 +322,15 @@ export default function SocialsManager() {
 
       {/* Add / Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg rounded bg-[#090d15] border border-[#1a2333] shadow-2xl overflow-hidden">
-            <div className="p-4 border-b border-[#1a2333] flex items-center justify-between bg-black">
-              <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+        <div className="fixed inset-0 bg-t-bg/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg rounded bg-t-surface border border-t-border shadow-2xl overflow-hidden">
+            <div className="p-4 border-b border-t-border flex items-center justify-between bg-t-bg">
+              <span className="text-xs font-mono font-bold text-t-text uppercase tracking-wider">
                 {editingId ? 'Edit Social Coordinate' : 'Register New Social Coordinate'}
               </span>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-1 rounded text-slate-400 hover:text-white cursor-pointer"
+                className="p-1 rounded text-t-muted hover:text-t-text cursor-pointer"
               >
                 <X size={16} />
               </button>
@@ -339,7 +339,7 @@ export default function SocialsManager() {
             <form onSubmit={handleFormSubmit} className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">Platform *</label>
+                  <label className="block text-xs font-mono text-t-muted mb-1">Platform *</label>
                   <select
                     value={form.platform}
                     onChange={(e) => {
@@ -351,7 +351,7 @@ export default function SocialsManager() {
                         icon: match?.icon || 'link',
                       }));
                     }}
-                    className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                    className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                   >
                     {PLATFORMS.map((p) => (
                       <option key={p.name} value={p.name}>
@@ -361,31 +361,31 @@ export default function SocialsManager() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">Icon Key</label>
+                  <label className="block text-xs font-mono text-t-muted mb-1">Icon Key</label>
                   <input
                     type="text"
                     value={form.icon}
                     onChange={(e) => setForm({ ...form, icon: e.target.value })}
                     placeholder="e.g. github, linkedin, mail"
-                    className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none"
+                    className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1">Display Label *</label>
+                <label className="block text-xs font-mono text-t-muted mb-1">Display Label *</label>
                 <input
                   type="text"
                   required
                   value={form.label}
                   onChange={(e) => setForm({ ...form, label: e.target.value })}
                   placeholder={form.platform === 'Email' ? 'you@example.com' : 'e.g. github.com/username'}
-                  className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                  className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1">
+                <label className="block text-xs font-mono text-t-muted mb-1">
                   {form.platform === 'Email' ? 'Email Address / Destination URL *' : 'Destination URL *'}
                 </label>
                 <input
@@ -394,28 +394,28 @@ export default function SocialsManager() {
                   value={form.url}
                   onChange={(e) => setForm({ ...form, url: e.target.value })}
                   placeholder={form.platform === 'Email' ? 'mailto:you@example.com or you@example.com' : 'https://github.com/username'}
-                  className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none"
+                  className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">Username / Handle</label>
+                  <label className="block text-xs font-mono text-t-muted mb-1">Username / Handle</label>
                   <input
                     type="text"
                     value={form.username}
                     onChange={(e) => setForm({ ...form, username: e.target.value })}
                     placeholder="username"
-                    className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                    className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">Display Order</label>
+                  <label className="block text-xs font-mono text-t-muted mb-1">Display Order</label>
                   <input
                     type="number"
                     value={form.order}
                     onChange={(e) => setForm({ ...form, order: parseInt(e.target.value, 10) || 0 })}
-                    className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none"
+                    className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
                   />
                 </div>
               </div>
@@ -426,25 +426,25 @@ export default function SocialsManager() {
                   id="featuredToggle"
                   checked={form.featured}
                   onChange={(e) => setForm({ ...form, featured: e.target.checked })}
-                  className="w-4 h-4 rounded bg-black border-[#1e293b] text-[#10b981] focus:ring-[#10b981]"
+                  className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-[#10b981]"
                 />
-                <label htmlFor="featuredToggle" className="text-xs text-slate-300 cursor-pointer">
+                <label htmlFor="featuredToggle" className="text-xs text-t-muted cursor-pointer">
                   Feature in spotlight and top-tier contact coordinates
                 </label>
               </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-[#1a2333]">
+              <div className="flex justify-end gap-2 pt-4 border-t border-t-border">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-3.5 py-1.5 rounded text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#111827] cursor-pointer"
+                  className="px-3.5 py-1.5 rounded text-xs font-semibold text-t-muted hover:text-t-text hover:bg-t-surface-hi cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#10b981] hover:bg-[#059669] text-black font-semibold text-xs shadow cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs shadow cursor-pointer disabled:opacity-50"
                 >
                   <Save size={13} />
                   <span>{saving ? 'Saving...' : 'Save Coordinate'}</span>

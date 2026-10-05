@@ -126,25 +126,25 @@ export default function EducationManager() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#1a2333]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-t-border">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded bg-[#090d15] text-[#0078d4] border border-[#1a2333]">
+            <div className="p-2 rounded bg-t-surface text-t-accent border border-t-border">
               <GraduationCap size={20} />
             </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Academic History &amp; Education</h1>
-            <span className="px-2 py-0.5 rounded bg-[#0f141f] text-[11px] font-mono text-slate-300 border border-[#1e293b]">
+            <h1 className="text-xl font-bold text-t-text tracking-tight">Academic History &amp; Education</h1>
+            <span className="px-2 py-0.5 rounded bg-t-surface-hi text-[11px] font-mono text-t-muted border border-t-border-hi">
               {items.length} Credentials
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-t-muted mt-1">
             University degrees, relevant coursework, and academic milestones served across client applications.
           </p>
         </div>
 
         <button
           onClick={openAddModal}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-[#0078d4] hover:bg-[#1e90ff] text-white font-semibold text-xs transition-all shadow-sm cursor-pointer"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs transition-all shadow-sm cursor-pointer"
         >
           <Plus size={15} />
           <span>Add Education</span>
@@ -153,13 +153,13 @@ export default function EducationManager() {
 
       {/* Notifications */}
       {successMsg && (
-        <div className="p-3 rounded bg-[#062419] border border-[#10b981]/50 text-[#10b981] text-xs flex items-center gap-2 font-mono">
+        <div className="p-3 rounded bg-t-accent2-dim border border-t-accent2/50 text-t-accent2 text-xs flex items-center gap-2 font-mono">
           <CheckCircle size={15} />
           <span>{successMsg}</span>
         </div>
       )}
       {errorMsg && (
-        <div className="p-3 rounded bg-[#2a0b12] border border-red-500/50 text-red-300 text-xs flex items-center gap-2 font-mono">
+        <div className="p-3 rounded bg-t-danger-dim border border-t-danger/50 text-t-danger text-xs flex items-center gap-2 font-mono">
           <AlertCircle size={15} />
           <span>{errorMsg}</span>
         </div>
@@ -167,11 +167,11 @@ export default function EducationManager() {
 
       {/* Education Cards */}
       {loading ? (
-        <div className="p-12 text-center text-xs font-mono text-[#0078d4] animate-pulse">
+        <div className="p-12 text-center text-xs font-mono text-t-accent animate-pulse">
           Querying academic credentials...
         </div>
       ) : items.length === 0 ? (
-        <div className="p-12 text-center text-xs font-mono text-slate-500 rounded bg-[#070a10] border border-dashed border-[#1a2333]">
+        <div className="p-12 text-center text-xs font-mono text-t-dim rounded bg-t-surface border border-dashed border-t-border">
           No education credentials recorded yet. Click "Add Education" to register your degree.
         </div>
       ) : (
@@ -179,34 +179,34 @@ export default function EducationManager() {
           {items.map((item) => (
             <div
               key={item._id}
-              className="p-5 rounded bg-[#070a10] border border-[#1a2333] hover:border-[#0078d4] transition-all space-y-3"
+              className="p-5 rounded bg-t-surface border border-t-border hover:border-t-accent transition-all space-y-3"
             >
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-bold text-white">{item.degree}</h2>
-                  <div className="text-xs text-[#0078d4] font-medium mt-0.5">
+                  <h2 className="text-base font-bold text-t-text">{item.degree}</h2>
+                  <div className="text-xs text-t-accent font-medium mt-0.5">
                     {item.institution}
                   </div>
-                  <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                  <div className="text-[11px] text-t-muted font-mono mt-0.5">
                     Field: {item.fieldOfStudy}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded bg-black border border-[#1e293b] text-xs font-mono text-slate-300">
+                  <span className="px-2.5 py-1 rounded bg-t-bg border border-t-border-hi text-xs font-mono text-t-muted">
                     {item.period}
                   </span>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => openEditModal(item)}
-                      className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-[#111827] cursor-pointer"
+                      className="p-1.5 rounded text-t-muted hover:text-t-text hover:bg-t-surface-hi cursor-pointer"
                       title="Edit"
                     >
                       <Edit2 size={14} />
                     </button>
                     <button
                       onClick={() => handleDelete(item._id, item.degree)}
-                      className="p-1.5 rounded text-red-400 hover:text-white hover:bg-red-950 cursor-pointer"
+                      className="p-1.5 rounded text-t-danger hover:text-t-text hover:bg-red-950 cursor-pointer"
                       title="Delete"
                     >
                       <Trash2 size={14} />
@@ -215,15 +215,15 @@ export default function EducationManager() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-slate-400 pt-2 border-t border-[#1a2333]">
+              <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-t-muted pt-2 border-t border-t-border">
                 {item.grade && (
-                  <div className="flex items-center gap-1 text-[#10b981]">
+                  <div className="flex items-center gap-1 text-t-accent2">
                     <Award size={13} />
                     <span>{item.grade}</span>
                   </div>
                 )}
                 {item.location && (
-                  <div className="flex items-center gap-1 text-slate-400">
+                  <div className="flex items-center gap-1 text-t-muted">
                     <MapPin size={13} />
                     <span>{item.location}</span>
                   </div>
@@ -232,8 +232,8 @@ export default function EducationManager() {
 
               {item.achievements && item.achievements.length > 0 && (
                 <div className="pt-2">
-                  <div className="text-[11px] font-mono text-slate-500 mb-1">Highlights &amp; Coursework:</div>
-                  <ul className="list-disc list-inside text-xs text-slate-300 space-y-0.5 pl-1">
+                  <div className="text-[11px] font-mono text-t-dim mb-1">Highlights &amp; Coursework:</div>
+                  <ul className="list-disc list-inside text-xs text-t-muted space-y-0.5 pl-1">
                     {item.achievements.map((ach, i) => (
                       <li key={i}>{ach}</li>
                     ))}
@@ -247,15 +247,15 @@ export default function EducationManager() {
 
       {/* Add / Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg rounded bg-[#090d15] border border-[#1a2333] shadow-2xl overflow-hidden">
-            <div className="p-4 border-b border-[#1a2333] flex items-center justify-between bg-black">
-              <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+        <div className="fixed inset-0 bg-t-bg/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg rounded bg-t-surface border border-t-border shadow-2xl overflow-hidden">
+            <div className="p-4 border-b border-t-border flex items-center justify-between bg-t-bg">
+              <span className="text-xs font-mono font-bold text-t-text uppercase tracking-wider">
                 {editingId ? 'Edit Academic Credential' : 'Add Academic Credential'}
               </span>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-1 rounded text-slate-400 hover:text-white cursor-pointer"
+                className="p-1 rounded text-t-muted hover:text-t-text cursor-pointer"
               >
                 <X size={16} />
               </button>
@@ -263,78 +263,78 @@ export default function EducationManager() {
 
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1">Institution / University *</label>
+                <label className="block text-xs font-mono text-t-muted mb-1">Institution / University *</label>
                 <input
                   type="text"
                   required
                   value={form.institution}
                   onChange={(e) => setForm({ ...form, institution: e.target.value })}
                   placeholder="e.g. University of California, Berkeley"
-                  className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                  className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">Degree *</label>
+                  <label className="block text-xs font-mono text-t-muted mb-1">Degree *</label>
                   <input
                     type="text"
                     required
                     value={form.degree}
                     onChange={(e) => setForm({ ...form, degree: e.target.value })}
                     placeholder="e.g. B.Tech in CSE"
-                    className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                    className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">Field of Study</label>
+                  <label className="block text-xs font-mono text-t-muted mb-1">Field of Study</label>
                   <input
                     type="text"
                     value={form.fieldOfStudy}
                     onChange={(e) => setForm({ ...form, fieldOfStudy: e.target.value })}
                     placeholder="Computer Science & Engineering"
-                    className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                    className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">Display Period *</label>
+                  <label className="block text-xs font-mono text-t-muted mb-1">Display Period *</label>
                   <input
                     type="text"
                     required
                     value={form.period}
                     onChange={(e) => setForm({ ...form, period: e.target.value })}
                     placeholder="e.g. 2022 - 2026"
-                    className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                    className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">Grade / CGPA</label>
+                  <label className="block text-xs font-mono text-t-muted mb-1">Grade / CGPA</label>
                   <input
                     type="text"
                     value={form.grade}
                     onChange={(e) => setForm({ ...form, grade: e.target.value })}
                     placeholder="e.g. GPA: 3.9 / 4.0"
-                    className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none"
+                    className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1">Campus Location</label>
+                <label className="block text-xs font-mono text-t-muted mb-1">Campus Location</label>
                 <input
                   type="text"
                   value={form.location}
                   onChange={(e) => setForm({ ...form, location: e.target.value })}
                   placeholder="e.g. Berkeley, CA"
-                  className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                  className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1">
+                <label className="block text-xs font-mono text-t-muted mb-1">
                   Key Coursework &amp; Academic Honors (One per line)
                 </label>
                 <textarea
@@ -342,22 +342,22 @@ export default function EducationManager() {
                   value={form.achievements}
                   onChange={(e) => setForm({ ...form, achievements: e.target.value })}
                   placeholder="Distributed Systems, Data Structures, Computer Networks&#10;Dean's Honor Roll"
-                  className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                  className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-[#1a2333]">
+              <div className="flex justify-end gap-2 pt-4 border-t border-t-border">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-3.5 py-1.5 rounded text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#111827] cursor-pointer"
+                  className="px-3.5 py-1.5 rounded text-xs font-semibold text-t-muted hover:text-t-text hover:bg-t-surface-hi cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#10b981] hover:bg-[#059669] text-black font-semibold text-xs shadow cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs shadow cursor-pointer disabled:opacity-50"
                 >
                   <Save size={13} />
                   <span>{saving ? 'Saving...' : 'Save Credential'}</span>

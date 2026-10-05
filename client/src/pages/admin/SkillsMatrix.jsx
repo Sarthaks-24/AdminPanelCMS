@@ -365,18 +365,18 @@ export default function SkillsMatrix() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#1a2333]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-t-border">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded bg-[#090d15] text-[#0078d4] border border-[#1a2333]">
+            <div className="p-2 rounded bg-t-surface text-t-accent border border-t-border">
               <Cpu size={20} />
             </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Independent Skills Matrix</h1>
-            <span className="px-2 py-0.5 rounded bg-[#0f141f] text-[11px] font-mono text-slate-300 border border-[#1e293b]">
+            <h1 className="text-xl font-bold text-t-text tracking-tight">Independent Skills Matrix</h1>
+            <span className="px-2 py-0.5 rounded bg-t-surface-hi text-[11px] font-mono text-t-muted border border-t-border-hi">
               {skills.length} Total · {featuredCount} Featured
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-t-muted mt-1">
             Categorized competencies, proficiencies, and highlighted stack entries served across client APIs.
           </p>
         </div>
@@ -385,7 +385,7 @@ export default function SkillsMatrix() {
           {selectedIds.length > 0 && (
             <button
               onClick={openBulkModal}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-[#0078d4] hover:bg-[#1e90ff] text-white font-semibold text-xs transition-all shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs transition-all shadow-sm cursor-pointer"
             >
               <Edit2 size={14} />
               <span>Edit Selected ({selectedIds.length})</span>
@@ -394,7 +394,7 @@ export default function SkillsMatrix() {
 
           <button
             onClick={() => openAddModal(activeCategory)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-[#10b981] hover:bg-[#059669] text-black font-semibold text-xs transition-all shadow-sm cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs transition-all shadow-sm cursor-pointer"
           >
             <Plus size={15} />
             <span>Add Single Skill</span>
@@ -404,26 +404,26 @@ export default function SkillsMatrix() {
 
       {/* Notifications */}
       {successMsg && (
-        <div className="p-3 rounded bg-[#062419] border border-[#10b981]/50 text-[#10b981] text-xs flex items-center gap-2 font-mono">
+        <div className="p-3 rounded bg-t-accent2-dim border border-t-accent2/50 text-t-accent2 text-xs flex items-center gap-2 font-mono">
           <CheckCircle size={15} />
           <span>{successMsg}</span>
         </div>
       )}
       {errorMsg && (
-        <div className="p-3 rounded bg-[#2a0b12] border border-red-500/50 text-red-300 text-xs flex items-center gap-2 font-mono">
+        <div className="p-3 rounded bg-t-danger-dim border border-t-danger/50 text-t-danger text-xs flex items-center gap-2 font-mono">
           <AlertCircle size={15} />
           <span>{errorMsg}</span>
         </div>
       )}
 
       {/* Quick Batch Entry Strip */}
-      <div className="p-4 rounded bg-[#070a10] border border-[#1a2333]">
+      <div className="p-4 rounded bg-t-surface border border-t-border">
         <div className="flex items-center gap-2 mb-2">
-          <Tag size={14} className="text-[#10b981]" />
-          <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
+          <Tag size={14} className="text-t-accent2" />
+          <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted">
             Batch Quick Tag Entry
           </span>
-          <span className="text-[10px] font-mono text-slate-500">
+          <span className="text-[10px] font-mono text-t-dim">
             (Comma-separated list, instant creation)
           </span>
         </div>
@@ -431,7 +431,7 @@ export default function SkillsMatrix() {
           <select
             value={batchCategory}
             onChange={(e) => setBatchCategory(e.target.value)}
-            className="px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none sm:w-56"
+            className="px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none sm:w-56"
           >
             {CATEGORIES.filter((c) => c !== 'All').map((cat) => (
               <option key={cat} value={cat}>
@@ -444,12 +444,12 @@ export default function SkillsMatrix() {
             value={batchInput}
             onChange={(e) => setBatchInput(e.target.value)}
             placeholder="e.g. Kubernetes, Ansible, Terraform, Nginx"
-            className="flex-1 px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none"
+            className="flex-1 px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
           />
           <button
             type="submit"
             disabled={batchSaving || !batchInput.trim()}
-            className="px-4 py-2 rounded bg-[#10b981] hover:bg-[#059669] text-black font-semibold text-xs shadow-sm disabled:opacity-40 cursor-pointer"
+            className="px-4 py-2 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs shadow-sm disabled:opacity-40 cursor-pointer"
           >
             {batchSaving ? 'Adding...' : 'Batch Add'}
           </button>
@@ -460,15 +460,15 @@ export default function SkillsMatrix() {
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Tabs */}
-          <div className="flex flex-wrap gap-1 bg-[#070a10] p-1 rounded border border-[#1a2333]">
+          <div className="flex flex-wrap gap-1 bg-t-surface p-1 rounded border border-t-border">
             {CATEGORIES.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
                 className={`px-3 py-1.5 rounded text-xs font-mono transition-all cursor-pointer ${
                   activeCategory === cat
-                    ? 'bg-[#0078d4] text-white font-bold shadow-sm'
-                    : 'text-slate-400 hover:text-white hover:bg-[#111827]'
+                    ? 'bg-t-accent text-t-on-accent font-bold shadow-sm'
+                    : 'text-t-muted hover:text-t-text hover:bg-t-surface-hi'
                 }`}
               >
                 {cat}
@@ -478,32 +478,32 @@ export default function SkillsMatrix() {
 
           {/* Search Box */}
           <div className="relative w-full sm:w-64">
-            <Search size={14} className="absolute left-3 top-2.5 text-slate-500" />
+            <Search size={14} className="absolute left-3 top-2.5 text-t-dim" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search skill..."
-              className="w-full pl-9 pr-3 py-1.5 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+              className="w-full pl-9 pr-3 py-1.5 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
             />
           </div>
         </div>
 
         {/* Multi-Selection Control Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-3 py-2 rounded bg-[#090d15] border border-[#1a2333]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-3 py-2 rounded bg-t-surface border border-t-border">
           <div className="flex items-center gap-2">
             <button
               onClick={toggleSelectAllFiltered}
-              className="flex items-center gap-2 text-xs font-mono text-slate-300 hover:text-white cursor-pointer select-none"
+              className="flex items-center gap-2 text-xs font-mono text-t-muted hover:text-t-text cursor-pointer select-none"
             >
               {isAllFilteredSelected ? (
-                <CheckSquare size={16} className="text-[#0078d4]" />
+                <CheckSquare size={16} className="text-t-accent" />
               ) : isSomeFilteredSelected ? (
-                <div className="w-4 h-4 rounded bg-[#0078d4] flex items-center justify-center text-white text-[10px] font-bold leading-none">
+                <div className="w-4 h-4 rounded bg-t-accent flex items-center justify-center text-t-on-accent text-[10px] font-bold leading-none">
                   -
                 </div>
               ) : (
-                <Square size={16} className="text-slate-500 hover:text-slate-400" />
+                <Square size={16} className="text-t-dim hover:text-t-muted" />
               )}
               <span>
                 {isAllFilteredSelected
@@ -513,7 +513,7 @@ export default function SkillsMatrix() {
             </button>
 
             {selectedIds.length > 0 && (
-              <span className="text-[11px] font-mono text-[#0078d4] ml-2 pl-2 border-l border-[#1e293b]">
+              <span className="text-[11px] font-mono text-t-accent ml-2 pl-2 border-l border-t-border-hi">
                 {selectedIds.length} skill{selectedIds.length > 1 ? 's' : ''} selected
               </span>
             )}
@@ -524,7 +524,7 @@ export default function SkillsMatrix() {
               <button
                 onClick={openBulkModal}
                 disabled={bulkSaving}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#0078d4] hover:bg-[#1e90ff] text-white text-xs font-semibold shadow transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent text-xs font-semibold shadow transition-all cursor-pointer"
               >
                 <Edit2 size={12} />
                 <span>Edit Selected ({selectedIds.length})</span>
@@ -533,7 +533,7 @@ export default function SkillsMatrix() {
               <button
                 onClick={() => handleBulkFeatureToggle(true)}
                 disabled={bulkSaving}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#0f1d16] hover:bg-[#163325] text-[#10b981] border border-[#10b981]/30 text-xs font-mono transition-all cursor-pointer"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-t-accent2-dim hover:bg-t-accent2-dim text-t-accent2 border border-t-accent2/30 text-xs font-mono transition-all cursor-pointer"
                 title="Mark all selected as featured in spotlight"
               >
                 <Star size={12} className="fill-current" />
@@ -543,7 +543,7 @@ export default function SkillsMatrix() {
               <button
                 onClick={() => handleBulkFeatureToggle(false)}
                 disabled={bulkSaving}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#111827] hover:bg-[#1f293d] text-slate-300 border border-[#1e293b] text-xs font-mono transition-all cursor-pointer"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-t-surface-hi hover:bg-t-surface-hi text-t-muted border border-t-border-hi text-xs font-mono transition-all cursor-pointer"
                 title="Remove spotlight from selected"
               >
                 <span className="hidden sm:inline">Unfeature</span>
@@ -552,7 +552,7 @@ export default function SkillsMatrix() {
               <button
                 onClick={handleBulkDelete}
                 disabled={bulkSaving}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#200b10] hover:bg-red-950 text-red-400 border border-red-900/50 text-xs font-mono transition-all cursor-pointer"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-t-danger-dim hover:bg-red-950 text-t-danger border border-t-danger-dim/50 text-xs font-mono transition-all cursor-pointer"
                 title="Delete all selected skills"
               >
                 <Trash2 size={12} />
@@ -561,7 +561,7 @@ export default function SkillsMatrix() {
 
               <button
                 onClick={clearSelection}
-                className="p-1 rounded text-slate-400 hover:text-white cursor-pointer ml-1"
+                className="p-1 rounded text-t-muted hover:text-t-text cursor-pointer ml-1"
                 title="Clear selection"
               >
                 <X size={14} />
@@ -573,11 +573,11 @@ export default function SkillsMatrix() {
 
       {/* Skills Grid */}
       {loading ? (
-        <div className="p-12 text-center text-xs font-mono text-[#0078d4] animate-pulse">
+        <div className="p-12 text-center text-xs font-mono text-t-accent animate-pulse">
           Querying skills matrix...
         </div>
       ) : filteredSkills.length === 0 ? (
-        <div className="p-12 text-center text-xs font-mono text-slate-500 border border-dashed border-[#1a2333] rounded">
+        <div className="p-12 text-center text-xs font-mono text-t-dim border border-dashed border-t-border rounded">
           No skills matched the current filter.
         </div>
       ) : (
@@ -590,8 +590,8 @@ export default function SkillsMatrix() {
                 onClick={() => toggleSelectSkill(skill._id)}
                 className={`p-3 rounded border transition-all flex flex-col justify-between cursor-pointer select-none group ${
                   isSelected
-                    ? 'bg-[#09152b] border-[#0078d4] shadow-md shadow-[#0078d4]/10'
-                    : 'bg-[#070a10] border-[#1a2333] hover:border-[#0078d4]/50'
+                    ? 'bg-t-surface-hi border-t-accent shadow-md shadow-t-accent/10'
+                    : 'bg-t-surface border-t-border hover:border-t-accent/50'
                 }`}
               >
                 <div>
@@ -602,13 +602,13 @@ export default function SkillsMatrix() {
                         checked={isSelected}
                         onChange={(e) => toggleSelectSkill(skill._id, e)}
                         onClick={(e) => e.stopPropagation()}
-                        className="mt-0.5 w-4 h-4 rounded bg-black border-[#1e293b] text-[#0078d4] focus:ring-[#0078d4] cursor-pointer"
+                        className="mt-0.5 w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent focus:ring-t-accent cursor-pointer"
                       />
                       <div className="flex-1 min-w-0">
-                        <span className="text-sm font-bold text-white block truncate">
+                        <span className="text-sm font-bold text-t-text block truncate">
                           {skill.name}
                         </span>
-                        <span className="text-[10px] font-mono text-slate-400">
+                        <span className="text-[10px] font-mono text-t-muted">
                           {skill.category}
                         </span>
                       </div>
@@ -621,8 +621,8 @@ export default function SkillsMatrix() {
                       }}
                       className={`p-1 rounded transition-colors cursor-pointer ${
                         skill.featured
-                          ? 'text-[#10b981]'
-                          : 'text-slate-600 hover:text-slate-300'
+                          ? 'text-t-accent2'
+                          : 'text-t-dim hover:text-t-muted'
                       }`}
                       title={skill.featured ? 'Featured in spotlight stack' : 'Click to feature in spotlight'}
                     >
@@ -631,30 +631,30 @@ export default function SkillsMatrix() {
                   </div>
 
                   <div className="mt-3 flex items-center gap-2 text-[11px] font-mono pl-6">
-                    <span className="px-2 py-0.5 rounded bg-black border border-[#1e293b] text-[#1e90ff]">
+                    <span className="px-2 py-0.5 rounded bg-t-bg border border-t-border-hi text-t-accent-br">
                       {skill.proficiency}
                     </span>
-                    <span className="text-slate-500">
+                    <span className="text-t-dim">
                       {skill.yearsOfExperience} {skill.yearsOfExperience === 1 ? 'yr' : 'yrs'} exp
                     </span>
                   </div>
                 </div>
 
-                <div className="mt-3 pt-2.5 border-t border-[#1a2333] flex items-center justify-between pl-6">
-                  <span className="text-[10px] font-mono text-slate-500">
+                <div className="mt-3 pt-2.5 border-t border-t-border flex items-center justify-between pl-6">
+                  <span className="text-[10px] font-mono text-t-dim">
                     {skill.featured ? '★ Featured Stack' : 'Matrix Only'}
                   </span>
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => openEditModal(skill)}
-                      className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                      className="p-1 text-t-muted hover:text-t-text transition-colors cursor-pointer"
                       title="Edit single skill"
                     >
                       <Edit2 size={13} />
                     </button>
                     <button
                       onClick={() => handleDelete(skill._id, skill.name)}
-                      className="p-1 text-red-400 hover:text-white transition-colors cursor-pointer"
+                      className="p-1 text-t-danger hover:text-t-text transition-colors cursor-pointer"
                       title="Delete single skill"
                     >
                       <Trash2 size={13} />
@@ -669,33 +669,33 @@ export default function SkillsMatrix() {
 
       {/* Bulk Edit Modal for Multiple Skills */}
       {showBulkModal && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl rounded bg-[#090d15] border border-[#1a2333] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-t-bg/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl rounded bg-t-surface border border-t-border shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             {/* Modal Header */}
-            <div className="p-4 border-b border-[#1a2333] flex items-center justify-between bg-black">
+            <div className="p-4 border-b border-t-border flex items-center justify-between bg-t-bg">
               <div className="flex items-center gap-2">
-                <Edit2 size={16} className="text-[#0078d4]" />
-                <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+                <Edit2 size={16} className="text-t-accent" />
+                <span className="text-xs font-mono font-bold text-t-text uppercase tracking-wider">
                   Bulk Edit ({selectedIds.length} Skills Selected)
                 </span>
               </div>
               <button
                 onClick={() => setShowBulkModal(false)}
-                className="p-1 rounded text-slate-400 hover:text-white cursor-pointer"
+                className="p-1 rounded text-t-muted hover:text-t-text cursor-pointer"
               >
                 <X size={16} />
               </button>
             </div>
 
             {/* Mode Switcher Tabs */}
-            <div className="flex items-center border-b border-[#1a2333] bg-[#070a10] px-4 pt-2">
+            <div className="flex items-center border-b border-t-border bg-t-surface px-4 pt-2">
               <button
                 type="button"
                 onClick={() => setBulkTab('batch')}
                 className={`flex items-center gap-1.5 px-3 py-2 text-xs font-mono border-b-2 font-semibold transition-all cursor-pointer ${
                   bulkTab === 'batch'
-                    ? 'border-[#0078d4] text-white'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    ? 'border-t-accent text-t-text'
+                    : 'border-transparent text-t-muted hover:text-t-muted'
                 }`}
               >
                 <SlidersHorizontal size={13} />
@@ -706,8 +706,8 @@ export default function SkillsMatrix() {
                 onClick={() => setBulkTab('table')}
                 className={`flex items-center gap-1.5 px-3 py-2 text-xs font-mono border-b-2 font-semibold transition-all cursor-pointer ${
                   bulkTab === 'table'
-                    ? 'border-[#0078d4] text-white'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    ? 'border-t-accent text-t-text'
+                    : 'border-transparent text-t-muted hover:text-t-muted'
                 }`}
               >
                 <ListChecks size={13} />
@@ -716,10 +716,10 @@ export default function SkillsMatrix() {
             </div>
 
             {/* Selected Skills Chips */}
-            <div className="p-3 bg-black/60 border-b border-[#1a2333]">
-              <div className="text-[11px] font-mono text-slate-400 mb-1.5 flex items-center justify-between">
+            <div className="p-3 bg-t-bg/60 border-b border-t-border">
+              <div className="text-[11px] font-mono text-t-muted mb-1.5 flex items-center justify-between">
                 <span>Selected Skills in Batch:</span>
-                <span className="text-slate-500">Click &times; to deselect</span>
+                <span className="text-t-dim">Click &times; to deselect</span>
               </div>
               <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
                 {skills
@@ -727,13 +727,13 @@ export default function SkillsMatrix() {
                   .map((skill) => (
                     <span
                       key={skill._id}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#101726] border border-[#1e293b] text-slate-200 text-[11px] font-mono"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-t-surface-hi border border-t-border-hi text-t-muted text-[11px] font-mono"
                     >
                       <span>{skill.name}</span>
                       <button
                         type="button"
                         onClick={() => removeSkillFromBulk(skill._id)}
-                        className="text-slate-400 hover:text-red-400 cursor-pointer"
+                        className="text-t-muted hover:text-t-danger cursor-pointer"
                         title="Remove from batch"
                       >
                         &times;
@@ -747,19 +747,19 @@ export default function SkillsMatrix() {
             <form onSubmit={handleBulkSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
               {bulkTab === 'batch' ? (
                 <div className="space-y-4">
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-t-muted">
                     Choose which fields to overwrite across all {selectedIds.length} selected skills. Fields set to "Keep Existing" will remain unchanged on each individual skill.
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-mono text-slate-400 mb-1">
+                      <label className="block text-xs font-mono text-t-muted mb-1">
                         Category
                       </label>
                       <select
                         value={bulkCategory}
                         onChange={(e) => setBulkCategory(e.target.value)}
-                        className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                        className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                       >
                         <option value="KEEP">[ Keep Existing Category ]</option>
                         {CATEGORIES.filter((c) => c !== 'All').map((cat) => (
@@ -771,13 +771,13 @@ export default function SkillsMatrix() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-mono text-slate-400 mb-1">
+                      <label className="block text-xs font-mono text-t-muted mb-1">
                         Proficiency Level
                       </label>
                       <select
                         value={bulkProficiency}
                         onChange={(e) => setBulkProficiency(e.target.value)}
-                        className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                        className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                       >
                         <option value="KEEP">[ Keep Existing Proficiency ]</option>
                         {PROFICIENCIES.map((lvl) => (
@@ -797,11 +797,11 @@ export default function SkillsMatrix() {
                           id="bulkApplyExpCheckbox"
                           checked={bulkApplyExp}
                           onChange={(e) => setBulkApplyExp(e.target.checked)}
-                          className="w-4 h-4 rounded bg-black border-[#1e293b] text-[#0078d4] focus:ring-[#0078d4] cursor-pointer"
+                          className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent focus:ring-t-accent cursor-pointer"
                         />
                         <label
                           htmlFor="bulkApplyExpCheckbox"
-                          className="text-xs font-mono text-slate-300 cursor-pointer"
+                          className="text-xs font-mono text-t-muted cursor-pointer"
                         >
                           Update Years of Experience
                         </label>
@@ -814,18 +814,18 @@ export default function SkillsMatrix() {
                         value={bulkExpValue}
                         onChange={(e) => setBulkExpValue(parseFloat(e.target.value) || 0)}
                         placeholder="e.g. 2.5"
-                        className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none disabled:opacity-30 disabled:bg-[#111]"
+                        className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none disabled:opacity-30 disabled:bg-[#111]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-mono text-slate-400 mb-1">
+                      <label className="block text-xs font-mono text-t-muted mb-1">
                         Spotlight Featured Status
                       </label>
                       <select
                         value={bulkFeatured}
                         onChange={(e) => setBulkFeatured(e.target.value)}
-                        className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                        className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                       >
                         <option value="KEEP">[ Keep Existing Featured Status ]</option>
                         <option value="FEATURE">Set All as Featured (★ Spotlight)</option>
@@ -836,7 +836,7 @@ export default function SkillsMatrix() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-xs text-slate-400 mb-2">
+                  <p className="text-xs text-t-muted mb-2">
                     Review and edit individual properties for each selected skill side by side.
                   </p>
 
@@ -844,29 +844,29 @@ export default function SkillsMatrix() {
                     {editableSkills.map((item) => (
                       <div
                         key={item._id}
-                        className="p-3 rounded bg-black border border-[#1a2333] space-y-2 text-xs font-mono"
+                        className="p-3 rounded bg-t-bg border border-t-border space-y-2 text-xs font-mono"
                       >
                         <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                           <div className="sm:col-span-4">
-                            <label className="text-[10px] text-slate-500 block mb-0.5">Skill Name</label>
+                            <label className="text-[10px] text-t-dim block mb-0.5">Skill Name</label>
                             <input
                               type="text"
                               value={item.name}
                               onChange={(e) =>
                                 handleEditableSkillChange(item._id, 'name', e.target.value)
                               }
-                              className="w-full px-2 py-1.5 rounded bg-[#090d15] border border-[#1e293b] text-white text-xs outline-none focus:border-[#0078d4]"
+                              className="w-full px-2 py-1.5 rounded bg-t-surface border border-t-border-hi text-t-text text-xs outline-none focus:border-t-accent"
                             />
                           </div>
 
                           <div className="sm:col-span-3">
-                            <label className="text-[10px] text-slate-500 block mb-0.5">Category</label>
+                            <label className="text-[10px] text-t-dim block mb-0.5">Category</label>
                             <select
                               value={item.category}
                               onChange={(e) =>
                                 handleEditableSkillChange(item._id, 'category', e.target.value)
                               }
-                              className="w-full px-2 py-1.5 rounded bg-[#090d15] border border-[#1e293b] text-white text-xs outline-none focus:border-[#0078d4]"
+                              className="w-full px-2 py-1.5 rounded bg-t-surface border border-t-border-hi text-t-text text-xs outline-none focus:border-t-accent"
                             >
                               {CATEGORIES.filter((c) => c !== 'All').map((cat) => (
                                 <option key={cat} value={cat}>
@@ -877,13 +877,13 @@ export default function SkillsMatrix() {
                           </div>
 
                           <div className="sm:col-span-2">
-                            <label className="text-[10px] text-slate-500 block mb-0.5">Proficiency</label>
+                            <label className="text-[10px] text-t-dim block mb-0.5">Proficiency</label>
                             <select
                               value={item.proficiency}
                               onChange={(e) =>
                                 handleEditableSkillChange(item._id, 'proficiency', e.target.value)
                               }
-                              className="w-full px-2 py-1.5 rounded bg-[#090d15] border border-[#1e293b] text-white text-xs outline-none focus:border-[#0078d4]"
+                              className="w-full px-2 py-1.5 rounded bg-t-surface border border-t-border-hi text-t-text text-xs outline-none focus:border-t-accent"
                             >
                               {PROFICIENCIES.map((lvl) => (
                                 <option key={lvl} value={lvl}>
@@ -894,7 +894,7 @@ export default function SkillsMatrix() {
                           </div>
 
                           <div className="sm:col-span-2">
-                            <label className="text-[10px] text-slate-500 block mb-0.5">Exp (Yrs)</label>
+                            <label className="text-[10px] text-t-dim block mb-0.5">Exp (Yrs)</label>
                             <input
                               type="number"
                               min="0"
@@ -907,7 +907,7 @@ export default function SkillsMatrix() {
                                   parseFloat(e.target.value) || 0
                                 )
                               }
-                              className="w-full px-2 py-1.5 rounded bg-[#090d15] border border-[#1e293b] text-white text-xs outline-none focus:border-[#0078d4]"
+                              className="w-full px-2 py-1.5 rounded bg-t-surface border border-t-border-hi text-t-text text-xs outline-none focus:border-t-accent"
                             />
                           </div>
 
@@ -919,8 +919,8 @@ export default function SkillsMatrix() {
                               }
                               className={`p-1.5 rounded transition-all cursor-pointer ${
                                 item.featured
-                                  ? 'text-[#10b981] bg-[#062419]'
-                                  : 'text-slate-600 hover:text-slate-400'
+                                  ? 'text-t-accent2 bg-t-accent2-dim'
+                                  : 'text-t-dim hover:text-t-muted'
                               }`}
                               title={item.featured ? 'Featured' : 'Not Featured'}
                             >
@@ -929,7 +929,7 @@ export default function SkillsMatrix() {
                             <button
                               type="button"
                               onClick={() => removeSkillFromBulk(item._id)}
-                              className="p-1.5 text-slate-500 hover:text-red-400 cursor-pointer"
+                              className="p-1.5 text-t-dim hover:text-t-danger cursor-pointer"
                               title="Remove from batch"
                             >
                               <Trash2 size={13} />
@@ -943,18 +943,18 @@ export default function SkillsMatrix() {
               )}
 
               {/* Action Buttons */}
-              <div className="flex justify-end gap-2 pt-4 border-t border-[#1a2333]">
+              <div className="flex justify-end gap-2 pt-4 border-t border-t-border">
                 <button
                   type="button"
                   onClick={() => setShowBulkModal(false)}
-                  className="px-3.5 py-1.5 rounded text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#111827] cursor-pointer"
+                  className="px-3.5 py-1.5 rounded text-xs font-semibold text-t-muted hover:text-t-text hover:bg-t-surface-hi cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={bulkSaving || selectedIds.length === 0}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#0078d4] hover:bg-[#1e90ff] text-white font-semibold text-xs shadow cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs shadow cursor-pointer disabled:opacity-50"
                 >
                   <Save size={13} />
                   <span>
@@ -971,15 +971,15 @@ export default function SkillsMatrix() {
 
       {/* Modal for Add / Edit Single Skill */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded bg-[#090d15] border border-[#1a2333] shadow-2xl overflow-hidden">
-            <div className="p-4 border-b border-[#1a2333] flex items-center justify-between bg-black">
-              <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+        <div className="fixed inset-0 bg-t-bg/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded bg-t-surface border border-t-border shadow-2xl overflow-hidden">
+            <div className="p-4 border-b border-t-border flex items-center justify-between bg-t-bg">
+              <span className="text-xs font-mono font-bold text-t-text uppercase tracking-wider">
                 {editingId ? 'Edit Skill Competency' : 'Add New Skill Competency'}
               </span>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-1 rounded text-slate-400 hover:text-white cursor-pointer"
+                className="p-1 rounded text-t-muted hover:text-t-text cursor-pointer"
               >
                 <X size={16} />
               </button>
@@ -987,23 +987,23 @@ export default function SkillsMatrix() {
 
             <form onSubmit={handleModalSubmit} className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1">Skill Name *</label>
+                <label className="block text-xs font-mono text-t-muted mb-1">Skill Name *</label>
                 <input
                   type="text"
                   required
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="e.g. Docker, Redis, Kubernetes"
-                  className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                  className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1">Category *</label>
+                <label className="block text-xs font-mono text-t-muted mb-1">Category *</label>
                 <select
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                  className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                 >
                   {CATEGORIES.filter((c) => c !== 'All').map((cat) => (
                     <option key={cat} value={cat}>
@@ -1015,11 +1015,11 @@ export default function SkillsMatrix() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">Proficiency Level</label>
+                  <label className="block text-xs font-mono text-t-muted mb-1">Proficiency Level</label>
                   <select
                     value={form.proficiency}
                     onChange={(e) => setForm({ ...form, proficiency: e.target.value })}
-                    className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                    className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                   >
                     {PROFICIENCIES.map((lvl) => (
                       <option key={lvl} value={lvl}>
@@ -1029,14 +1029,14 @@ export default function SkillsMatrix() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">Years of Exp</label>
+                  <label className="block text-xs font-mono text-t-muted mb-1">Years of Exp</label>
                   <input
                     type="number"
                     min="0"
                     step="0.5"
                     value={form.yearsOfExperience}
                     onChange={(e) => setForm({ ...form, yearsOfExperience: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none"
+                    className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
                   />
                 </div>
               </div>
@@ -1047,25 +1047,25 @@ export default function SkillsMatrix() {
                   id="skillFeatured"
                   checked={form.featured}
                   onChange={(e) => setForm({ ...form, featured: e.target.checked })}
-                  className="w-4 h-4 rounded bg-black border-[#1e293b] text-[#10b981] focus:ring-[#10b981]"
+                  className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-[#10b981]"
                 />
-                <label htmlFor="skillFeatured" className="text-xs text-slate-300 cursor-pointer">
+                <label htmlFor="skillFeatured" className="text-xs text-t-muted cursor-pointer">
                   Feature in Spotlight summary and top highlight stack
                 </label>
               </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-[#1a2333]">
+              <div className="flex justify-end gap-2 pt-4 border-t border-t-border">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-3.5 py-1.5 rounded text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#111827] cursor-pointer"
+                  className="px-3.5 py-1.5 rounded text-xs font-semibold text-t-muted hover:text-t-text hover:bg-t-surface-hi cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={modalSaving}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#10b981] hover:bg-[#059669] text-black font-semibold text-xs shadow cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs shadow cursor-pointer disabled:opacity-50"
                 >
                   <Save size={13} />
                   <span>{modalSaving ? 'Saving...' : 'Save Skill'}</span>
