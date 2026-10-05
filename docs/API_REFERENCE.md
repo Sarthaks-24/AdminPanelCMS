@@ -103,6 +103,10 @@ This document provides complete technical specifications for every endpoint expo
 - **Path:** `/api/profile`
 - **Access:** Protected (`requireAdmin`)
 - **Request Body:** Full or partial Profile JSON.
+- **Behavior:**
+  - Persists profile bio, metrics, and environment settings.
+  - Automatically synchronizes the updated public contact `email` with the corresponding `Email` coordinate in the `socials` collection (`mailto:<email>`, label, and username).
+  - **Important:** Does **not** modify the admin account credentials (`Admin.email`); the dashboard login email remains separate and independent.
 
 ### 3.3. Update Availability Status
 - **Method:** `PATCH`
