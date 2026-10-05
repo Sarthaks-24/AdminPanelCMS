@@ -85,9 +85,98 @@ const deleteSkill = async (req, res, next) => {
   }
 };
 
+// @desc    Bulk update multiple skills
+// @route   PATCH /api/skills/bulk
+// @access  Protected (Admin)
+const bulkUpdateSkills = async (req, res, next) => {
+  try {
+    const { ids, updates, items } = req.body;
+
+    // Mode A: Individual item updates in batch [{ id, ...fields }]
+    if (Array.isArray(items) && items.length > 0) {
+      const updatePromises = items.map(async (item) => {
+        const targetId = item.id || item._id;
+        if (!targetId) return null;
+        const { id, _id, createdAt, updatedAt, ...fields } = item;
+        return Skill.findByIdAndUpdate(targetId, fields, {
+          new: true,
+          runValidators: true,
+        });
+      });
+      const results = await Promise.all(updatePromises);
+      const filtered = results.filter(Boolean);
+      return res.json({ success: true, count: filtered.length, skills: filtered });
+    }
+
+    // Mode B: Uniform updates across an array of IDs { ids: [...], updates: {...} }
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'Please provide an array of skill IDs' });
+    }
+
+    if (!updates || typeof updates !== 'object') {
+      return res.status(400).json({ success: false, message: 'Updates object is required' });
+    }
+
+    const setFields = {};
+    if (updates.category) setFields.category = updates.category;
+    if (updates.proficiency) setFields.proficiency = updates.proficiency;
+    if (updates.yearsOfExperience !== undefined && updates.yearsOfExperience !== '') {
+      const parsedYears = Number(updates.yearsOfExperience);
+      if (!isNaN(parsedYears) && parsedYears >= 0) {
+        setFields.yearsOfExperience = parsedYears;
+      }
+    }
+    if (typeof updates.featured === 'boolean') {
+      setFields.featured = updates.featured;
+    }
+
+    if (Object.keys(setFields).length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid fields provided to update' });
+    }
+
+    await Skill.updateMany(
+      { _id: { $in: ids } },
+      { $set: setFields },
+      { runValidators: true }
+    );
+
+    const updatedSkills = await Skill.find({ _id: { $in: ids } });
+    res.json({
+      success: true,
+      count: updatedSkills.length,
+      skills: updatedSkills,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Bulk delete multiple skills
+// @route   POST /api/skills/bulk-delete
+// @access  Protected (Admin)
+const bulkDeleteSkills = async (req, res, next) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'Please provide an array of skill IDs' });
+    }
+
+    const result = await Skill.deleteMany({ _id: { $in: ids } });
+    res.json({
+      success: true,
+      deletedCount: result.deletedCount,
+      message: `${result.deletedCount} skills deleted successfully`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getSkills,
   createSkill,
   updateSkill,
   deleteSkill,
+  bulkUpdateSkills,
+  bulkDeleteSkills,
 };

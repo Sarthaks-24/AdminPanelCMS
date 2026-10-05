@@ -220,6 +220,43 @@ This document provides complete technical specifications for every endpoint expo
 - **Path:** `/api/skills/:id`
 - **Access:** Protected (`requireAdmin`)
 
+### 5.6. Bulk Update Skills
+- **Method:** `PATCH`
+- **Path:** `/api/skills/bulk`
+- **Access:** Protected (`requireAdmin`)
+- **Request Body (Uniform override mode):**
+  ```json
+  {
+    "ids": ["66e14a2b9f84b3d14c2810c1", "66e14a2b9f84b3d14c2810c2"],
+    "updates": {
+      "category": "DevOps & Cloud",
+      "proficiency": "Expert",
+      "yearsOfExperience": 3,
+      "featured": true
+    }
+  }
+  ```
+- **Request Body (Inline matrix items mode):**
+  ```json
+  {
+    "items": [
+      { "id": "66e14a2b9f84b3d14c2810c1", "name": "Docker", "category": "DevOps & Cloud" },
+      { "id": "66e14a2b9f84b3d14c2810c2", "name": "Kubernetes", "proficiency": "Expert" }
+    ]
+  }
+  ```
+
+### 5.7. Bulk Delete Skills
+- **Method:** `POST`
+- **Path:** `/api/skills/bulk-delete`
+- **Access:** Protected (`requireAdmin`)
+- **Request Body:**
+  ```json
+  {
+    "ids": ["66e14a2b9f84b3d14c2810c1", "66e14a2b9f84b3d14c2810c2"]
+  }
+  ```
+
 ---
 
 ## 6. Projects Studio Endpoints
