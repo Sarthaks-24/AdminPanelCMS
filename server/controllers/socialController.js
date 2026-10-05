@@ -21,7 +21,13 @@ const getSocials = async (req, res, next) => {
 // @access  Protected (Admin)
 const createSocial = async (req, res, next) => {
   try {
-    const social = await Social.create(req.body);
+    const payload = { ...req.body };
+    if (payload.platform && payload.platform.toLowerCase() === 'email') {
+      if (payload.url && !payload.url.startsWith('mailto:') && !payload.url.startsWith('http')) {
+        payload.url = `mailto:${payload.url.trim()}`;
+      }
+    }
+    const social = await Social.create(payload);
     res.status(201).json(social);
   } catch (error) {
     next(error);
@@ -33,7 +39,13 @@ const createSocial = async (req, res, next) => {
 // @access  Protected (Admin)
 const updateSocial = async (req, res, next) => {
   try {
-    const updated = await Social.findByIdAndUpdate(req.params.id, req.body, {
+    const payload = { ...req.body };
+    if (payload.platform && payload.platform.toLowerCase() === 'email') {
+      if (payload.url && !payload.url.startsWith('mailto:') && !payload.url.startsWith('http')) {
+        payload.url = `mailto:${payload.url.trim()}`;
+      }
+    }
+    const updated = await Social.findByIdAndUpdate(req.params.id, payload, {
       new: true,
       runValidators: true,
     });

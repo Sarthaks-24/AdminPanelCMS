@@ -94,13 +94,23 @@ export default function SocialsManager() {
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    const payload = { ...form };
+    if (payload.platform?.toLowerCase() === 'email') {
+      if (payload.url && !payload.url.startsWith('mailto:') && !payload.url.startsWith('http')) {
+        payload.url = `mailto:${payload.url.trim()}`;
+      }
+      if (!payload.username && payload.label) {
+        payload.username = payload.label.split('@')[0];
+      }
+    }
+
     try {
       if (editingId) {
-        const res = await api.put(`/socials/${editingId}`, form);
+        const res = await api.put(`/socials/${editingId}`, payload);
         setSocials((prev) => prev.map((s) => (s._id === editingId ? res.data : s)));
         setSuccessMsg('Social link updated successfully.');
       } else {
-        const res = await api.post('/socials', form);
+        const res = await api.post('/socials', payload);
         setSocials((prev) => [...prev, res.data].sort((a, b) => a.order - b.order));
         setSuccessMsg('New social link registered.');
       }
@@ -369,19 +379,21 @@ export default function SocialsManager() {
                   required
                   value={form.label}
                   onChange={(e) => setForm({ ...form, label: e.target.value })}
-                  placeholder="e.g. github.com/username"
+                  placeholder={form.platform === 'Email' ? 'you@example.com' : 'e.g. github.com/username'}
                   className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1">Destination URL *</label>
+                <label className="block text-xs font-mono text-slate-400 mb-1">
+                  {form.platform === 'Email' ? 'Email Address / Destination URL *' : 'Destination URL *'}
+                </label>
                 <input
-                  type="url"
+                  type={form.platform === 'Email' ? 'text' : 'url'}
                   required
                   value={form.url}
                   onChange={(e) => setForm({ ...form, url: e.target.value })}
-                  placeholder="https://github.com/username"
+                  placeholder={form.platform === 'Email' ? 'mailto:you@example.com or you@example.com' : 'https://github.com/username'}
                   className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none"
                 />
               </div>

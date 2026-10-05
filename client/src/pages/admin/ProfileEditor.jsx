@@ -122,7 +122,7 @@ export default function ProfileEditor() {
     try {
       const res = await api.put('/profile', form);
       setForm((prev) => ({ ...prev, ...res.data }));
-      setSuccessMsg('Profile and terminal identity successfully updated!');
+      setSuccessMsg('Profile, terminal identity, and Email social coordinate successfully updated!');
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err) {
       setErrorMsg(err.response?.data?.message || 'Error saving profile');
@@ -276,6 +276,9 @@ export default function ProfileEditor() {
                   className="w-full pl-9 pr-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
                 />
               </div>
+              <p className="text-[11px] text-slate-400 mt-1 font-mono">
+                Syncs with public contact info &amp; Email social link. (Dashboard login email remains separate).
+              </p>
             </div>
             <div>
               <label className="block text-xs font-mono text-slate-400 mb-1">Direct Phone Number</label>
