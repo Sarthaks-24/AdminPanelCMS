@@ -28,22 +28,22 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center p-4 relative antialiased font-sans">
+    <div className="min-h-screen bg-t-bg text-t-text flex items-center justify-center p-4 relative antialiased font-sans">
       {/* Console Login Card */}
-      <div className="relative z-10 w-full max-w-md bg-[#070a10] border border-[#1a2333] p-8 sm:p-9 rounded shadow-2xl space-y-6">
+      <div className="relative z-10 w-full max-w-md bg-t-surface border border-t-border p-8 sm:p-9 rounded shadow-2xl space-y-6">
         {/* Terminal Header */}
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded bg-[#0078d4] text-white flex items-center justify-center font-mono font-bold text-base shadow-md shadow-[#0078d4]/30 border border-[#1e90ff]/40 mx-auto">
+          <div className="w-12 h-12 rounded bg-t-accent text-t-on-accent flex items-center justify-center font-mono font-bold text-base shadow-md shadow-t-accent/30 border border-t-accent-br/40 mx-auto">
             PS
           </div>
-          <h1 className="text-xl font-bold text-white tracking-tight pt-1">Admin Command Console</h1>
-          <p className="text-xs text-slate-400 font-mono">
+          <h1 className="text-xl font-bold text-t-text tracking-tight pt-1">Admin Command Console</h1>
+          <p className="text-xs text-t-muted font-mono">
             PS C:\&gt; Enter credentials to access content management authority.
           </p>
         </div>
 
         {error && (
-          <div className="p-3 rounded bg-[#2a0b12] border border-red-500/40 text-red-300 text-xs flex items-center gap-2 font-mono">
+          <div className="p-3 rounded bg-t-danger-dim border border-t-danger/40 text-t-danger text-xs flex items-center gap-2 font-mono">
             <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span>
             <span>{error}</span>
           </div>
@@ -51,36 +51,36 @@ export default function AdminLogin() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-mono text-slate-400 mb-1">Admin Email Address</label>
+            <label className="block text-xs font-mono text-t-muted mb-1">Admin Email Address</label>
             <div className="relative">
-              <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-t-dim" />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@example.com"
-                className="w-full pl-10 pr-4 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none transition-colors"
+                className="w-full pl-10 pr-4 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none transition-colors"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-mono text-slate-400 mb-1">Security Key / Password</label>
+            <label className="block text-xs font-mono text-t-muted mb-1">Security Key / Password</label>
             <div className="relative">
-              <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-t-dim" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
-                className="w-full pl-10 pr-11 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none transition-colors"
+                className="w-full pl-10 pr-11 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none transition-colors"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-t-dim hover:text-t-muted cursor-pointer"
               >
                 {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
@@ -90,7 +90,7 @@ export default function AdminLogin() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 py-2.5 rounded bg-[#0078d4] hover:bg-[#1e90ff] text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer font-mono"
+            className="w-full mt-2 py-2.5 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer font-mono"
           >
             {loading ? (
               <span>Authenticating Session...</span>
@@ -103,12 +103,12 @@ export default function AdminLogin() {
           </button>
         </form>
 
-        <div className="pt-4 border-t border-[#1a2333] flex items-center justify-between text-[11px] font-mono text-slate-500">
+        <div className="pt-4 border-t border-t-border flex items-center justify-between text-[11px] font-mono text-t-dim">
           <div className="flex items-center gap-1.5">
-            <ShieldCheck size={14} className="text-[#10b981]" />
+            <ShieldCheck size={14} className="text-t-accent2" />
             <span>Encrypted JWT Access</span>
           </div>
-          <span className="text-[#0078d4]">Node.js Express</span>
+          <span className="text-t-accent">Node.js Express</span>
         </div>
       </div>
     </div>

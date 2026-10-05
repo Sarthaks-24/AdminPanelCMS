@@ -193,7 +193,7 @@ export default function ProjectForm() {
   if (fetching) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-xs font-mono text-[#0078d4] animate-pulse">
+        <div className="text-xs font-mono text-t-accent animate-pulse">
           Fetching case study data...
         </div>
       </div>
@@ -203,20 +203,20 @@ export default function ProjectForm() {
   return (
     <form onSubmit={handleSubmit} className="max-w-6xl mx-auto space-y-6">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#1a2333]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-t-border">
         <div className="flex items-center gap-3">
           <Link
             to="/admin/projects"
-            className="p-2 rounded bg-[#090d15] text-slate-400 hover:text-white border border-[#1a2333] transition-all"
+            className="p-2 rounded bg-t-surface text-t-muted hover:text-t-text border border-t-border transition-all"
             title="Return to Projects List"
           >
             <ArrowLeft size={16} />
           </Link>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">
+            <h1 className="text-xl font-bold text-t-text tracking-tight">
               {isEdit ? 'Edit Engineering Case Study' : 'Create Engineering Case Study'}
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-t-muted mt-0.5">
               Comprehensive case study architecture, URL slug, and live metrics.
             </p>
           </div>
@@ -225,14 +225,14 @@ export default function ProjectForm() {
         <div className="flex items-center gap-2">
           <Link
             to="/admin/projects"
-            className="px-3 py-1.5 rounded text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#111827]"
+            className="px-3 py-1.5 rounded text-xs font-semibold text-t-muted hover:text-t-text hover:bg-t-surface-hi"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#10b981] hover:bg-[#059669] text-black font-semibold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
           >
             <Save size={14} />
             <span>{loading ? 'Saving...' : isEdit ? 'Update Case Study' : 'Publish Case Study'}</span>
@@ -244,25 +244,25 @@ export default function ProjectForm() {
         {/* Left Column (Core Metadata) */}
         <div className="lg:col-span-1 space-y-5">
           {/* Section: Basic Info */}
-          <div className="p-4 rounded bg-[#070a10] border border-[#1a2333] space-y-3.5">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 block pb-2 border-b border-[#1a2333]">
+          <div className="p-4 rounded bg-t-surface border border-t-border space-y-3.5">
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted block pb-2 border-b border-t-border">
               Project Identification
             </span>
 
             <div>
-              <label className="block text-xs font-mono text-slate-400 mb-1">Project Title *</label>
+              <label className="block text-xs font-mono text-t-muted mb-1">Project Title *</label>
               <input
                 type="text"
                 required
                 value={formData.title}
                 onChange={(e) => handleTitleChange(e.target.value)}
                 placeholder="e.g. Real-time Order Flow Dashboard"
-                className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-slate-400 mb-1">Public URL Slug *</label>
+              <label className="block text-xs font-mono text-t-muted mb-1">Public URL Slug *</label>
               <input
                 type="text"
                 required
@@ -272,20 +272,20 @@ export default function ProjectForm() {
                   setFormData({ ...formData, slug: slugify(e.target.value) });
                 }}
                 placeholder="e.g. real-time-order-flow-dashboard"
-                className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-[#1e90ff] font-mono text-xs focus:border-[#0078d4] outline-none"
+                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-accent-br font-mono text-xs focus:border-t-accent outline-none"
               />
-              <span className="text-[10px] font-mono text-slate-500 mt-1 block">
-                endpoint: <code className="text-[#10b981]">/api/projects/{formData.slug || 'slug'}</code>
+              <span className="text-[10px] font-mono text-t-dim mt-1 block">
+                endpoint: <code className="text-t-accent2">/api/projects/{formData.slug || 'slug'}</code>
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1">Project Mode</label>
+                <label className="block text-xs font-mono text-t-muted mb-1">Project Mode</label>
                 <select
                   value={formData.mode}
                   onChange={(e) => setFormData({ ...formData, mode: e.target.value })}
-                  className="w-full px-2.5 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                  className="w-full px-2.5 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                 >
                   <option value="solo">Solo Project</option>
                   <option value="team">Team Collaboration</option>
@@ -293,48 +293,48 @@ export default function ProjectForm() {
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1">Display Order</label>
+                <label className="block text-xs font-mono text-t-muted mb-1">Display Order</label>
                 <input
                   type="number"
                   value={formData.order}
                   onChange={(e) => setFormData({ ...formData, order: e.target.value })}
-                  className="w-full px-2.5 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none"
+                  className="w-full px-2.5 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-slate-400 mb-1">Engineering Role</label>
+              <label className="block text-xs font-mono text-t-muted mb-1">Engineering Role</label>
               <input
                 type="text"
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                 placeholder="Lead Full Stack Engineer"
-                className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
               />
             </div>
 
             {formData.mode === 'team' && (
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1">Collaborators (Comma-separated)</label>
+                <label className="block text-xs font-mono text-t-muted mb-1">Collaborators (Comma-separated)</label>
                 <input
                   type="text"
                   value={formData.teammates}
                   onChange={(e) => setFormData({ ...formData, teammates: e.target.value })}
                   placeholder="Alex Rivera, Sarah Chen"
-                  className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                  className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-mono text-slate-400 mb-1">Key Performance Metric</label>
+              <label className="block text-xs font-mono text-t-muted mb-1">Key Performance Metric</label>
               <input
                 type="text"
                 value={formData.keyMetric}
                 onChange={(e) => setFormData({ ...formData, keyMetric: e.target.value })}
                 placeholder="e.g. Latency: <15ms, 99.98% Uptime"
-                className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-[#10b981] font-mono text-xs focus:border-[#0078d4] outline-none"
+                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-accent2 font-mono text-xs focus:border-t-accent outline-none"
               />
             </div>
 
@@ -344,24 +344,24 @@ export default function ProjectForm() {
                 id="projFeatured"
                 checked={formData.featured}
                 onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
-                className="w-4 h-4 rounded bg-black border-[#1e293b] text-[#10b981] focus:ring-[#10b981]"
+                className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-[#10b981]"
               />
-              <label htmlFor="projFeatured" className="text-xs text-slate-300 cursor-pointer">
+              <label htmlFor="projFeatured" className="text-xs text-t-muted cursor-pointer">
                 Feature on Homepage &amp; Spotlight Highlights
               </label>
             </div>
           </div>
 
           {/* Section: Short Bio & Tech Stack */}
-          <div className="p-4 rounded bg-[#070a10] border border-[#1a2333] space-y-3.5">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 block pb-2 border-b border-[#1a2333]">
+          <div className="p-4 rounded bg-t-surface border border-t-border space-y-3.5">
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted block pb-2 border-b border-t-border">
               Summary &amp; Technologies
             </span>
 
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="text-xs font-mono text-slate-400">Short Summary (Max 260) *</label>
-                <span className={`text-[10px] font-mono ${formData.shortDescription.length > 260 ? 'text-red-400' : 'text-slate-500'}`}>
+                <label className="text-xs font-mono text-t-muted">Short Summary (Max 260) *</label>
+                <span className={`text-[10px] font-mono ${formData.shortDescription.length > 260 ? 'text-t-danger' : 'text-t-dim'}`}>
                   {formData.shortDescription.length}/260
                 </span>
               </div>
@@ -372,30 +372,30 @@ export default function ProjectForm() {
                 value={formData.shortDescription}
                 onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })}
                 placeholder="High-frequency options order flow visualization with sub-15ms WebSocket updates..."
-                className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none resize-none"
+                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none resize-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-slate-400 mb-1">Tech Stack (Comma-separated)</label>
+              <label className="block text-xs font-mono text-t-muted mb-1">Tech Stack (Comma-separated)</label>
               <input
                 type="text"
                 value={formData.stack}
                 onChange={(e) => setFormData({ ...formData, stack: e.target.value })}
                 placeholder="React, Node.js, WebSockets, Redis"
-                className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none"
+                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
               />
 
               {availableSkills.length > 0 && (
                 <div className="mt-2">
-                  <span className="text-[10px] font-mono text-slate-500 block mb-1">Quick Add From Skills Matrix:</span>
+                  <span className="text-[10px] font-mono text-t-dim block mb-1">Quick Add From Skills Matrix:</span>
                   <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
                     {availableSkills.map((sk) => (
                       <button
                         key={sk}
                         type="button"
                         onClick={() => addStackTag(sk)}
-                        className="px-1.5 py-0.5 rounded bg-black hover:bg-[#111827] text-[10px] font-mono text-slate-400 hover:text-white border border-[#1e293b] cursor-pointer"
+                        className="px-1.5 py-0.5 rounded bg-t-bg hover:bg-t-surface-hi text-[10px] font-mono text-t-muted hover:text-t-text border border-t-border-hi cursor-pointer"
                       >
                         + {sk}
                       </button>
@@ -406,7 +406,7 @@ export default function ProjectForm() {
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-slate-400 mb-1">
+              <label className="block text-xs font-mono text-t-muted mb-1">
                 Key Accomplishments / Highlights (One per line)
               </label>
               <textarea
@@ -414,28 +414,28 @@ export default function ProjectForm() {
                 value={formData.highlights}
                 onChange={(e) => setFormData({ ...formData, highlights: e.target.value })}
                 placeholder="Black-Scholes approximations executed in real time&#10;Redis pub/sub channels fan out 1,200 ticks/sec"
-                className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs focus:border-[#0078d4] outline-none"
+                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
               />
             </div>
           </div>
 
           {/* Section: Media & URLs */}
-          <div className="p-4 rounded bg-[#070a10] border border-[#1a2333] space-y-3.5">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 block pb-2 border-b border-[#1a2333]">
+          <div className="p-4 rounded bg-t-surface border border-t-border space-y-3.5">
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted block pb-2 border-b border-t-border">
               Media &amp; External Repositories
             </span>
 
             <div>
-              <label className="block text-xs font-mono text-slate-400 mb-1">Thumbnail Preview URL</label>
+              <label className="block text-xs font-mono text-t-muted mb-1">Thumbnail Preview URL</label>
               <input
                 type="url"
                 value={formData.thumbnail}
                 onChange={(e) => setFormData({ ...formData, thumbnail: e.target.value })}
                 placeholder="https://images.unsplash.com/..."
-                className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none"
+                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
               />
               {formData.thumbnail && (
-                <div className="mt-2 rounded overflow-hidden border border-[#1a2333] h-28 bg-black">
+                <div className="mt-2 rounded overflow-hidden border border-t-border h-28 bg-t-bg">
                   <img
                     src={formData.thumbnail}
                     alt="Preview"
@@ -447,35 +447,35 @@ export default function ProjectForm() {
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-slate-400 mb-1">GitHub Repository URL</label>
+              <label className="block text-xs font-mono text-t-muted mb-1">GitHub Repository URL</label>
               <input
                 type="url"
                 value={formData.github}
                 onChange={(e) => setFormData({ ...formData, github: e.target.value })}
                 placeholder="https://github.com/username/project"
-                className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none"
+                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-slate-400 mb-1">Live Application URL</label>
+              <label className="block text-xs font-mono text-t-muted mb-1">Live Application URL</label>
               <input
                 type="url"
                 value={formData.live}
                 onChange={(e) => setFormData({ ...formData, live: e.target.value })}
                 placeholder="https://app.example.com"
-                className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none"
+                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-slate-400 mb-1">Demo Video URL</label>
+              <label className="block text-xs font-mono text-t-muted mb-1">Demo Video URL</label>
               <input
                 type="url"
                 value={formData.demo}
                 onChange={(e) => setFormData({ ...formData, demo: e.target.value })}
                 placeholder="https://youtube.com/..."
-                className="w-full px-3 py-2 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none"
+                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
               />
             </div>
           </div>
@@ -483,21 +483,21 @@ export default function ProjectForm() {
 
         {/* Right Column (Markdown Case Study Editor) */}
         <div className="lg:col-span-2 flex flex-col space-y-3">
-          <div className="p-3 rounded bg-[#070a10] border border-[#1a2333] flex items-center justify-between">
+          <div className="p-3 rounded bg-t-surface border border-t-border flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Code size={16} className="text-[#0078d4]" />
-              <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+              <Code size={16} className="text-t-accent" />
+              <span className="text-xs font-mono font-bold text-t-text uppercase tracking-wider">
                 Full Case Study Document (Markdown)
               </span>
             </div>
 
             {/* View Mode Switcher */}
-            <div className="flex items-center bg-black border border-[#1e293b] rounded p-0.5">
+            <div className="flex items-center bg-t-bg border border-t-border-hi rounded p-0.5">
               <button
                 type="button"
                 onClick={() => setViewMode('editor')}
                 className={`px-2.5 py-1 text-[11px] font-mono rounded ${
-                  viewMode === 'editor' ? 'bg-[#0078d4] text-white font-bold' : 'text-slate-400 hover:text-white'
+                  viewMode === 'editor' ? 'bg-t-accent text-t-on-accent font-bold' : 'text-t-muted hover:text-t-text'
                 }`}
               >
                 Editor
@@ -506,7 +506,7 @@ export default function ProjectForm() {
                 type="button"
                 onClick={() => setViewMode('split')}
                 className={`px-2.5 py-1 text-[11px] font-mono rounded hidden sm:inline-block ${
-                  viewMode === 'split' ? 'bg-[#0078d4] text-white font-bold' : 'text-slate-400 hover:text-white'
+                  viewMode === 'split' ? 'bg-t-accent text-t-on-accent font-bold' : 'text-t-muted hover:text-t-text'
                 }`}
               >
                 Split
@@ -515,7 +515,7 @@ export default function ProjectForm() {
                 type="button"
                 onClick={() => setViewMode('preview')}
                 className={`px-2.5 py-1 text-[11px] font-mono rounded ${
-                  viewMode === 'preview' ? 'bg-[#0078d4] text-white font-bold' : 'text-slate-400 hover:text-white'
+                  viewMode === 'preview' ? 'bg-t-accent text-t-on-accent font-bold' : 'text-t-muted hover:text-t-text'
                 }`}
               >
                 Preview
@@ -524,11 +524,11 @@ export default function ProjectForm() {
           </div>
 
           {/* Quick Toolbar */}
-          <div className="p-2 rounded bg-[#070a10] border border-[#1a2333] flex flex-wrap items-center gap-1 text-slate-400">
+          <div className="p-2 rounded bg-t-surface border border-t-border flex flex-wrap items-center gap-1 text-t-muted">
             <button
               type="button"
               onClick={() => insertMarkdown('## ')}
-              className="p-1.5 hover:bg-[#111827] hover:text-white rounded"
+              className="p-1.5 hover:bg-t-surface-hi hover:text-t-text rounded"
               title="Heading 2"
             >
               <Heading2 size={13} />
@@ -536,7 +536,7 @@ export default function ProjectForm() {
             <button
               type="button"
               onClick={() => insertMarkdown('**', '**')}
-              className="p-1.5 hover:bg-[#111827] hover:text-white rounded"
+              className="p-1.5 hover:bg-t-surface-hi hover:text-t-text rounded"
               title="Bold"
             >
               <Bold size={13} />
@@ -544,7 +544,7 @@ export default function ProjectForm() {
             <button
               type="button"
               onClick={() => insertMarkdown('*', '*')}
-              className="p-1.5 hover:bg-[#111827] hover:text-white rounded"
+              className="p-1.5 hover:bg-t-surface-hi hover:text-t-text rounded"
               title="Italic"
             >
               <Italic size={13} />
@@ -552,7 +552,7 @@ export default function ProjectForm() {
             <button
               type="button"
               onClick={() => insertMarkdown('- ')}
-              className="p-1.5 hover:bg-[#111827] hover:text-white rounded"
+              className="p-1.5 hover:bg-t-surface-hi hover:text-t-text rounded"
               title="Bullet list"
             >
               <List size={13} />
@@ -560,7 +560,7 @@ export default function ProjectForm() {
             <button
               type="button"
               onClick={() => insertMarkdown('> ')}
-              className="p-1.5 hover:bg-[#111827] hover:text-white rounded"
+              className="p-1.5 hover:bg-t-surface-hi hover:text-t-text rounded"
               title="Quote"
             >
               <Quote size={13} />
@@ -568,7 +568,7 @@ export default function ProjectForm() {
             <button
               type="button"
               onClick={() => insertMarkdown('```ts\n', '\n```')}
-              className="p-1.5 hover:bg-[#111827] hover:text-white rounded font-mono text-[11px]"
+              className="p-1.5 hover:bg-t-surface-hi hover:text-t-text rounded font-mono text-[11px]"
               title="Code block"
             >
               &lt;/&gt;
@@ -584,9 +584,9 @@ export default function ProjectForm() {
                   required
                   value={formData.caseStudyBody}
                   onChange={(e) => setFormData({ ...formData, caseStudyBody: e.target.value })}
-                  className="w-full h-full min-h-[480px] p-4 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none resize-none leading-relaxed"
+                  className="w-full h-full min-h-[480px] p-4 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none resize-none leading-relaxed"
                 />
-                <div className="h-full min-h-[480px] p-5 rounded bg-black border border-[#1e293b] overflow-y-auto preview-prose">
+                <div className="h-full min-h-[480px] p-5 rounded bg-t-bg border border-t-border-hi overflow-y-auto preview-prose">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {formData.caseStudyBody || '*Empty preview*'}
                   </ReactMarkdown>
@@ -598,10 +598,10 @@ export default function ProjectForm() {
                 required
                 value={formData.caseStudyBody}
                 onChange={(e) => setFormData({ ...formData, caseStudyBody: e.target.value })}
-                className="w-full h-full min-h-[500px] p-4 rounded bg-black border border-[#1e293b] text-white text-xs font-mono focus:border-[#0078d4] outline-none resize-none leading-relaxed"
+                className="w-full h-full min-h-[500px] p-4 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none resize-none leading-relaxed"
               />
             ) : (
-              <div className="w-full h-full min-h-[500px] p-6 rounded bg-black border border-[#1e293b] overflow-y-auto preview-prose">
+              <div className="w-full h-full min-h-[500px] p-6 rounded bg-t-bg border border-t-border-hi overflow-y-auto preview-prose">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {formData.caseStudyBody || '*Empty preview*'}
                 </ReactMarkdown>

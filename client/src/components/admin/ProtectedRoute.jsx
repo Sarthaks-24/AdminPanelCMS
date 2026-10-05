@@ -7,7 +7,7 @@ export default function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#090d16] text-slate-400 font-sans text-sm">
+      <div className="min-h-screen flex items-center justify-center bg-[#090d16] text-t-muted font-sans text-sm">
         Checking authentication session...
       </div>
     );

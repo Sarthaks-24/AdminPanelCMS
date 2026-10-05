@@ -2,23 +2,569 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Executive PowerShell Console Design System */
-:root {
+/* ═══════════════════════════════════════════════════════════════
+   Universal Designer Themes — Balanced & Softened Contrast
+   Groups: Modern Dark (7) · Refined Light (5) · Funky (4) · Unique (4)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ════════════════════ MODERN DARK THEMES ══════════════════════ */
+
+/* ── 1. PowerShell Modern (Default) ─────────────────────────── */
+:root,
+[data-theme="powershell"] {
   color-scheme: dark;
-  --bg-pitch-black: #000000;
-  --bg-surface: #0a0d14;
-  --bg-surface-elevated: #0f141f;
-  --color-ps-blue: #0078d4;
-  --color-ps-blue-bright: #1e90ff;
-  --color-ps-green: #10b981;
-  --color-ps-green-neon: #00ff66;
+  --theme-bg:            #0c1017;
+  --theme-surface:       #131b26;
+  --theme-surface-hi:    #1b2535;
+  --theme-border:        #233044;
+  --theme-border-hi:     #324460;
+  --theme-accent:        #2563eb;
+  --theme-accent-bright: #3b82f6;
+  --theme-on-accent:     #ffffff;
+  --theme-accent2:       #10b981;
+  --theme-accent2-dim:   rgba(16, 185, 129, 0.12);
+  --theme-on-accent2:    #031f13;
+  --theme-text:          #f1f5f9;
+  --theme-text-muted:    #94a3b8;
+  --theme-text-dim:      #64748b;
+  --theme-brand:         #3b82f6;
+  --theme-brand-glow:    rgba(59, 130, 246, 0.25);
+  --theme-danger:        #ef4444;
+  --theme-danger-dim:    rgba(239, 68, 68, 0.14);
+  --theme-code-bg:       #0f1520;
 }
 
-body {
+/* ── 2. Linear Obsidian ─────────────────────────────────────── */
+[data-theme="linear-obsidian"] {
+  color-scheme: dark;
+  --theme-bg:            #08090d;
+  --theme-surface:       #11131b;
+  --theme-surface-hi:    #181b26;
+  --theme-border:        #222636;
+  --theme-border-hi:     #32384e;
+  --theme-accent:        #6366f1;
+  --theme-accent-bright: #818cf8;
+  --theme-on-accent:     #ffffff;
+  --theme-accent2:       #a855f7;
+  --theme-accent2-dim:   rgba(168, 85, 247, 0.12);
+  --theme-on-accent2:    #ffffff;
+  --theme-text:          #f3f4f8;
+  --theme-text-muted:    #9096ad;
+  --theme-text-dim:      #5b627a;
+  --theme-brand:         #6366f1;
+  --theme-brand-glow:    rgba(99, 102, 241, 0.25);
+  --theme-danger:        #f43f5e;
+  --theme-danger-dim:    rgba(244, 63, 94, 0.14);
+  --theme-code-bg:       #0e1017;
+}
+
+/* ── 3. Vercel Jet ──────────────────────────────────────────── */
+[data-theme="vercel-jet"] {
+  color-scheme: dark;
+  --theme-bg:            #09090b;
+  --theme-surface:       #131316;
+  --theme-surface-hi:    #1c1c21;
+  --theme-border:        #27272f;
+  --theme-border-hi:     #3d3d49;
+  --theme-accent:        #0070f3;
+  --theme-accent-bright: #3291ff;
+  --theme-on-accent:     #ffffff;
+  --theme-accent2:       #10b981;
+  --theme-accent2-dim:   rgba(16, 185, 129, 0.12);
+  --theme-on-accent2:    #031f13;
+  --theme-text:          #ededed;
+  --theme-text-muted:    #a1a1aa;
+  --theme-text-dim:      #71717a;
+  --theme-brand:         #0070f3;
+  --theme-brand-glow:    rgba(0, 112, 243, 0.25);
+  --theme-danger:        #ef4444;
+  --theme-danger-dim:    rgba(239, 68, 68, 0.14);
+  --theme-code-bg:       #101014;
+}
+
+/* ── 4. Supabase Emerald ────────────────────────────────────── */
+[data-theme="supabase-emerald"],
+[data-theme="forest"] {
+  color-scheme: dark;
+  --theme-bg:            #0a0f12;
+  --theme-surface:       #121a1f;
+  --theme-surface-hi:    #1a262e;
+  --theme-border:        #233540;
+  --theme-border-hi:     #324b5a;
+  --theme-accent:        #24b47e;
+  --theme-accent-bright: #3ecf8e;
+  --theme-on-accent:     #041d13;
+  --theme-accent2:       #10b981;
+  --theme-accent2-dim:   rgba(36, 180, 126, 0.12);
+  --theme-on-accent2:    #041d13;
+  --theme-text:          #e6edf3;
+  --theme-text-muted:    #8ba2b0;
+  --theme-text-dim:      #5a707e;
+  --theme-brand:         #3ecf8e;
+  --theme-brand-glow:    rgba(62, 207, 142, 0.25);
+  --theme-danger:        #f43f5e;
+  --theme-danger-dim:    rgba(244, 63, 94, 0.14);
+  --theme-code-bg:       #0e1519;
+}
+
+/* ── 5. Raycast Violet ──────────────────────────────────────── */
+[data-theme="raycast-purple"],
+[data-theme="obsidian-purple"] {
+  color-scheme: dark;
+  --theme-bg:            #0c0a14;
+  --theme-surface:       #151222;
+  --theme-surface-hi:    #1f1a32;
+  --theme-border:        #2e274a;
+  --theme-border-hi:     #43386b;
+  --theme-accent:        #8b5cf6;
+  --theme-accent-bright: #a78bfa;
+  --theme-on-accent:     #ffffff;
+  --theme-accent2:       #ec4899;
+  --theme-accent2-dim:   rgba(236, 72, 153, 0.12);
+  --theme-on-accent2:    #ffffff;
+  --theme-text:          #f5f3ff;
+  --theme-text-muted:    #9e94be;
+  --theme-text-dim:      #685e88;
+  --theme-brand:         #8b5cf6;
+  --theme-brand-glow:    rgba(139, 92, 246, 0.25);
+  --theme-danger:        #f43f5e;
+  --theme-danger-dim:    rgba(244, 63, 94, 0.14);
+  --theme-code-bg:       #110e1c;
+}
+
+/* ── 6. Nordic Slate ────────────────────────────────────────── */
+[data-theme="nordic-slate"],
+[data-theme="midnight"],
+[data-theme="arctic"] {
+  color-scheme: dark;
+  --theme-bg:            #0b1320;
+  --theme-surface:       #132034;
+  --theme-surface-hi:    #1d2e49;
+  --theme-border:        #283e60;
+  --theme-border-hi:     #395682;
+  --theme-accent:        #38bdf8;
+  --theme-accent-bright: #7dd3fc;
+  --theme-on-accent:     #041426;
+  --theme-accent2:       #34d399;
+  --theme-accent2-dim:   rgba(52, 211, 153, 0.12);
+  --theme-on-accent2:    #022014;
+  --theme-text:          #f0f8ff;
+  --theme-text-muted:    #88a5c4;
+  --theme-text-dim:      #587493;
+  --theme-brand:         #38bdf8;
+  --theme-brand-glow:    rgba(56, 189, 248, 0.25);
+  --theme-danger:        #fb7185;
+  --theme-danger-dim:    rgba(251, 113, 133, 0.14);
+  --theme-code-bg:       #0e192a;
+}
+
+/* ── 7. Warm Titanium ───────────────────────────────────────── */
+[data-theme="warm-titanium"],
+[data-theme="burnt-titanium"],
+[data-theme="amber-console"] {
+  color-scheme: dark;
+  --theme-bg:            #11100f;
+  --theme-surface:       #1a1816;
+  --theme-surface-hi:    #262320;
+  --theme-border:        #383430;
+  --theme-border-hi:     #4d4742;
+  --theme-accent:        #d4a373;
+  --theme-accent-bright: #e9c46a;
+  --theme-on-accent:     #191208;
+  --theme-accent2:       #a7c957;
+  --theme-accent2-dim:   rgba(167, 201, 87, 0.12);
+  --theme-on-accent2:    #141c05;
+  --theme-text:          #faf6ee;
+  --theme-text-muted:    #b0a79a;
+  --theme-text-dim:      #787064;
+  --theme-brand:         #d4a373;
+  --theme-brand-glow:    rgba(212, 163, 115, 0.25);
+  --theme-danger:        #e76f51;
+  --theme-danger-dim:    rgba(231, 111, 81, 0.14);
+  --theme-code-bg:       #161412;
+}
+
+/* ════════════════════ REFINED LIGHT THEMES ═════════════════════ */
+
+/* ── 8. Clean Studio ────────────────────────────────────────── */
+[data-theme="clean-studio"],
+[data-theme="paper"],
+[data-theme="cloud-ui"] {
+  color-scheme: light;
+  --theme-bg:            #f8fafc;
+  --theme-surface:       #ffffff;
+  --theme-surface-hi:    #f1f5f9;
+  --theme-border:        #cbd5e1;
+  --theme-border-hi:     #94a3b8;
+  --theme-accent:        #2563eb;
+  --theme-accent-bright: #1d4ed8;
+  --theme-on-accent:     #ffffff;
+  --theme-accent2:       #059669;
+  --theme-accent2-dim:   #d1fae5;
+  --theme-on-accent2:    #ffffff;
+  --theme-text:          #090d16;
+  --theme-text-muted:    #334155;
+  --theme-text-dim:      #475569;
+  --theme-brand:         #2563eb;
+  --theme-brand-glow:    rgba(37, 99, 235, 0.15);
+  --theme-danger:        #dc2626;
+  --theme-danger-dim:    #fee2e2;
+  --theme-code-bg:       #f1f5f9;
+}
+
+/* ── 9. Warm Editorial (Linen) ──────────────────────────────── */
+[data-theme="editorial-linen"],
+[data-theme="linen"],
+[data-theme="sandstorm"] {
+  color-scheme: light;
+  --theme-bg:            #faf7f2;
+  --theme-surface:       #ffffff;
+  --theme-surface-hi:    #f4eee3;
+  --theme-border:        #d6c8b6;
+  --theme-border-hi:     #b8a58f;
+  --theme-accent:        #c2410c;
+  --theme-accent-bright: #9a3412;
+  --theme-on-accent:     #ffffff;
+  --theme-accent2:       #d97706;
+  --theme-accent2-dim:   #fef3c7;
+  --theme-on-accent2:    #ffffff;
+  --theme-text:          #1c120c;
+  --theme-text-muted:    #4a3b2c;
+  --theme-text-dim:      #685542;
+  --theme-brand:         #c2410c;
+  --theme-brand-glow:    rgba(194, 65, 12, 0.15);
+  --theme-danger:        #dc2626;
+  --theme-danger-dim:    #fee2e2;
+  --theme-code-bg:       #f4eee3;
+}
+
+/* ── 10. Nordic Frost (Light) ───────────────────────────────── */
+[data-theme="nordic-frost"],
+[data-theme="glacier"] {
+  color-scheme: light;
+  --theme-bg:            #f1f5f9;
+  --theme-surface:       #ffffff;
+  --theme-surface-hi:    #e2e8f0;
+  --theme-border:        #b8c9d9;
+  --theme-border-hi:     #829ab1;
+  --theme-accent:        #0284c7;
+  --theme-accent-bright: #0369a1;
+  --theme-on-accent:     #ffffff;
+  --theme-accent2:       #0d9488;
+  --theme-accent2-dim:   #ccfbf1;
+  --theme-on-accent2:    #ffffff;
+  --theme-text:          #081726;
+  --theme-text-muted:    #243b53;
+  --theme-text-dim:      #486581;
+  --theme-brand:         #0284c7;
+  --theme-brand-glow:    rgba(2, 132, 199, 0.15);
+  --theme-danger:        #dc2626;
+  --theme-danger-dim:    #fee2e2;
+  --theme-code-bg:       #e2e8f0;
+}
+
+/* ── 11. Sage & Mint ────────────────────────────────────────── */
+[data-theme="sage-mint"],
+[data-theme="mint-fresh"] {
+  color-scheme: light;
+  --theme-bg:            #f2f6f4;
+  --theme-surface:       #ffffff;
+  --theme-surface-hi:    #e3ebe6;
+  --theme-border:        #b7cbbf;
+  --theme-border-hi:     #8ea797;
+  --theme-accent:        #059669;
+  --theme-accent-bright: #047857;
+  --theme-on-accent:     #ffffff;
+  --theme-accent2:       #10b981;
+  --theme-accent2-dim:   #d1fae5;
+  --theme-on-accent2:    #ffffff;
+  --theme-text:          #0a1c12;
+  --theme-text-muted:    #233d2f;
+  --theme-text-dim:      #446352;
+  --theme-brand:         #059669;
+  --theme-brand-glow:    rgba(5, 150, 105, 0.15);
+  --theme-danger:        #dc2626;
+  --theme-danger-dim:    #fee2e2;
+  --theme-code-bg:       #e3ebe6;
+}
+
+/* ── 12. Soft Lavender ──────────────────────────────────────── */
+[data-theme="soft-lavender"],
+[data-theme="lavender-mist"],
+[data-theme="sakura"] {
+  color-scheme: light;
+  --theme-bg:            #f5f3f9;
+  --theme-surface:       #ffffff;
+  --theme-surface-hi:    #eae5f5;
+  --theme-border:        #cbbede;
+  --theme-border-hi:     #9f8ec2;
+  --theme-accent:        #7c3aed;
+  --theme-accent-bright: #6d28d9;
+  --theme-on-accent:     #ffffff;
+  --theme-accent2:       #a855f7;
+  --theme-accent2-dim:   #ede9fe;
+  --theme-on-accent2:    #ffffff;
+  --theme-text:          #140b24;
+  --theme-text-muted:    #392a54;
+  --theme-text-dim:      #5b497a;
+  --theme-brand:         #7c3aed;
+  --theme-brand-glow:    rgba(124, 58, 237, 0.15);
+  --theme-danger:        #e11d48;
+  --theme-danger-dim:    #ffe4e6;
+  --theme-code-bg:       #eae5f5;
+}
+
+/* ════════════════════ FUNKY THEMES ═════════════════════════════ */
+
+/* ── 13. Cyberpunk Luxe ─────────────────────────────────────── */
+[data-theme="cyberpunk-luxe"],
+[data-theme="matrix"] {
+  color-scheme: dark;
+  --theme-bg:            #0a0b12;
+  --theme-surface:       #121422;
+  --theme-surface-hi:    #1b1e33;
+  --theme-border:        #2a2e4e;
+  --theme-border-hi:     #3e4472;
+  --theme-accent:        #00f0ff;
+  --theme-accent-bright: #54f5ff;
+  --theme-on-accent:     #040914;
+  --theme-accent2:       #ffaa00;
+  --theme-accent2-dim:   rgba(255, 170, 0, 0.12);
+  --theme-on-accent2:    #160f00;
+  --theme-text:          #f0f4ff;
+  --theme-text-muted:    #939cbd;
+  --theme-text-dim:      #60698c;
+  --theme-brand:         #00f0ff;
+  --theme-brand-glow:    rgba(0, 240, 255, 0.25);
+  --theme-danger:        #ff3366;
+  --theme-danger-dim:    rgba(255, 51, 102, 0.14);
+  --theme-code-bg:       #0e101a;
+}
+
+/* ── 14. Synthwave Sunset ───────────────────────────────────── */
+[data-theme="synthwave-sunset"],
+[data-theme="synthwave"],
+[data-theme="outrun"],
+[data-theme="vaporwave"] {
+  color-scheme: dark;
+  --theme-bg:            #0f081c;
+  --theme-surface:       #190e2e;
+  --theme-surface-hi:    #261646;
+  --theme-border:        #3c246b;
+  --theme-border-hi:     #563496;
+  --theme-accent:        #f43f5e;
+  --theme-accent-bright: #fb7185;
+  --theme-on-accent:     #ffffff;
+  --theme-accent2:       #8b5cf6;
+  --theme-accent2-dim:   rgba(139, 92, 246, 0.12);
+  --theme-on-accent2:    #ffffff;
+  --theme-text:          #fdf2f8;
+  --theme-text-muted:    #b59db8;
+  --theme-text-dim:      #796580;
+  --theme-brand:         #f43f5e;
+  --theme-brand-glow:    rgba(244, 63, 94, 0.25);
+  --theme-danger:        #ff2a6d;
+  --theme-danger-dim:    rgba(255, 42, 109, 0.14);
+  --theme-code-bg:       #140c26;
+}
+
+/* ── 15. Dracula Modern ─────────────────────────────────────── */
+[data-theme="dracula-modern"],
+[data-theme="dracula-pro"] {
+  color-scheme: dark;
+  --theme-bg:            #171724;
+  --theme-surface:       #202132;
+  --theme-surface-hi:    #2b2d42;
+  --theme-border:        #3a3d58;
+  --theme-border-hi:     #4e5275;
+  --theme-accent:        #bd93f9;
+  --theme-accent-bright: #d4b5fc;
+  --theme-on-accent:     #13121f;
+  --theme-accent2:       #50fa7b;
+  --theme-accent2-dim:   rgba(80, 250, 123, 0.12);
+  --theme-on-accent2:    #02200d;
+  --theme-text:          #f8f8f2;
+  --theme-text-muted:    #a6a9ca;
+  --theme-text-dim:      #717498;
+  --theme-brand:         #bd93f9;
+  --theme-brand-glow:    rgba(189, 147, 249, 0.25);
+  --theme-danger:        #ff5555;
+  --theme-danger-dim:    rgba(255, 85, 85, 0.14);
+  --theme-code-bg:       #1c1c2b;
+}
+
+/* ── 16. Tokyo Neon ─────────────────────────────────────────── */
+[data-theme="tokyo-neon"],
+[data-theme="rose-noir"],
+[data-theme="y2k-brat"] {
+  color-scheme: dark;
+  --theme-bg:            #080c14;
+  --theme-surface:       #101726;
+  --theme-surface-hi:    #182238;
+  --theme-border:        #253452;
+  --theme-border-hi:     #364c76;
+  --theme-accent:        #ff2a6d;
+  --theme-accent-bright: #ff6090;
+  --theme-on-accent:     #ffffff;
+  --theme-accent2:       #05d9e8;
+  --theme-accent2-dim:   rgba(5, 217, 232, 0.12);
+  --theme-on-accent2:    #011d20;
+  --theme-text:          #f0f6fc;
+  --theme-text-muted:    #90a4bf;
+  --theme-text-dim:      #5b708b;
+  --theme-brand:         #ff2a6d;
+  --theme-brand-glow:    rgba(255, 42, 109, 0.25);
+  --theme-danger:        #ff2a6d;
+  --theme-danger-dim:    rgba(255, 42, 109, 0.14);
+  --theme-code-bg:       #0c121e;
+}
+
+/* ════════════════════ UNIQUE THEMES ════════════════════════════ */
+
+/* ── 17. Abyssal Ocean ──────────────────────────────────────── */
+[data-theme="abyssal-ocean"],
+[data-theme="deep-sea"] {
+  color-scheme: dark;
+  --theme-bg:            #050c14;
+  --theme-surface:       #0b1726;
+  --theme-surface-hi:    #122339;
+  --theme-border:        #1c3552;
+  --theme-border-hi:     #284c73;
+  --theme-accent:        #00d2d3;
+  --theme-accent-bright: #48dbfb;
+  --theme-on-accent:     #02121c;
+  --theme-accent2:       #2e86de;
+  --theme-accent2-dim:   rgba(46, 134, 222, 0.12);
+  --theme-on-accent2:    #ffffff;
+  --theme-text:          #e3fafc;
+  --theme-text-muted:    #7da7c4;
+  --theme-text-dim:      #4d7490;
+  --theme-brand:         #00d2d3;
+  --theme-brand-glow:    rgba(0, 210, 211, 0.25);
+  --theme-danger:        #ff4757;
+  --theme-danger-dim:    rgba(255, 71, 87, 0.14);
+  --theme-code-bg:       #08121f;
+}
+
+/* ── 18. Royal Gold ─────────────────────────────────────────── */
+[data-theme="royal-gold"] {
+  color-scheme: dark;
+  --theme-bg:            #0e0d0c;
+  --theme-surface:       #171513;
+  --theme-surface-hi:    #23201c;
+  --theme-border:        #363129;
+  --theme-border-hi:     #4d463b;
+  --theme-accent:        #e5a93c;
+  --theme-accent-bright: #f5be58;
+  --theme-on-accent:     #140d02;
+  --theme-accent2:       #9b7a42;
+  --theme-accent2-dim:   rgba(229, 169, 60, 0.12);
+  --theme-on-accent2:    #ffffff;
+  --theme-text:          #fdfaf3;
+  --theme-text-muted:    #b5a997;
+  --theme-text-dim:      #7a7061;
+  --theme-brand:         #e5a93c;
+  --theme-brand-glow:    rgba(229, 169, 60, 0.25);
+  --theme-danger:        #e74c3c;
+  --theme-danger-dim:    rgba(231, 76, 60, 0.14);
+  --theme-code-bg:       #13110f;
+}
+
+/* ── 19. Aurora Borealis ────────────────────────────────────── */
+[data-theme="aurora"] {
+  color-scheme: dark;
+  --theme-bg:            #050e14;
+  --theme-surface:       #0b1a24;
+  --theme-surface-hi:    #122634;
+  --theme-border:        #1b3a4d;
+  --theme-border-hi:     #27526c;
+  --theme-accent:        #2dd4bf;
+  --theme-accent-bright: #5eead4;
+  --theme-on-accent:     #021411;
+  --theme-accent2:       #818cf8;
+  --theme-accent2-dim:   rgba(129, 140, 248, 0.12);
+  --theme-on-accent2:    #ffffff;
+  --theme-text:          #f0fdf9;
+  --theme-text-muted:    #7fa7a2;
+  --theme-text-dim:      #4e7570;
+  --theme-brand:         #2dd4bf;
+  --theme-brand-glow:    rgba(45, 212, 191, 0.25);
+  --theme-danger:        #f43f5e;
+  --theme-danger-dim:    rgba(244, 63, 94, 0.14);
+  --theme-code-bg:       #08151f;
+}
+
+/* ── 20. Cinematic Noir ─────────────────────────────────────── */
+[data-theme="noir-film"],
+[data-theme="carbon-red"] {
+  color-scheme: dark;
+  --theme-bg:            #0e0e10;
+  --theme-surface:       #17171a;
+  --theme-surface-hi:    #222227;
+  --theme-border:        #32323a;
+  --theme-border-hi:     #474752;
+  --theme-accent:        #e4e4e7;
+  --theme-accent-bright: #ffffff;
+  --theme-on-accent:     #09090b;
+  --theme-accent2:       #a1a1aa;
+  --theme-accent2-dim:   rgba(161, 161, 170, 0.12);
+  --theme-on-accent2:    #09090b;
+  --theme-text:          #f4f4f5;
+  --theme-text-muted:    #a1a1aa;
+  --theme-text-dim:      #71717a;
+  --theme-brand:         #e4e4e7;
+  --theme-brand-glow:    rgba(228, 228, 231, 0.20);
+  --theme-danger:        #ef4444;
+  --theme-danger-dim:    rgba(239, 68, 68, 0.14);
+  --theme-code-bg:       #131316;
+}
+
+/* ════════════════════ UNIVERSAL THEME UTILITIES ════════════════ */
+/* Ensures border colors ALWAYS resolve to the active theme tokens
+   and prevents Tailwind directional border collision */
+@layer utilities {
+  .border-t-border {
+    border-color: var(--theme-border) !important;
+  }
+  .border-t-border-hi {
+    border-color: var(--theme-border-hi) !important;
+  }
+  .border-t-accent {
+    border-color: var(--theme-accent) !important;
+  }
+  .border-t-accent2 {
+    border-color: var(--theme-accent2) !important;
+  }
+  .hover\:border-t-accent:hover {
+    border-color: var(--theme-accent) !important;
+  }
+  .hover\:border-t-accent2:hover {
+    border-color: var(--theme-accent2) !important;
+  }
+  .hover\:border-t-border-hi:hover {
+    border-color: var(--theme-border-hi) !important;
+  }
+  .border-t-t-border {
+    border-top-color: var(--theme-border) !important;
+  }
+  .border-b-t-border {
+    border-bottom-color: var(--theme-border) !important;
+  }
+  .text-t-on-accent {
+    color: var(--theme-on-accent) !important;
+  }
+  .text-t-on-accent2 {
+    color: var(--theme-on-accent2) !important;
+  }
+}
+
+/* Global document defaults scoped to active theme */
+html, body {
+  background-color: var(--theme-bg);
+  color: var(--theme-text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  background-color: #000000;
-  color: #ffffff;
   overflow-x: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* Monospace font utility for PowerShell-like cues */
@@ -32,46 +578,31 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #05070a;
+  background: var(--theme-bg);
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: var(--theme-border);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #0078d4;
-}
-
-/* Console Panels & Surface Cards */
-.console-panel {
-  background: #090c13;
-  border: 1px solid #1e2638;
-}
-
-.console-card {
-  background: #0d121c;
-  border: 1px solid #1c2436;
-}
-
-.console-card:hover {
-  border-color: #0078d4;
+  background: var(--theme-accent);
 }
 
 /* Markdown preview styling in case study preview */
 .preview-prose h1 {
   font-size: 1.65rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--theme-text);
   margin-top: 1.25rem;
   margin-bottom: 0.75rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--theme-border);
 }
 
 .preview-prose h2 {
   font-size: 1.3rem;
   font-weight: 600;
-  color: #1e90ff;
+  color: var(--theme-accent-bright);
   margin-top: 1.25rem;
   margin-bottom: 0.5rem;
 }
@@ -79,7 +610,7 @@ body {
 .preview-prose h3 {
   font-size: 1.1rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--theme-text);
   margin-top: 1rem;
   margin-bottom: 0.4rem;
 }
@@ -87,21 +618,21 @@ body {
 .preview-prose p {
   margin-bottom: 0.85rem;
   line-height: 1.7;
-  color: #cbd5e1;
+  color: var(--theme-text-muted);
 }
 
 .preview-prose ul {
   list-style-type: disc;
   padding-left: 1.4rem;
   margin-bottom: 0.85rem;
-  color: #cbd5e1;
+  color: var(--theme-text-muted);
 }
 
 .preview-prose ol {
   list-style-type: decimal;
   padding-left: 1.4rem;
   margin-bottom: 0.85rem;
-  color: #cbd5e1;
+  color: var(--theme-text-muted);
 }
 
 .preview-prose li {
@@ -109,20 +640,20 @@ body {
 }
 
 .preview-prose blockquote {
-  border-left: 4px solid #0078d4;
+  border-left: 4px solid var(--theme-accent);
   padding-left: 1rem;
   margin: 1rem 0;
-  color: #94a3b8;
+  color: var(--theme-text-muted);
   font-style: italic;
-  background: rgba(0, 120, 212, 0.08);
+  background: rgba(37, 99, 235, 0.08);
   padding: 0.75rem 1rem;
   border-radius: 0 0.25rem 0.25rem 0;
 }
 
 .preview-prose code {
-  background-color: #0b111a;
-  color: #10b981;
-  border: 1px solid #1e293b;
+  background-color: var(--theme-surface-hi);
+  color: var(--theme-accent2);
+  border: 1px solid var(--theme-border);
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
   font-size: 0.875em;
@@ -130,8 +661,8 @@ body {
 }
 
 .preview-prose pre {
-  background-color: #05080f;
-  border: 1px solid #1e293b;
+  background-color: var(--theme-code-bg);
+  border: 1px solid var(--theme-border);
   border-radius: 6px;
   padding: 1rem;
   overflow-x: auto;
@@ -142,15 +673,15 @@ body {
   background-color: transparent;
   border: none;
   padding: 0;
-  color: #f1f5f9;
+  color: var(--theme-text);
 }
 
 .preview-prose a {
-  color: #1e90ff;
+  color: var(--theme-accent-bright);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
 .preview-prose a:hover {
-  color: #60a5fa;
+  color: var(--theme-accent);
 }
