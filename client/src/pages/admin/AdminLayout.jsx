@@ -17,7 +17,6 @@ import {
   X,
   Plus,
   ChevronRight,
-  Terminal,
   Palette,
   Check,
   Boxes,
@@ -63,6 +62,8 @@ export default function AdminLayout() {
     if (path.includes('/admin/education')) return 'admin > education';
     if (path.includes('/admin/certifications')) return 'admin > certifications';
     if (path.includes('/admin/resume')) return 'admin > resume hub';
+    if (path.includes('/admin/apps/')) return 'admin > apps > configuration';
+    if (path.includes('/admin/apps')) return 'admin > apps & views';
     return 'admin > console';
   };
 
@@ -83,7 +84,7 @@ export default function AdminLayout() {
 
       {/* Sidebar Navigation */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 flex flex-col justify-between transition-transform duration-200 ease-in-out md:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-64 flex flex-col justify-between shadow-xl transition-transform duration-200 ease-in-out md:translate-x-0 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{
@@ -114,15 +115,16 @@ export default function AdminLayout() {
               </div>
               <div>
                 <span className="font-bold text-sm tracking-tight block" style={{ color: 'var(--theme-text)' }}>
-                  Admin Panel CMS
+                  Portfolio Control
                 </span>
                 <span className="text-[10px] font-mono tracking-wider" style={{ color: 'var(--theme-accent2)' }}>
-                  v2.0 · PowerShell Active
+                  ADMIN WORKSPACE
                 </span>
               </div>
             </Link>
 
             <button
+              aria-label="Close navigation"
               onClick={() => setMobileMenuOpen(false)}
               className="p-1 rounded md:hidden"
               style={{ color: 'var(--theme-text-muted)' }}
@@ -134,7 +136,7 @@ export default function AdminLayout() {
           {/* Navigation Links */}
           <div className="p-3 space-y-1 flex-1 overflow-y-auto">
             <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest" style={{ color: 'var(--theme-text-dim)' }}>
-              System Modules
+              Workspace
             </div>
             {navLinks.map(({ to, label, icon: Icon, exact }) => {
               const active = exact
@@ -142,19 +144,23 @@ export default function AdminLayout() {
                 : location.pathname.startsWith(to);
 
               return (
+                <div key={to}>
+                {to === '/admin/apps' && <div className="px-3 pb-1 pt-4 text-[10px] font-mono uppercase tracking-widest" style={{ color: 'var(--theme-text-dim)' }}>Developer tools</div>}
                 <Link
-                  key={to}
                   to={to}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-3 py-2 rounded text-xs font-medium transition-all group"
+                  aria-current={active ? 'page' : undefined}
+                  className="flex items-center justify-between border-l-2 px-3 py-2.5 rounded-r text-xs font-medium transition-all group"
                   style={
                     active
                       ? {
-                          backgroundColor: 'var(--theme-accent)',
-                          color: 'var(--theme-on-accent)',
+                          backgroundColor: 'color-mix(in srgb, var(--theme-accent) 14%, transparent)',
+                          borderColor: 'var(--theme-accent)',
+                          color: 'var(--theme-text)',
                           fontWeight: 600,
                         }
                       : {
+                          borderColor: 'transparent',
                           color: 'var(--theme-text-muted)',
                         }
                   }
@@ -174,12 +180,13 @@ export default function AdminLayout() {
                   <div className="flex items-center gap-2.5">
                     <Icon
                       size={16}
-                      style={{ color: active ? 'var(--theme-on-accent)' : 'var(--theme-text-dim)' }}
+                      style={{ color: active ? 'var(--theme-accent)' : 'var(--theme-text-dim)' }}
                     />
                     <span>{label}</span>
                   </div>
-                  {active && <ChevronRight size={12} style={{ color: 'var(--theme-on-accent)', opacity: 0.85 }} />}
+                  {active && <ChevronRight size={12} style={{ color: 'var(--theme-accent)', opacity: 0.85 }} />}
                 </Link>
+                </div>
               );
             })}
           </div>
@@ -199,7 +206,7 @@ export default function AdminLayout() {
                   style={{ backgroundColor: 'var(--theme-accent2)', boxShadow: '0 0 6px var(--theme-accent2)' }}
                 />
                 <span className="text-[11px] font-mono" style={{ color: 'var(--theme-accent2)' }}>
-                  System Online
+                  Workspace ready
                 </span>
               </div>
               <span
@@ -210,7 +217,7 @@ export default function AdminLayout() {
                   border: '1px solid var(--theme-border-hi)',
                 }}
               >
-                PORT: 5000
+                ADMIN
               </span>
             </div>
 
@@ -395,6 +402,7 @@ export default function AdminLayout() {
         >
           <div className="flex items-center gap-3">
             <button
+              aria-label="Open navigation"
               onClick={() => setMobileMenuOpen(true)}
               className="p-1.5 rounded md:hidden"
               style={{
@@ -406,9 +414,10 @@ export default function AdminLayout() {
               <Menu size={16} />
             </button>
             <div className="flex items-center gap-2 font-mono text-xs" style={{ color: 'var(--theme-text-muted)' }}>
-              <Terminal size={14} style={{ color: 'var(--theme-accent2)' }} />
-              <span style={{ color: 'var(--theme-accent)' }}>PS C:\admin-panel-cms&gt;</span>
-              <span style={{ color: 'var(--theme-text)' }}>{getBreadcrumb()}</span>
+              <span className="hidden h-2 w-2 rounded-full sm:block" style={{ backgroundColor: 'var(--theme-accent2)' }} />
+              <span className="flex items-center gap-1.5" style={{ color: 'var(--theme-text)' }}>
+                {getBreadcrumb().split(' > ').map((part, index, parts) => <React.Fragment key={`${part}-${index}`}>{index > 0 && <ChevronRight size={11} style={{ color: 'var(--theme-text-dim)' }} />}<span className={index === parts.length - 1 ? 'font-semibold' : ''}>{part}</span></React.Fragment>)}
+              </span>
             </div>
           </div>
 
@@ -541,7 +550,7 @@ export default function AdminLayout() {
         </header>
 
         {/* Main Body */}
-        <main className="flex-1 p-4 sm:p-8 overflow-y-auto" style={{ backgroundColor: 'var(--theme-bg)' }}>
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto" style={{ backgroundColor: 'var(--theme-bg)', backgroundImage: 'radial-gradient(ellipse at 52% -20%, color-mix(in srgb, var(--theme-accent) 7%, transparent), transparent 52%)' }}>
           <Outlet />
         </main>
       </div>
