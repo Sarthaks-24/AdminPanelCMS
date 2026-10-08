@@ -5,7 +5,7 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => localStorage.getItem('admin_token'));
-  const [admin, setAdmin] = useState(null);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -13,9 +13,11 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           const res = await api.get('/auth/verify');
-          setAdmin(res.data.admin);
+          setUser(res.data.user || res.data.admin);
         } catch {
-          logout();
+          localStorage.removeItem('admin_token');
+          setToken(null);
+          setUser(null);
         }
       }
       setLoading(false);
@@ -25,24 +27,26 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
-    const { token: newToken, admin: adminData } = res.data;
+    const { token: newToken } = res.data;
+    const userData = res.data.user || res.data.admin;
     localStorage.setItem('admin_token', newToken);
     setToken(newToken);
-    setAdmin(adminData);
+    setUser(userData);
     return res.data;
   };
 
   const logout = () => {
     localStorage.removeItem('admin_token');
     setToken(null);
-    setAdmin(null);
+    setUser(null);
   };
 
   return (
     <AuthContext.Provider
       value={{
         token,
-        admin,
+        user,
+        admin: user,
         loading,
         login,
         logout,

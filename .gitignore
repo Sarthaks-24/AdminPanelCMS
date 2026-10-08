@@ -66,6 +66,7 @@ Thumbs.db
 # --------------------------------------------------
 # Local Cache, Scratch & Private Archives
 # --------------------------------------------------
+/backup/
 cache/
 cache
 **/cache/
@@ -77,6 +78,7 @@ cache
 # --------------------------------------------------
 # Internal Architecture & Roadmap Plans
 # --------------------------------------------------
+/docs/roadmap/
 Plans/
 Plans
 **/Plans/

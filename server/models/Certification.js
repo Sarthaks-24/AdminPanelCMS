@@ -1,15 +1,18 @@
 const mongoose = require('mongoose');
+const { ownerGuardPlugin } = require('../plugins/ownerGuard');
 
 const CertificationSchema = new mongoose.Schema(
   {
     title: {
       type: String,
       required: [true, 'Certification title is required'],
+      maxlength: 120,
       trim: true,
     },
     issuer: {
       type: String,
       required: [true, 'Issuing organization is required'],
+      maxlength: 120,
       trim: true,
     },
     issueDate: {
@@ -37,12 +40,17 @@ const CertificationSchema = new mongoose.Schema(
     order: {
       type: Number,
       default: 0,
-      index: true,
     },
+    featured: { type: Boolean, default: false },
+    owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true, immutable: true },
+    visibility: { type: String, enum: ['draft', 'published'], default: 'draft' },
   },
   {
     timestamps: true,
   }
 );
+
+CertificationSchema.index({ owner: 1, issueDate: -1 });
+CertificationSchema.plugin(ownerGuardPlugin, { modelName: 'Certification' });
 
 module.exports = mongoose.model('Certification', CertificationSchema);

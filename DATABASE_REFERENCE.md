@@ -63,12 +63,14 @@
 
 ## 3. Database Models & Schema Specifications
 
+All content collections are tenant-scoped. `Profile`, `Resume`, and each collection record require an immutable `owner: ObjectId` reference to `User`; collection records also include `visibility: 'draft'|'published'`. Profile and Resume have unique `{ owner: 1 }` indexes. Projects use unique `{ owner: 1, slug: 1 }`; Skills use unique, case-insensitive `{ owner: 1, name: 1 }`. Other ordering and date indexes are owner-prefixed. `ownerGuard` rejects unscoped reads and writes.
+
 The database contains 8 content collections plus the admin authentication collection in `server/models/`:
 
 ---
 
 ### 3.1. Profile Model (`server/models/Profile.js` -> `profiles`)
-*Pattern: Singleton (Exactly 1 active document)*  
+*Pattern: Tenant singleton (At most 1 active document per owner)*
 Manages personal identity, availability telemetry, contact coordinates, terminal system customization, and highlight metrics.
 
 ```javascript
@@ -76,7 +78,7 @@ Manages personal identity, availability telemetry, contact coordinates, terminal
   name: String,               // Required, trim, default: 'Portfolio Administrator'
   initials: String,           // Monogram, default: 'PA'
   headline: String,           // Professional headline, default: 'Full Stack Engineer · Systems & Architecture'
-  shortBio: String,           // Required, max 300 chars, elevator bio
+  shortBio: String,           // Required, max 500 chars, elevator bio
   aboutMarkdown: String,      // Extended markdown case history and background
   email: String,              // Required, lowercase, trim, default: 'admin@example.com'
   phone: String,              // Phone number: ''
@@ -130,7 +132,7 @@ Manages all external social coordinates, developer profiles, and external links.
 
 ```javascript
 {
-  name: String,               // Required, unique: 'React', 'TypeScript', 'Node.js', 'Redis', 'Docker', 'Kubernetes'
+  name: String,               // Required, unique per owner (case-insensitive)
   category: String,           // Required, enum: [
                               //   'Languages',
                               //   'Frontend',
@@ -157,10 +159,10 @@ Engineering case studies, technical architecture deep dives, and systems impleme
 ```javascript
 {
   title: String,             // Required: Project title
-  slug: String,              // Required, unique, lowercase, trim: 'real-time-order-flow-dashboard'
+  slug: String,              // Required, unique per owner, lowercase, trim
   mode: String,              // Required, enum: ['solo', 'team']. Default: 'solo'
   role: String,              // Engineering role, e.g. 'Lead Full Stack Engineer'
-  shortDescription: String,  // Required: Max 260 chars
+  shortDescription: String,  // Required: Max 500 chars
   keyMetric: String,         // Performance highlight: 'Latency: <12ms (WebSocket)', '99.98% Uptime'
   highlights: [String],      // Array of key technical accomplishments
   caseStudyBody: String,     // Required: Full Markdown case study architecture body
@@ -251,7 +253,7 @@ Vendor certifications, licenses, and competitive awards.
 ---
 
 ### 3.8. Resume Document Model (`server/models/Resume.js` -> `resumes`)
-*Pattern: Singleton (Single source of truth for master resume file & link)*
+*Pattern: Tenant singleton (At most 1 master resume entry per owner)*
 
 ```javascript
 {
@@ -268,13 +270,17 @@ Vendor certifications, licenses, and competitive awards.
 
 ---
 
-### 3.9. Admin User Model (`server/models/Admin.js` -> `admins`)
-Authentication credentials for the CMS dashboard.
+### 3.9. User Model (`server/models/User.js` -> `users`)
+Authentication credentials and session revocation state for each CMS account.
 
 ```javascript
 {
   email: String,             // Required, unique, lowercased, trim
-  password: String,          // Hashed with bcrypt (salt rounds: 10)
+  passwordHash: String,      // bcrypt hash; never returned to clients
+  emailVerifiedAt: Date|null,
+  tokenVersion: Number,      // JWT sessions must match the current version
+  status: 'active'|'deleted',
+  encDEK: String|null,       // Reserved for field encryption
   createdAt: Date,
   updatedAt: Date
 }
@@ -301,6 +307,8 @@ Authentication credentials for the CMS dashboard.
 | `GET` | `/certifications`| None | Array of certifications & licenses | Verified licenses & cloud badges |
 | `GET` | `/resume` | None | Resume object `{ resumeUrl, driveUrl, ... }` | Master resume link & download launcher |
 | `GET` | `/fs` | None | Complete virtual filesystem tree | Hierarchical content tree / file explorer |
+
+Anonymous legacy reads resolve the configured `ADMIN_EMAIL` user and return only published collection records. Supplying a dashboard Bearer token scopes reads to that account and includes its drafts.
 
 ---
 
@@ -439,10 +447,10 @@ npm run setup
 - Leaves existing content completely intact without adding mock data.
 
 ### 6.2. Clean Slate Reset (`npm run setup:fresh`)
-Wipes all content collections completely clean while preserving admin credentials:
+After independently reviewing the target and taking a backup, pass its exact database name to confirm the destructive operation. This drops the legacy and content collections (and their old global indexes), then recreates the configured primary account:
 ```bash
 cd server
-npm run setup:fresh
+npm run setup:fresh -- --confirm Portfolio_db
 ```
 
 ### 6.3. Seeding Sample Fixtures (`npm run seed`)

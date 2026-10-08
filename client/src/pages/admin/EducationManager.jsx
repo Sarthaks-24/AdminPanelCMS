@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
   GraduationCap,
   Plus,
@@ -193,6 +194,7 @@ export default function EducationManager() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <VisibilityToggle endpoint="/education" item={item} onChange={(updated) => setItems((prev) => prev.map((x) => x._id === updated._id ? updated : x))} />
                   <span className="px-2.5 py-1 rounded bg-t-bg border border-t-border-hi text-xs font-mono text-t-muted">
                     {item.period}
                   </span>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
+import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
   Plus,
   Edit2,
@@ -243,6 +244,7 @@ export default function ProjectList() {
               {/* Card Footer Actions */}
               <div className="p-3 border-t border-t-border bg-t-bg flex items-center justify-between">
                 <div className="flex items-center gap-2 text-t-dim">
+                  <VisibilityToggle endpoint="/projects" item={p} onChange={(updated) => setProjects((prev) => prev.map((x) => x._id === updated._id ? updated : x))} />
                   {p.links?.github && (
                     <a
                       href={p.links.github}

@@ -112,8 +112,8 @@ AdminPanelManager/
 │   ├── .env.example        # Backend environment template
 │   ├── config/db.js        # Mongoose connection with error handling
 │   ├── controllers/        # Controllers for each content domain & auth
-│   ├── middleware/         # requireAdmin JWT check & global error handler
-│   ├── models/             # 9 Mongoose schemas with indexing
+│   ├── middleware/         # Session auth, input sanitization & global error handler
+│   ├── models/             # User and owner-scoped content schemas
 │   ├── routes/             # Express routers mounted on /api/*
 │   ├── scripts/            # Database initialization, seeding, and admin tools
 │   └── server.js           # Server entry point & CORS configuration
@@ -204,7 +204,7 @@ Navigate to `http://localhost:5173/admin/login` and log in with your configured 
 | `npm run dev` | `nodemon server.js` | Starts API server with hot reloading |
 | `npm start` | `node server.js` | Production server startup |
 | `npm run setup` | `node scripts/setup-db.js` | Builds DB indexes & upserts admin account |
-| `npm run setup:fresh` | `node scripts/setup-db.js --fresh` | Drops collections, rebuilds indexes & sets admin |
+| `npm run setup:fresh -- --confirm <dbname>` | `node scripts/setup-db.js --fresh --confirm <dbname>` | Drops legacy/content collections, rebuilds indexes & configures the primary user |
 | `npm run seed` | `node scripts/seed.js` | Populates database with structured initial content |
 | `npm run admin` | `node scripts/set-admin.js` | Updates admin credentials from `.env` |
 | `npm run resume` | `node scripts/update-resume.js` | Updates resume URL directly from command line |
@@ -253,6 +253,10 @@ For full endpoint definitions and schema payloads, see [DATABASE_REFERENCE.md](.
 
 This repository adheres to strict sanitization and security protocols:
 - Never commit `.env` or `atlas-credentials.env` files to git.
-- Passwords are encrypted with `bcrypt` (10 rounds) before persistence.
+- Passwords are hashed with `bcrypt` (10 rounds) before persistence.
 - JWT tokens expire in 7 days and must be signed with a cryptographically secure 256-bit secret.
 - All internal development specifications, planning roadmaps, and scratch archives are isolated in `cache/` and excluded via `.gitignore`.
+
+### Tenant isolation
+
+Each dashboard account owns its profile, resume, and content records. Dashboard writes and authenticated reads use the verified session owner; anonymous legacy portfolio reads are limited to published content for the configured `ADMIN_EMAIL` account. Do not deploy this tenancy migration by itself: the coordinated public API cutover is planned for Phase 4.

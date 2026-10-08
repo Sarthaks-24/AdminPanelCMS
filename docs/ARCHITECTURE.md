@@ -46,12 +46,14 @@ The system functions as a standalone, authoritative upstream content management 
 
 ## 2. Core Data Modeling Patterns
 
-The data layer in `server/models/` uses three design patterns optimized for a single administrator managing structured professional content:
+The data layer in `server/models/` uses owner-scoped schemas so multiple accounts can manage isolated professional content:
+
+Every content document carries a required, immutable `owner` reference to `User`. A per-schema `ownerGuard` rejects queries without a concrete owner ObjectId, requires aggregation pipelines to begin with an owner match, and validates inserts. Controllers obtain the owner from the verified dashboard session. Anonymous legacy reads resolve only the configured primary account and filter collection content to `visibility: 'published'` until the coordinated Phase 4 API cutover.
 
 ### 2.1. Singleton Pattern (`Profile`, `Resume`)
 Certain domains represent unique, singular entities:
-- **`Profile` (`server/models/Profile.js`):** Exactly one document exists in the `profiles` collection. If no document exists, the system automatically instantiates a default document via `Profile.findOneAndUpdate({}, payload, { upsert: true, new: true })`.
-- **`Resume` (`server/models/Resume.js`):** Exactly one master resume entry exists with direct URL, filename, and version string. It provides a backward-compatible virtual field `driveUrl` that maps transparently to `resumeUrl`.
+- **`Profile` (`server/models/Profile.js`):** At most one document exists per owner, enforced by a unique `{ owner: 1 }` index. Updates use an owner-filtered upsert.
+- **`Resume` (`server/models/Resume.js`):** At most one master resume entry exists per owner, also enforced by a unique `{ owner: 1 }` index. It provides a backward-compatible virtual field `driveUrl` that maps transparently to `resumeUrl`.
 
 ### 2.2. Sequenced / Ordered Collection Pattern (`Social`, `Project`, `Experience`, `Education`)
 Collections that display chronologically or by personal preference maintain an integer `order` field:
@@ -71,7 +73,7 @@ The `Skill` collection groups technical competencies under a strict enum of 7 in
 6. `Hardware & Electronics`
 7. `Tools & Frameworks`
 
-- Each skill enforces a case-insensitive `unique` index on `name`.
+- Each skill enforces a case-insensitive unique index on `{ owner, name }`.
 - An aggregated query endpoint (`GET /api/skills/categories`) uses MongoDB's aggregation pipeline (`$group`) to return skills pre-grouped by category in a single round-trip.
 
 ---
@@ -211,8 +213,8 @@ By decoupling the consumer layer behind an explicit schema and API contract:
 └─────────────────┘
 ```
 
-1. **Password Hashing:** Passwords are never stored in plaintext. `server/models/Admin.js` implements a Mongoose `pre('save')` hook that applies `bcrypt.hash(password, 10)` before storage.
-2. **Session Verification:** `server/middleware/requireAdmin.js` validates the signature of incoming Bearer tokens using `jwt.verify(token, process.env.JWT_SECRET)`.
+1. **Password Hashing:** Passwords are never stored in plaintext. `server/models/User.js` stores `passwordHash`; setup scripts hash passwords with bcrypt before persistence.
+2. **Session Verification:** `server/middleware/requireSession.js` validates JWT `{ sub, tv }` claims, loads the active user, and rejects stale token versions.
 3. **Automated Session Hydration:** On initial load, `client/src/context/AuthContext.jsx` issues a `GET /api/auth/verify` request. If valid, the session is preserved; if expired or manipulated, the token is purged and the user is redirected to `/admin/login`.
 4. **CORS Whitelisting:** `server/server.js` validates `Origin` headers against dynamic localhost expressions in development and `process.env.CLIENT_ORIGIN` in production.
 

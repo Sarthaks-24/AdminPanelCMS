@@ -1,5 +1,7 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const User = require('../models/User');
 const Profile = require('../models/Profile');
 const Social = require('../models/Social');
 const Skill = require('../models/Skill');
@@ -8,7 +10,7 @@ const Experience = require('../models/Experience');
 const Education = require('../models/Education');
 const Certification = require('../models/Certification');
 const Resume = require('../models/Resume');
-const Admin = require('../models/Admin');
+const contentChanged = require('../lib/onContentChanged');
 
 const seedData = {
   profile: {
@@ -248,38 +250,55 @@ async function runSeed() {
     await mongoose.connect(mongoUri);
     console.log(`[Seed] Connected to database: ${mongoose.connection.name}`);
 
+    const email = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+    const password = process.env.ADMIN_PASSWORD || '';
+    if (!email || !password) throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be configured before seeding.');
+    const passwordHash = await bcrypt.hash(password, 10);
+    let user = await User.findOne({ email });
+    if (user) {
+      user.passwordHash = passwordHash;
+      user.emailVerifiedAt = new Date();
+      user.status = 'active';
+      user.tokenVersion += 1;
+      await user.save();
+    } else {
+      user = await User.create({ email, passwordHash, emailVerifiedAt: new Date(), status: 'active', tokenVersion: 0 });
+    }
+    const owner = user._id;
+
     // Clean and seed collections
     console.log('[Seed] Seeding Profile...');
-    await Profile.deleteMany({});
-    await Profile.create(seedData.profile);
+    await Profile.deleteMany({ owner });
+    await Profile.create({ ...seedData.profile, owner });
 
     console.log('[Seed] Seeding Social Links...');
-    await Social.deleteMany({});
-    await Social.insertMany(seedData.socials);
+    await Social.deleteMany({ owner });
+    await Social.insertMany(seedData.socials.map((item) => ({ ...item, owner, visibility: 'published' })));
 
     console.log('[Seed] Seeding Skills Matrix...');
-    await Skill.deleteMany({});
-    await Skill.insertMany(seedData.skills);
+    await Skill.deleteMany({ owner });
+    await Skill.insertMany(seedData.skills.map((item) => ({ ...item, owner, visibility: 'published' })));
 
     console.log('[Seed] Seeding Projects...');
-    await Project.deleteMany({});
-    await Project.insertMany(seedData.projects);
+    await Project.deleteMany({ owner });
+    await Project.insertMany(seedData.projects.map((item) => ({ ...item, owner, visibility: 'published' })));
 
     console.log('[Seed] Seeding Experience...');
-    await Experience.deleteMany({});
-    await Experience.insertMany(seedData.experience);
+    await Experience.deleteMany({ owner });
+    await Experience.insertMany(seedData.experience.map((item) => ({ ...item, owner, visibility: 'published' })));
 
     console.log('[Seed] Seeding Education...');
-    await Education.deleteMany({});
-    await Education.insertMany(seedData.education);
+    await Education.deleteMany({ owner });
+    await Education.insertMany(seedData.education.map((item) => ({ ...item, owner, visibility: 'published' })));
 
     console.log('[Seed] Seeding Certifications...');
-    await Certification.deleteMany({});
-    await Certification.insertMany(seedData.certifications);
+    await Certification.deleteMany({ owner });
+    await Certification.insertMany(seedData.certifications.map((item) => ({ ...item, owner, visibility: 'published' })));
 
     console.log('[Seed] Seeding Resume document...');
-    await Resume.deleteMany({});
-    await Resume.create(seedData.resume);
+    await Resume.deleteMany({ owner });
+    await Resume.create({ ...seedData.resume, owner });
+    await contentChanged.onContentChanged(owner);
 
     console.log('\n======================================================');
     console.log('   DATABASE SEED COMPLETED SUCCESSFULLY (8 Collections) ');

@@ -4,6 +4,7 @@ const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
       autoIndex: true,
+      maxPoolSize: 10,
     });
     console.log(`[MongoDB] Connected: ${conn.connection.host}`);
   } catch (error) {

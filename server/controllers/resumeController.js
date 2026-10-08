@@ -1,65 +1,42 @@
 const Resume = require('../models/Resume');
+const pickFields = require('../lib/pickFields');
+const { WRITABLE_FIELDS } = require('../lib/modelConstants');
+const ownerForRequest = require('../lib/ownerForRequest');
+const upsertSingleton = require('../lib/upsertSingleton');
+const contentChanged = require('../lib/onContentChanged');
 
-// @desc    Get the resume link entry
-// @route   GET /api/resume
-// @access  Public
-const getResume = async (req, res, next) => {
+async function getResume(req, res, next) {
   try {
-    const resume = await Resume.findOne();
-    if (!resume) {
-      return res.status(404).json({ success: false, message: 'Resume entry not found' });
-    }
-    res.json(resume);
-  } catch (error) {
-    next(error);
-  }
-};
+    const owner = await ownerForRequest(req);
+    if (!owner) return res.status(404).json({ success: false, message: 'Resume entry not found' });
+    const query = Resume.findOne({ owner });
+    if (!req.userId) query.select('-owner');
+    const resume = await query;
+    return resume ? res.json(resume) : res.status(404).json({ success: false, message: 'Resume entry not found' });
+  } catch (error) { return next(error); }
+}
 
-// @desc    Update or upsert the single resume link entry
-// @route   PUT /api/resume
-// @access  Protected (Admin)
-const updateResume = async (req, res, next) => {
+async function downloadResume(req, res, next) {
   try {
-    const { resumeUrl, driveUrl, fileName, version, summaryText } = req.body;
-    const targetUrl = (resumeUrl || driveUrl || '').trim();
+    const owner = await ownerForRequest(req);
+    if (!owner) return res.status(404).json({ success: false, message: 'Resume entry not found' });
+    const resume = await Resume.findOne({ owner }).select('resumeUrl');
+    if (!resume?.resumeUrl) return res.status(404).json({ success: false, message: 'Resume entry not found' });
+    return res.redirect(302, resume.resumeUrl);
+  } catch (error) { return next(error); }
+}
 
-    if (!targetUrl) {
-      return res.status(400).json({
-        success: false,
-        message: 'resumeUrl or driveUrl is required',
-      });
-    }
+async function updateResume(req, res, next) {
+  try {
+    const data = pickFields(req.body, WRITABLE_FIELDS.Resume);
+    data.resumeUrl = String(data.resumeUrl || data.driveUrl || '').trim();
+    if (!data.resumeUrl) return res.status(400).json({ success: false, message: 'resumeUrl or driveUrl is required' });
+    delete data.driveUrl;
+    data.lastUpdated = new Date();
+    const resume = await upsertSingleton(Resume, req.userId, data);
+    await contentChanged.onContentChanged(req.userId);
+    return res.json(resume);
+  } catch (error) { return next(error); }
+}
 
-    let resume = await Resume.findOne();
-    if (resume) {
-      resume.resumeUrl = targetUrl;
-      if (fileName !== undefined) resume.fileName = fileName.trim();
-      if (version !== undefined) resume.version = version.trim();
-      if (summaryText !== undefined) resume.summaryText = summaryText.trim();
-      resume.lastUpdated = new Date();
-      await resume.save();
-    } else {
-      resume = await Resume.create({
-        resumeUrl: targetUrl,
-        fileName: fileName ? fileName.trim() : 'Resume_Master.pdf',
-        version: version ? version.trim() : 'v2026.09',
-        summaryText: summaryText
-          ? summaryText.trim()
-          : 'Full Stack Engineer with expertise in real-time WebSockets, microservices, and electronics debugging.',
-        lastUpdated: new Date(),
-      });
-    }
-
-    // Ensure singleton: remove duplicate entries if any
-    await Resume.deleteMany({ _id: { $ne: resume._id } });
-
-    res.json(resume);
-  } catch (error) {
-    next(error);
-  }
-};
-
-module.exports = {
-  getResume,
-  updateResume,
-};
+module.exports = { getResume, downloadResume, updateResume };

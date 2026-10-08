@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const errorHandler = require('./middleware/errorHandler');
+const sanitizeMongoInput = require('./middleware/sanitizeMongoInput');
 
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
@@ -65,6 +66,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.use('/api', sanitizeMongoInput);
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/socials', socialRoutes);

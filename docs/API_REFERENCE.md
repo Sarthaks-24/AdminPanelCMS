@@ -51,7 +51,7 @@ This document provides complete technical specifications for every endpoint expo
 ### 2.2. Verify Active Session
 - **Method:** `GET`
 - **Path:** `/api/auth/verify`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 - **Response (`200 OK`):**
   ```json
   {
@@ -101,7 +101,7 @@ This document provides complete technical specifications for every endpoint expo
 ### 3.2. Update Profile
 - **Method:** `PUT`
 - **Path:** `/api/profile`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 - **Request Body:** Full or partial Profile JSON.
 - **Behavior:**
   - Persists profile bio, metrics, and environment settings.
@@ -111,7 +111,7 @@ This document provides complete technical specifications for every endpoint expo
 ### 3.3. Update Availability Status
 - **Method:** `PATCH`
 - **Path:** `/api/profile/availability`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 - **Request Body:**
   ```json
   {
@@ -134,7 +134,7 @@ This document provides complete technical specifications for every endpoint expo
 ### 4.2. Create Social Handle
 - **Method:** `POST`
 - **Path:** `/api/socials`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 - **Request Body:**
   ```json
   {
@@ -151,17 +151,17 @@ This document provides complete technical specifications for every endpoint expo
 ### 4.3. Update Social Handle
 - **Method:** `PUT`
 - **Path:** `/api/socials/:id`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 
 ### 4.4. Delete Social Handle
 - **Method:** `DELETE`
 - **Path:** `/api/socials/:id`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 
 ### 4.5. Reorder Social Handles
 - **Method:** `PATCH`
 - **Path:** `/api/socials/reorder`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 - **Request Body:**
   ```json
   {
@@ -199,7 +199,7 @@ This document provides complete technical specifications for every endpoint expo
 ### 5.3. Create Skill(s) (Single or Batch)
 - **Method:** `POST`
 - **Path:** `/api/skills`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 - **Request Body (Batch Example):**
   ```json
   {
@@ -213,17 +213,17 @@ This document provides complete technical specifications for every endpoint expo
 ### 5.4. Update Skill
 - **Method:** `PUT`
 - **Path:** `/api/skills/:id`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 
 ### 5.5. Delete Skill
 - **Method:** `DELETE`
 - **Path:** `/api/skills/:id`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 
 ### 5.6. Bulk Update Skills
 - **Method:** `PATCH`
 - **Path:** `/api/skills/bulk`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 - **Request Body (Uniform override mode):**
   ```json
   {
@@ -249,7 +249,7 @@ This document provides complete technical specifications for every endpoint expo
 ### 5.7. Bulk Delete Skills
 - **Method:** `POST`
 - **Path:** `/api/skills/bulk-delete`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 - **Request Body:**
   ```json
   {
@@ -278,7 +278,7 @@ This document provides complete technical specifications for every endpoint expo
 ### 6.3. Create Project
 - **Method:** `POST`
 - **Path:** `/api/projects`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 - **Request Body:**
   ```json
   {
@@ -304,17 +304,17 @@ This document provides complete technical specifications for every endpoint expo
 ### 6.4. Update Project
 - **Method:** `PUT`
 - **Path:** `/api/projects/:id`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 
 ### 6.5. Delete Project
 - **Method:** `DELETE`
 - **Path:** `/api/projects/:id`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 
 ### 6.6. Reorder Projects
 - **Method:** `PATCH`
 - **Path:** `/api/projects/reorder`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 - **Request Body:**
   ```json
   {
@@ -385,7 +385,7 @@ This document provides complete technical specifications for every endpoint expo
 ### 10.3. Update Resume Metadata
 - **Method:** `PUT`
 - **Path:** `/api/resume`
-- **Access:** Protected (`requireAdmin`)
+- **Access:** Protected (`requireSession`)
 - **Request Body:**
   ```json
   {
