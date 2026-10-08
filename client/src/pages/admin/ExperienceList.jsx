@@ -434,6 +434,8 @@ export default function ExperienceList() {
                 />
               </div>
 
+              <label className="flex items-center gap-2 text-xs font-mono text-t-muted"><input type="checkbox" checked={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.checked })} />Featured experience</label>
+
               <div className="flex justify-end gap-2 pt-4 border-t border-t-border">
                 <button
                   type="button"

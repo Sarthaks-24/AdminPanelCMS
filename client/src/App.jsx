@@ -17,6 +17,8 @@ import EducationManager from './pages/admin/EducationManager';
 import CertificationsManager from './pages/admin/CertificationsManager';
 import ResumeManager from './pages/admin/ResumeManager';
 import ProtectedRoute from './components/admin/ProtectedRoute';
+import AppsPage from './pages/admin/AppsPage';
+import AppEditorPage from './pages/admin/AppEditorPage';
 
 export default function App() {
   return (
@@ -51,6 +53,8 @@ export default function App() {
               <Route path="education" element={<EducationManager />} />
               <Route path="certifications" element={<CertificationsManager />} />
               <Route path="resume" element={<ResumeManager />} />
+              <Route path="apps" element={<AppsPage />} />
+              <Route path="apps/:id" element={<AppEditorPage />} />
             </Route>
 
             {/* Fallback */}

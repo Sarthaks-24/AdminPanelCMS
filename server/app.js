@@ -15,6 +15,7 @@ const educationRoutes = require('./routes/education');
 const certificationRoutes = require('./routes/certifications');
 const resumeRoutes = require('./routes/resume');
 const fsRoutes = require('./routes/fs');
+const appsRoutes = require('./routes/apps');
 
 const app = express();
 
@@ -77,6 +78,7 @@ app.use('/api/education', educationRoutes);
 app.use('/api/certifications', certificationRoutes);
 app.use('/api/resume', resumeRoutes);
 app.use('/api/fs', fsRoutes);
+app.use('/api/apps', appsRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'API route not found' });

@@ -32,6 +32,7 @@ export default function EducationManager() {
     location: '',
     achievements: '',
     order: 0,
+    featured: false,
   });
 
   const fetchEducation = async () => {
@@ -60,6 +61,7 @@ export default function EducationManager() {
       location: '',
       achievements: '',
       order: items.length,
+      featured: false,
     });
     setShowModal(true);
   };
@@ -75,6 +77,7 @@ export default function EducationManager() {
       location: item.location || '',
       achievements: (item.achievements || []).join('\n'),
       order: item.order ?? 0,
+      featured: item.featured ?? false,
     });
     setShowModal(true);
   };
@@ -347,6 +350,8 @@ export default function EducationManager() {
                   className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
                 />
               </div>
+
+              <label className="flex items-center gap-2 text-xs font-mono text-t-muted"><input type="checkbox" checked={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.checked })} />Featured education</label>
 
               <div className="flex justify-end gap-2 pt-4 border-t border-t-border">
                 <button

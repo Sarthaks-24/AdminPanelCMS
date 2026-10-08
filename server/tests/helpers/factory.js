@@ -39,7 +39,12 @@ function loginAs(user, secret = process.env.JWT_SECRET || TEST_SECRET) {
 }
 
 async function createApp(App, user, overrides = {}) {
+  const existing = await App.find({ owner: user._id }).select('quotaSlot').lean();
+  const used = new Set(existing.map((item) => item.quotaSlot));
+  const quotaSlot = Array.from({ length: 10 }, (_, index) => index).find((index) => !used.has(index));
+  if (quotaSlot === undefined) throw new Error('Test owner app quota exhausted');
   return App.create({
+    quotaSlot,
     name: 'Test App',
     type: 'static',
     allowedOrigins: ['https://portfolio.test'],
@@ -57,7 +62,7 @@ async function createToken(ApiToken, app, type = 'pk', overrides = {}) {
   const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
   const tokenDoc = await ApiToken.create({
     type,
-    prefix: rawToken.slice(0, 12),
+    prefix: rawToken.slice(0, 16),
     hash,
     value: type === 'pk' ? rawToken : null,
     expiresAt: null,

@@ -20,6 +20,7 @@ import {
   Terminal,
   Palette,
   Check,
+  Boxes,
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -46,6 +47,7 @@ export default function AdminLayout() {
     { to: '/admin/education', label: 'Education', icon: GraduationCap },
     { to: '/admin/certifications', label: 'Certifications', icon: Award },
     { to: '/admin/resume', label: 'Resume Hub', icon: FileText },
+    { to: '/admin/apps', label: 'Apps & Views', icon: Boxes },
   ];
 
   const getBreadcrumb = () => {

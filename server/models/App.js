@@ -35,6 +35,7 @@ const IncludeSchema = new mongoose.Schema({
 
 const AppSchema = new mongoose.Schema({
   owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, immutable: true, index: true },
+  quotaSlot: { type: Number, required: true, min: 0, max: 9, select: false },
   name: { type: String, required: true, trim: true, maxlength: 80 },
   type: { type: String, enum: ['static', 'protected'], required: true },
   allowedOrigins: {
@@ -46,6 +47,7 @@ const AppSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 AppSchema.index({ owner: 1, createdAt: -1 });
+AppSchema.index({ owner: 1, quotaSlot: 1 }, { unique: true });
 AppSchema.plugin(ownerGuardPlugin, { modelName: 'App' });
 
 module.exports = mongoose.model('App', AppSchema);
