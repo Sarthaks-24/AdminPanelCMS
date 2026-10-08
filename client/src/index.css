@@ -586,6 +586,39 @@ html {
   }
 }
 
+/* Shared admin UI finish: consistent controls and calm surface hierarchy. */
+.admin-content :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  border-radius: 0.55rem;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.admin-content :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
+  border-color: var(--theme-accent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 16%, transparent);
+}
+
+.admin-content :where(textarea) {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+.admin-content :where(button:not(:disabled)) {
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 100ms ease;
+}
+
+.admin-content :where(button:not(:disabled):active) {
+  transform: translateY(1px);
+}
+
+.admin-content :where([class~="bg-t-surface"][class~="border"], [class~="bg-t-surface-hi"][class~="border"]) {
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--theme-text) 4%, transparent);
+}
+
+.admin-content :where(a) {
+  text-underline-offset: 3px;
+}
+
 /* Monospace font utility for PowerShell-like cues */
 .font-mono-code {
   font-family: Consolas, 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Menlo, Monaco, monospace;

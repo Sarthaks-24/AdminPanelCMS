@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Lock, Mail, Eye, EyeOff, ShieldCheck, ArrowRight, Terminal } from 'lucide-react';
+import { LockKeyhole, Mail, Eye, EyeOff, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('');
@@ -12,105 +12,93 @@ export default function AdminLogin() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError('');
     setLoading(true);
-
     try {
       await login(email, password);
       navigate('/admin/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Authentication failed. Check your admin credentials.');
+      setError(err.response?.data?.message || 'Sign in failed. Check your email and password, then try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-t-bg text-t-text flex items-center justify-center p-4 relative antialiased font-sans">
-      {/* Console Login Card */}
-      <div className="relative z-10 w-full max-w-md bg-t-surface border border-t-border p-8 sm:p-9 rounded shadow-2xl space-y-6">
-        {/* Terminal Header */}
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded bg-t-accent text-t-on-accent flex items-center justify-center font-mono font-bold text-base shadow-md shadow-t-accent/30 border border-t-accent-br/40 mx-auto">
-            PS
-          </div>
-          <h1 className="text-xl font-bold text-t-text tracking-tight pt-1">Admin Command Console</h1>
-          <p className="text-xs text-t-muted font-mono">
-            PS C:\&gt; Enter credentials to access content management authority.
-          </p>
-        </div>
-
-        {error && (
-          <div className="p-3 rounded bg-t-danger-dim border border-t-danger/40 text-t-danger text-xs flex items-center gap-2 font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span>
-            <span>{error}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-mono text-t-muted mb-1">Admin Email Address</label>
-            <div className="relative">
-              <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-t-dim" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@example.com"
-                className="w-full pl-10 pr-4 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none transition-colors"
-              />
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-t-bg px-4 py-12 text-t-text antialiased">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-t-accent/10 via-transparent to-transparent" />
+      <div className="relative grid w-full max-w-5xl overflow-hidden rounded-2xl border border-t-border bg-t-surface shadow-2xl shadow-black/10 lg:grid-cols-[1fr_0.9fr]">
+        <section className="hidden flex-col justify-between bg-t-accent/5 p-10 lg:flex xl:p-14">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-t-accent text-t-on-accent shadow-md shadow-t-accent/20">
+              <ShieldCheck size={22} />
+            </div>
+            <div>
+              <p className="font-semibold tracking-tight">Portfolio Control</p>
+              <p className="mt-0.5 text-xs text-t-muted">ADMIN WORKSPACE</p>
             </div>
           </div>
+          <div className="max-w-md py-10">
+            <p className="mb-4 text-sm font-medium text-t-accent">A clearer way to manage your portfolio</p>
+            <h1 className="text-4xl font-semibold leading-tight tracking-tight">Your work, organized in one place.</h1>
+            <p className="mt-5 text-sm leading-6 text-t-muted">Sign in to update projects, profile details, and the content that appears on your portfolio.</p>
+          </div>
+          <p className="text-xs text-t-muted">Secure access for portfolio administrators</p>
+        </section>
 
-          <div>
-            <label className="block text-xs font-mono text-t-muted mb-1">Security Key / Password</label>
-            <div className="relative">
-              <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-t-dim" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
-                className="w-full pl-10 pr-11 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none transition-colors"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-t-dim hover:text-t-muted cursor-pointer"
-              >
-                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
+        <section className="p-6 sm:p-10 xl:p-14" aria-labelledby="login-title">
+          <div className="mb-8 lg:hidden">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-t-accent text-t-on-accent shadow-md shadow-t-accent/20"><ShieldCheck size={22} /></div>
+            <p className="mt-4 text-sm font-semibold">Portfolio Control</p>
+          </div>
+          <div className="mb-8">
+            <p className="text-sm font-medium text-t-accent">Welcome back</p>
+            <h2 id="login-title" className="mt-2 text-2xl font-semibold tracking-tight">Sign in to your workspace</h2>
+            <p className="mt-2 text-sm text-t-muted">Enter your administrator credentials to continue.</p>
+          </div>
+
+          {error && (
+            <div role="alert" className="mb-5 flex items-start gap-3 rounded-xl border border-t-danger/30 bg-t-danger-dim p-3.5 text-sm text-t-danger">
+              <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-t-danger" />
+              <span>{error}</span>
             </div>
-          </div>
+          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full mt-2 py-2.5 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer font-mono"
-          >
-            {loading ? (
-              <span>Authenticating Session...</span>
-            ) : (
-              <>
-                <span>Execute Sign In</span>
-                <ArrowRight size={14} />
-              </>
-            )}
-          </button>
-        </form>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label htmlFor="admin-email" className="mb-2 block text-sm font-medium">Email address</label>
+              <div className="relative">
+                <Mail aria-hidden="true" size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-t-dim" />
+                <input id="admin-email" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" className="w-full rounded-xl border border-t-border-hi bg-t-bg py-3 pl-10 pr-4 text-sm text-t-text placeholder:text-t-dim" />
+              </div>
+            </div>
 
-        <div className="pt-4 border-t border-t-border flex items-center justify-between text-[11px] font-mono text-t-dim">
-          <div className="flex items-center gap-1.5">
-            <ShieldCheck size={14} className="text-t-accent2" />
-            <span>Encrypted JWT Access</span>
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <label htmlFor="admin-password" className="text-sm font-medium">Password</label>
+              </div>
+              <div className="relative">
+                <LockKeyhole aria-hidden="true" size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-t-dim" />
+                <input id="admin-password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" className="w-full rounded-xl border border-t-border-hi bg-t-bg py-3 pl-10 pr-12 text-sm text-t-text placeholder:text-t-dim" />
+                <button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-t-dim hover:text-t-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-t-accent">
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" disabled={loading} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-t-accent px-4 py-3 text-sm font-semibold text-t-on-accent shadow-sm transition hover:bg-t-accent-br disabled:cursor-wait disabled:opacity-60">
+              {loading ? 'Signing in…' : <>Sign in <ArrowRight size={16} /></>}
+            </button>
+          </form>
+
+          <div className="mt-8 flex items-center gap-2 border-t border-t-border pt-5 text-xs text-t-muted">
+            <ShieldCheck size={15} className="text-t-accent2" />
+            <span>Your session is protected with secure authentication.</span>
           </div>
-          <span className="text-t-accent">Node.js Express</span>
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
