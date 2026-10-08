@@ -11,7 +11,10 @@
     "seed": "node scripts/seed.js",
     "admin": "node scripts/set-admin.js",
     "update-resume": "node scripts/update-resume.js",
-    "resume": "node scripts/update-resume.js"
+    "resume": "node scripts/update-resume.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [],
   "author": "",
@@ -28,6 +31,10 @@
     "mongoose": "^9.9.5"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "@vitest/coverage-v8": "^3.2.7",
+    "mongodb-memory-server": "^11.3.0",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.3.1",
+    "vitest": "^3.2.7"
   }
 }
