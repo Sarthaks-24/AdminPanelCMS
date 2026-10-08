@@ -5,6 +5,7 @@ const Skill = require('../models/Skill');
 const Social = require('../models/Social');
 const Resume = require('../models/Resume');
 const Profile = require('../models/Profile');
+const ownerForRequest = require('../lib/ownerForRequest');
 
 const slugify = (text) =>
   text
@@ -18,15 +19,17 @@ const slugify = (text) =>
 // @access  Public
 const getVirtualFilesystem = async (req, res, next) => {
   try {
+    const owner = await ownerForRequest(req);
+    if (!owner) return res.status(404).json({ success: false, message: 'Portfolio owner not configured' });
     const [projects, experiences, educations, skills, socials, resume, profile] =
       await Promise.all([
-        Project.find().sort({ order: 1 }),
-        Experience.find().sort({ order: 1 }),
-        Education.find().sort({ order: 1 }),
-        Skill.find().sort({ order: 1, name: 1 }),
-        Social.find().sort({ order: 1 }),
-        Resume.findOne(),
-        Profile.findOne(),
+        Project.find({ owner, visibility: 'published' }).sort({ order: 1 }),
+        Experience.find({ owner, visibility: 'published' }).sort({ order: 1 }),
+        Education.find({ owner, visibility: 'published' }).sort({ order: 1 }),
+        Skill.find({ owner, visibility: 'published' }).sort({ order: 1, name: 1 }),
+        Social.find({ owner, visibility: 'published' }).sort({ order: 1 }),
+        Resume.findOne({ owner }),
+        Profile.findOne({ owner }),
       ]);
 
     // Build projects virtual directory

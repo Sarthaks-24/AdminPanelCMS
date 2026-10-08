@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 
 export default function AdminLayout() {
-  const { admin, logout } = useAuth();
+  const { user, logout } = useAuth();
   const { themeId, changeTheme, themes, groups } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -347,11 +347,11 @@ export default function AdminLayout() {
                   border: '1px solid var(--theme-border-hi)',
                 }}
               >
-                {admin?.email ? admin.email.substring(0, 2) : 'AD'}
+                {user?.email ? user.email.substring(0, 2) : 'AD'}
               </div>
               <div className="truncate flex-1">
                 <div className="text-xs font-semibold truncate" style={{ color: 'var(--theme-text)' }}>
-                  {admin?.email}
+                  {user?.email}
                 </div>
                 <div className="text-[10px] font-mono" style={{ color: 'var(--theme-text-muted)' }}>
                   Administrator

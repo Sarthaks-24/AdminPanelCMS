@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
   Share2,
   Plus,
@@ -287,6 +288,7 @@ export default function SocialsManager() {
                   </a>
 
                   <div className="flex items-center gap-1 border-l border-t-border pl-3">
+                    <VisibilityToggle endpoint="/socials" item={item} onChange={(updated) => setSocials((prev) => prev.map((x) => x._id === updated._id ? updated : x))} />
                     <button
                       onClick={() => handleToggleFeatured(item)}
                       className={`p-1.5 rounded transition-all cursor-pointer ${

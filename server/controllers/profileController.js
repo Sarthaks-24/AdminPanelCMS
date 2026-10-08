@@ -1,114 +1,57 @@
 const Profile = require('../models/Profile');
 const Social = require('../models/Social');
+const pickFields = require('../lib/pickFields');
+const { WRITABLE_FIELDS } = require('../lib/modelConstants');
+const ownerForRequest = require('../lib/ownerForRequest');
+const upsertSingleton = require('../lib/upsertSingleton');
+const contentChanged = require('../lib/onContentChanged');
 
-// Helper to synchronize public profile email with Email social coordinate
-const syncEmailToSocial = async (rawEmail) => {
-  if (!rawEmail || typeof rawEmail !== 'string') return;
-  const normalizedEmail = rawEmail.trim().toLowerCase();
-  if (!normalizedEmail) return;
+async function syncEmail(owner, email) {
+  if (typeof email !== 'string' || !email.trim()) return;
+  const value = email.trim().toLowerCase();
+  const last = await Social.findOne({ owner }).sort({ order: -1 }).select('order').lean();
+  await Social.findOneAndUpdate(
+    { owner, platform: 'Email' },
+    {
+      $set: { label: value, url: `mailto:${value}`, username: value.split('@')[0], icon: 'mail', featured: true },
+      $setOnInsert: { owner, platform: 'Email', order: (last?.order ?? -1) + 1, visibility: 'published' },
+    },
+    { upsert: true, returnDocument: 'after', runValidators: true, setDefaultsOnInsert: true },
+  );
+}
 
-  const emailQuery = {
-    $or: [
-      { platform: { $regex: /^email$/i } },
-      { icon: 'mail' },
-      { url: { $regex: /^mailto:/i } },
-    ],
-  };
-
-  const existingEmailSocials = await Social.find(emailQuery);
-
-  if (existingEmailSocials.length > 0) {
-    await Social.updateMany(emailQuery, {
-      $set: {
-        platform: 'Email',
-        label: normalizedEmail,
-        url: `mailto:${normalizedEmail}`,
-        username: normalizedEmail.split('@')[0],
-        icon: 'mail',
-      },
-    });
-  } else {
-    // If no email social link exists in the database, create one
-    const count = await Social.countDocuments();
-    await Social.create({
-      platform: 'Email',
-      label: normalizedEmail,
-      url: `mailto:${normalizedEmail}`,
-      username: normalizedEmail.split('@')[0],
-      icon: 'mail',
-      order: count,
-      featured: true,
-    });
-  }
-};
-
-// @desc    Get singleton profile
-// @route   GET /api/profile
-// @access  Public
-const getProfile = async (req, res, next) => {
+async function getProfile(req, res, next) {
   try {
-    let profile = await Profile.findOne();
-    if (!profile) {
-      // Auto-initialize with default schema values if database is fresh
-      profile = await Profile.create({});
-    }
-    res.json(profile);
-  } catch (error) {
-    next(error);
-  }
-};
+    const owner = await ownerForRequest(req);
+    if (!owner) return res.status(404).json({ success: false, message: 'Profile not found' });
+    const profile = await Profile.findOne({ owner });
+    const result = profile || await Profile.create({ owner });
+    if (!profile) await contentChanged.onContentChanged(owner);
+    const data = result.toObject();
+    if (!req.userId) delete data.owner;
+    return res.json(data);
+  } catch (error) { return next(error); }
+}
 
-// @desc    Update or upsert singleton profile
-// @route   PUT /api/profile
-// @access  Protected (Admin)
-const updateProfile = async (req, res, next) => {
+async function updateProfile(req, res, next) {
   try {
-    let profile = await Profile.findOne();
-    if (!profile) {
-      profile = await Profile.create(req.body);
-    } else {
-      Object.assign(profile, req.body);
-      await profile.save();
-    }
+    const data = pickFields(req.body, WRITABLE_FIELDS.Profile);
+    const profile = await upsertSingleton(Profile, req.userId, data);
+    if (data.email) await syncEmail(req.userId, data.email);
+    await contentChanged.onContentChanged(req.userId);
+    return res.json(profile);
+  } catch (error) { return next(error); }
+}
 
-    // Synchronize public profile email to the Email social link
-    // (Note: Dashboard admin login email remains separate and unchanged)
-    if (profile.email) {
-      await syncEmailToSocial(profile.email);
-    }
-
-    res.json(profile);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Quick update availability status
-// @route   PATCH /api/profile/availability
-// @access  Protected (Admin)
-const updateAvailability = async (req, res, next) => {
+async function updateAvailability(req, res, next) {
   try {
-    const { isAvailableForHire, statusText } = req.body;
-    let profile = await Profile.findOne();
-    if (!profile) {
-      profile = await Profile.create({ isAvailableForHire, statusText });
-    } else {
-      if (typeof isAvailableForHire === 'boolean') {
-        profile.isAvailableForHire = isAvailableForHire;
-      }
-      if (statusText !== undefined) {
-        profile.statusText = statusText;
-      }
-      await profile.save();
-    }
-    res.json(profile);
-  } catch (error) {
-    next(error);
-  }
-};
+    const data = {};
+    if (typeof req.body.isAvailableForHire === 'boolean') data.isAvailableForHire = req.body.isAvailableForHire;
+    if (typeof req.body.statusText === 'string') data.statusText = req.body.statusText.slice(0, 500);
+    const profile = await upsertSingleton(Profile, req.userId, data);
+    await contentChanged.onContentChanged(req.userId);
+    return res.json(profile);
+  } catch (error) { return next(error); }
+}
 
-module.exports = {
-  getProfile,
-  updateProfile,
-  updateAvailability,
-};
+module.exports = { getProfile, updateProfile, updateAvailability };

@@ -49,7 +49,7 @@ describe('Cross-tenant data isolation safety gate', () => {
       .send({ [route.field]: route.changed });
 
     expect.soft(response.status).toBe(404);
-    expect.soft((await route.model.findById(doc._id))?.[route.field]).toBe(route.original);
+    expect.soft((await route.model.findOne({ _id: doc._id, owner: userA._id }))?.[route.field]).toBe(route.original);
   });
 
   it.each(contentRoutes)('does not let User B delete User A $name records', async (route) => {
@@ -63,7 +63,7 @@ describe('Cross-tenant data isolation safety gate', () => {
       .set('Authorization', loginAs(userB));
 
     expect.soft(response.status).toBe(404);
-    expect.soft(await route.model.findById(doc._id)).not.toBeNull();
+    expect.soft(await route.model.findOne({ _id: doc._id, owner: userA._id })).not.toBeNull();
   });
 
   it('does not expose User A project records to User B', async () => {
@@ -78,6 +78,71 @@ describe('Cross-tenant data isolation safety gate', () => {
     expect.soft(response.status).toBe(404);
   });
 
+  it('keeps anonymous legacy reads limited to the configured primary owner and published content', async () => {
+    const previousEmail = process.env.ADMIN_EMAIL;
+    const userA = await createUser(User);
+    const userB = await createUser(User);
+    const projectA = (await seedContent(allModels, userA)).project;
+    projectA.visibility = 'published';
+    await projectA.save();
+    await Project.create({
+      owner: userB._id, title: 'Private Project', slug: `private-${userB._id}`,
+      shortDescription: 'Private tenant project', caseStudyBody: 'Private', visibility: 'published',
+    });
+    process.env.ADMIN_EMAIL = userA.email;
+    try {
+      const response = await request(app).get('/api/projects');
+      expect(response.status).toBe(200);
+      expect(response.body.map((item) => item._id)).toContain(projectA._id.toString());
+      expect(response.body[0].owner).toBeUndefined();
+      expect(JSON.stringify(response.body)).not.toContain('Private Project');
+    } finally {
+      if (previousEmail === undefined) delete process.env.ADMIN_EMAIL;
+      else process.env.ADMIN_EMAIL = previousEmail;
+    }
+  });
+
+  it('returns no unscoped records when ADMIN_EMAIL is unset', async () => {
+    const previousEmail = process.env.ADMIN_EMAIL;
+    delete process.env.ADMIN_EMAIL;
+    try {
+      const user = await createUser(User);
+      await seedContent(allModels, user);
+      const profile = await request(app).get('/api/profile');
+      const projects = await request(app).get('/api/projects');
+      expect(profile.status).toBe(404);
+      expect(projects.status).toBe(200);
+      expect(projects.body).toEqual([]);
+    } finally {
+      if (previousEmail !== undefined) process.env.ADMIN_EMAIL = previousEmail;
+    }
+  });
+
+  it('rejects an invalid JWT instead of falling back to the anonymous primary read', async () => {
+    const previousEmail = process.env.ADMIN_EMAIL;
+    const user = await createUser(User);
+    const { project } = await seedContent(allModels, user);
+    process.env.ADMIN_EMAIL = user.email;
+    try {
+      const response = await request(app).get(`/api/projects/${project._id}`).set('Authorization', 'Bearer invalid.jwt.token');
+      expect(response.status).toBe(401);
+      expect(response.body.error).toBe('invalid_session');
+    } finally {
+      if (previousEmail === undefined) delete process.env.ADMIN_EMAIL;
+      else process.env.ADMIN_EMAIL = previousEmail;
+    }
+  });
+
+  it('keeps slug lookups working while malformed ObjectId writes fail validation', async () => {
+    const user = await createUser(User);
+    const { project } = await seedContent(allModels, user);
+    const bySlug = await request(app).get(`/api/projects/${project.slug}`).set('Authorization', loginAs(user));
+    expect(bySlug.status).toBe(200);
+    expect(bySlug.body._id).toBe(project._id.toString());
+    const invalidWrite = await request(app).put('/api/projects/not-an-id').set('Authorization', loginAs(user)).send({ title: 'ignored' });
+    expect(invalidWrite.status).toBe(404);
+  });
+
   it('does not let User B update User A project records', async () => {
     const userA = await createUser(User);
     const userB = await createUser(User);
@@ -89,7 +154,7 @@ describe('Cross-tenant data isolation safety gate', () => {
       .send({ title: 'Hacked Title' });
 
     expect.soft(response.status).toBe(404);
-    const freshA = await Project.findById(project._id);
+    const freshA = await Project.findOne({ _id: project._id, owner: userA._id });
     expect.soft(freshA?.title).toBe('Alpha Trading Engine');
   });
 
@@ -103,15 +168,15 @@ describe('Cross-tenant data isolation safety gate', () => {
       .set('Authorization', loginAs(userB));
 
     expect.soft(response.status).toBe(404);
-    expect.soft(await Project.findById(project._id)).not.toBeNull();
+    expect.soft(await Project.findOne({ _id: project._id, owner: userA._id })).not.toBeNull();
   });
 
   it('keeps profile and resume upserts isolated by owner', async () => {
     const userA = await createUser(User);
     const userB = await createUser(User);
 
-    await Profile.create({ name: 'Alice' });
-    await Resume.create({ resumeUrl: 'https://test.com/alice.pdf' });
+    await Profile.create({ owner: userA._id, name: 'Alice' });
+    await Resume.create({ owner: userA._id, resumeUrl: 'https://test.com/alice.pdf' });
 
     const profileResponse = await request(app)
       .put('/api/profile')
@@ -124,8 +189,8 @@ describe('Cross-tenant data isolation safety gate', () => {
 
     expect.soft([200, 201]).toContain(profileResponse.status);
     expect.soft([200, 201]).toContain(resumeResponse.status);
-    expect.soft((await Profile.findOne())?.name).toBe('Alice');
-    expect.soft((await Resume.findOne())?.resumeUrl).toBe('https://test.com/alice.pdf');
+    expect.soft((await Profile.findOne({ owner: userA._id }))?.name).toBe('Alice');
+    expect.soft((await Resume.findOne({ owner: userA._id }))?.resumeUrl).toBe('https://test.com/alice.pdf');
   });
 
   it('allows different users to use case-insensitively equal skill names', async () => {
@@ -154,8 +219,31 @@ describe('Cross-tenant data isolation safety gate', () => {
       .send({ items: [{ id: project._id, order: 99 }] });
 
     expect.soft(response.status).toBe(404);
-    const freshA = await Project.findById(project._id);
+    const freshA = await Project.findOne({ _id: project._id, owner: userA._id });
     expect.soft(freshA?.order).toBe(0);
+  });
+
+  it('ignores owner reassignment in an authenticated project PATCH body', async () => {
+    const userA = await createUser(User);
+    const userB = await createUser(User);
+    const { project } = await seedContent(allModels, userA);
+    const response = await request(app).put(`/api/projects/${project._id}`)
+      .set('Authorization', loginAs(userA)).send({ title: 'Still mine', owner: userB._id });
+    expect(response.status).toBe(200);
+    expect(String(response.body.owner)).toBe(String(userA._id));
+    expect(await Project.findOne({ _id: project._id, owner: userB._id })).toBeNull();
+  });
+
+  it('keeps mixed-owner project reorder operations scoped to the authenticated owner', async () => {
+    const userA = await createUser(User);
+    const userB = await createUser(User);
+    const projectA = await Project.create({ owner: userA._id, title: 'A project', slug: 'a-project', mode: 'solo', role: 'Lead', shortDescription: 'A', caseStudyBody: 'A', order: 0 });
+    const projectB = await Project.create({ owner: userB._id, title: 'B project', slug: 'b-project', mode: 'solo', role: 'Lead', shortDescription: 'B', caseStudyBody: 'B', order: 0 });
+    const response = await request(app).patch('/api/projects/reorder').set('Authorization', loginAs(userA))
+      .send({ items: [{ id: projectA._id, order: 7 }, { id: projectB._id, order: 99 }] });
+    expect(response.status).toBe(404);
+    expect((await Project.findOne({ _id: projectA._id, owner: userA._id })).order).toBe(7);
+    expect((await Project.findOne({ _id: projectB._id, owner: userB._id })).order).toBe(0);
   });
 
   it('does not let User B bulk-update User A skills', async () => {
@@ -174,7 +262,7 @@ describe('Cross-tenant data isolation safety gate', () => {
       .send({ ids: [skillA._id], updates: { featured: true } });
 
     expect.soft(response.status).toBe(200);
-    expect.soft((await Skill.findById(skillA._id))?.featured).toBe(false);
+    expect.soft((await Skill.findOne({ _id: skillA._id, owner: userA._id }))?.featured).toBe(false);
   });
 
   it('does not let a bulk update reassign a skill to another owner', async () => {
@@ -212,6 +300,6 @@ describe('Cross-tenant data isolation safety gate', () => {
       .send({ ids: [skillA._id] });
 
     expect.soft(response.status).toBe(200);
-    expect.soft(await Skill.findById(skillA._id)).not.toBeNull();
+    expect.soft(await Skill.findOne({ _id: skillA._id, owner: userA._id })).not.toBeNull();
   });
 });

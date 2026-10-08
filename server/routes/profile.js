@@ -5,13 +5,16 @@ const {
   updateProfile,
   updateAvailability,
 } = require('../controllers/profileController');
-const requireAdmin = require('../middleware/requireAdmin');
+const requireVerifiedSession = require('../middleware/requireVerifiedSession');
+const pickWritable = require('../middleware/pickWritable');
+const { WRITABLE_FIELDS } = require('../lib/modelConstants');
+const optionalSession = require('../middleware/optionalSession');
 
 // Public route
-router.get('/', getProfile);
+router.get('/', optionalSession, getProfile);
 
 // Protected routes (Admin only)
-router.put('/', requireAdmin, updateProfile);
-router.patch('/availability', requireAdmin, updateAvailability);
+router.put('/', requireVerifiedSession, pickWritable(WRITABLE_FIELDS.Profile), updateProfile);
+router.patch('/availability', requireVerifiedSession, pickWritable(['isAvailableForHire', 'statusText']), updateAvailability);
 
 module.exports = router;

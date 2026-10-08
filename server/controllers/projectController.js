@@ -1,133 +1,69 @@
 const mongoose = require('mongoose');
 const Project = require('../models/Project');
+const crud = require('../lib/scopedCrud')(Project, 'project', { queryFields: ['mode'] });
+const { scopedBulkWrite } = require('../plugins/ownerGuard');
+const ownerForRequest = require('../lib/ownerForRequest');
+const qString = require('../lib/qString');
+const slugify = (text) => String(text).toLowerCase().trim().replace(/[\s\W-]+/g, '-');
+const contentChanged = require('../lib/onContentChanged');
 
-const slugify = (text) =>
-  text
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/[\s\W-]+/g, '-');
-
-// @desc    Get all projects (with optional ?mode= filter: 'solo' or 'team')
-// @route   GET /api/projects
-// @access  Public
-const getProjects = async (req, res, next) => {
+async function getProjects(req, res, next) {
   try {
-    const filter = {};
-    if (req.query.mode) {
-      filter.mode = req.query.mode.toLowerCase();
-    }
-    if (req.query.featured === 'true') {
-      filter.featured = true;
-    }
-    const projects = await Project.find(filter).sort({ order: 1, createdAt: -1 });
-    res.json(projects);
-  } catch (error) {
-    next(error);
-  }
-};
+    const owner = await ownerForRequest(req);
+    if (!owner) return res.json([]);
+    const filter = { owner };
+    if (!req.userId) filter.visibility = 'published';
+    const mode = qString(req, 'mode');
+    if (mode && ['solo', 'team'].includes(mode)) filter.mode = mode;
+    if (qString(req, 'featured') === 'true') filter.featured = true;
+    const query = Project.find(filter).sort({ order: 1, createdAt: -1 });
+    if (!req.userId) query.select('-owner -visibility');
+    res.json(await query);
+  } catch (error) { next(error); }
+}
 
-// @desc    Get single project by ID or Slug
-// @route   GET /api/projects/:idOrSlug
-// @access  Public
-const getProjectById = async (req, res, next) => {
+async function getProjectById(req, res, next) {
   try {
     const param = req.params.id;
-    let project = null;
+    const owner = await ownerForRequest(req);
+    if (!owner) return res.status(404).json({ success: false, error: 'not_found' });
+    const query = mongoose.isValidObjectId(param)
+      ? { _id: param, owner }
+      : { slug: String(param).slice(0, 120).toLowerCase(), owner };
+    if (!req.userId) query.visibility = 'published';
+    const projectQuery = Project.findOne(query);
+    if (!req.userId) projectQuery.select('-owner -visibility');
+    const project = await projectQuery;
+    return project ? res.json(project) : res.status(404).json({ success: false, error: 'not_found' });
+  } catch (error) { return next(error); }
+}
 
-    if (mongoose.Types.ObjectId.isValid(param)) {
-      project = await Project.findById(param);
-    }
-    if (!project) {
-      project = await Project.findOne({ slug: param.toLowerCase() });
-    }
-
-    if (!project) {
-      return res.status(404).json({ success: false, message: 'Project not found' });
-    }
-    res.json(project);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Create new project
-// @route   POST /api/projects
-// @access  Protected (Admin)
-const createProject = async (req, res, next) => {
+async function createProject(req, res, next) {
   try {
-    if (!req.body.slug && req.body.title) {
-      req.body.slug = slugify(req.body.title);
-    }
-    const project = await Project.create(req.body);
-    res.status(201).json(project);
-  } catch (error) {
-    next(error);
-  }
-};
+    const body = { ...req.body };
+    if (!body.slug && body.title) body.slug = slugify(body.title);
+    req.body = body;
+    return crud.create(req, res, next);
+  } catch (error) { return next(error); }
+}
 
-// @desc    Update project by ID
-// @route   PUT /api/projects/:id
-// @access  Protected (Admin)
-const updateProject = async (req, res, next) => {
+async function updateProject(req, res, next) {
+  if (!req.body.slug && req.body.title) req.body.slug = slugify(req.body.title);
+  req.body.lastUpdated = new Date();
+  return crud.update(req, res, next);
+}
+
+async function reorderProjects(req, res, next) {
   try {
-    req.body.lastUpdated = new Date();
-    if (!req.body.slug && req.body.title) {
-      req.body.slug = slugify(req.body.title);
-    }
-    const updated = await Project.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
-    if (!updated) {
-      return res.status(404).json({ success: false, message: 'Project not found' });
-    }
-    res.json(updated);
-  } catch (error) {
-    next(error);
-  }
-};
+    if (!Array.isArray(req.body.items)) return res.status(400).json({ success: false, message: 'Items array required' });
+    const ops = req.body.items.filter((item) => mongoose.isValidObjectId(item.id) && Number.isInteger(Number(item.order)))
+      .map((item) => ({ updateOne: { filter: { _id: item.id, owner: req.userId }, update: { $set: { order: Number(item.order) } } } }));
+    if (!ops.length) return res.json({ success: true, matchedCount: 0 });
+    const result = await scopedBulkWrite(Project, req.userId, ops);
+    if (result.matchedCount < ops.length) return res.status(404).json({ success: false, error: 'not_found' });
+    await contentChanged.onContentChanged(req.userId);
+    return res.json({ success: true, matchedCount: result.matchedCount });
+  } catch (error) { return next(error); }
+}
 
-// @desc    Delete project by ID
-// @route   DELETE /api/projects/:id
-// @access  Protected (Admin)
-const deleteProject = async (req, res, next) => {
-  try {
-    const deleted = await Project.findByIdAndDelete(req.params.id);
-    if (!deleted) {
-      return res.status(404).json({ success: false, message: 'Project not found' });
-    }
-    res.json({ success: true, message: 'Project removed successfully' });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Bulk reorder projects
-// @route   PATCH /api/projects/reorder
-// @access  Protected (Admin)
-const reorderProjects = async (req, res, next) => {
-  try {
-    const { items } = req.body; // Array of { id, order }
-    if (!Array.isArray(items)) {
-      return res.status(400).json({ success: false, message: 'Items array required' });
-    }
-    const updatePromises = items.map((item) =>
-      Project.findByIdAndUpdate(item.id, { order: item.order })
-    );
-    await Promise.all(updatePromises);
-    const updatedList = await Project.find().sort({ order: 1 });
-    res.json(updatedList);
-  } catch (error) {
-    next(error);
-  }
-};
-
-module.exports = {
-  getProjects,
-  getProjectById,
-  createProject,
-  updateProject,
-  deleteProject,
-  reorderProjects,
-};
+module.exports = { getProjects, getProjectById, createProject, updateProject, deleteProject: crud.remove, reorderProjects };

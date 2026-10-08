@@ -8,16 +8,20 @@ const {
   bulkUpdateSkills,
   bulkDeleteSkills,
 } = require('../controllers/skillController');
-const requireAdmin = require('../middleware/requireAdmin');
+const requireVerifiedSession = require('../middleware/requireVerifiedSession');
+const pickWritable = require('../middleware/pickWritable');
+const validateId = require('../middleware/validateId');
+const { WRITABLE_FIELDS } = require('../lib/modelConstants');
+const optionalSession = require('../middleware/optionalSession');
 
 // Public route
-router.get('/', getSkills);
+router.get('/', optionalSession, getSkills);
 
 // Protected routes (Admin only)
-router.post('/', requireAdmin, createSkill);
-router.patch('/bulk', requireAdmin, bulkUpdateSkills);
-router.post('/bulk-delete', requireAdmin, bulkDeleteSkills);
-router.put('/:id', requireAdmin, updateSkill);
-router.delete('/:id', requireAdmin, deleteSkill);
+router.post('/', requireVerifiedSession, createSkill);
+router.patch('/bulk', requireVerifiedSession, bulkUpdateSkills);
+router.post('/bulk-delete', requireVerifiedSession, bulkDeleteSkills);
+router.put('/:id', requireVerifiedSession, validateId(), pickWritable(WRITABLE_FIELDS.Skill), updateSkill);
+router.delete('/:id', requireVerifiedSession, validateId(), deleteSkill);
 
 module.exports = router;

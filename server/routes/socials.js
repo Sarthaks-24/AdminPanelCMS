@@ -7,15 +7,19 @@ const {
   deleteSocial,
   reorderSocials,
 } = require('../controllers/socialController');
-const requireAdmin = require('../middleware/requireAdmin');
+const requireVerifiedSession = require('../middleware/requireVerifiedSession');
+const pickWritable = require('../middleware/pickWritable');
+const validateId = require('../middleware/validateId');
+const { WRITABLE_FIELDS } = require('../lib/modelConstants');
+const optionalSession = require('../middleware/optionalSession');
 
 // Public route
-router.get('/', getSocials);
+router.get('/', optionalSession, getSocials);
 
 // Protected routes (Admin only)
-router.post('/', requireAdmin, createSocial);
-router.patch('/reorder', requireAdmin, reorderSocials);
-router.put('/:id', requireAdmin, updateSocial);
-router.delete('/:id', requireAdmin, deleteSocial);
+router.post('/', requireVerifiedSession, pickWritable(WRITABLE_FIELDS.Social), createSocial);
+router.patch('/reorder', requireVerifiedSession, reorderSocials);
+router.put('/:id', requireVerifiedSession, validateId(), pickWritable(WRITABLE_FIELDS.Social), updateSocial);
+router.delete('/:id', requireVerifiedSession, validateId(), deleteSocial);
 
 module.exports = router;

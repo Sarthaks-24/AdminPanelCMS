@@ -1,16 +1,18 @@
 const mongoose = require('mongoose');
+const { ownerGuardPlugin } = require('../plugins/ownerGuard');
 
 const projectSchema = new mongoose.Schema(
   {
     title: {
       type: String,
       required: [true, 'Project title is required'],
+      maxlength: 120,
       trim: true,
     },
     slug: {
       type: String,
       required: [true, 'Unique URL slug is required'],
-      unique: true,
+      maxlength: 120,
       lowercase: true,
       trim: true,
     },
@@ -19,7 +21,6 @@ const projectSchema = new mongoose.Schema(
       enum: ['solo', 'team'],
       required: [true, 'Project mode must be solo or team'],
       default: 'solo',
-      index: true,
     },
     role: {
       type: String,
@@ -29,7 +30,7 @@ const projectSchema = new mongoose.Schema(
     shortDescription: {
       type: String,
       required: [true, 'Short summary is required (max 260 chars)'],
-      maxlength: 260,
+      maxlength: 500,
     },
     keyMetric: {
       type: String,
@@ -43,6 +44,7 @@ const projectSchema = new mongoose.Schema(
     caseStudyBody: {
       type: String,
       required: [true, 'Full Markdown case study body is required'],
+      maxlength: 20000,
     },
     stack: {
       type: [String],
@@ -65,21 +67,25 @@ const projectSchema = new mongoose.Schema(
     order: {
       type: Number,
       default: 0,
-      index: true,
     },
     featured: {
       type: Boolean,
       default: true,
-      index: true,
     },
     lastUpdated: {
       type: Date,
       default: Date.now,
     },
+    owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true, immutable: true },
+    visibility: { type: String, enum: ['draft', 'published'], default: 'draft' },
   },
   {
     timestamps: true,
   }
 );
+
+projectSchema.index({ owner: 1, slug: 1 }, { unique: true });
+projectSchema.index({ owner: 1, order: 1 });
+projectSchema.plugin(ownerGuardPlugin, { modelName: 'Project' });
 
 module.exports = mongoose.model('Project', projectSchema);

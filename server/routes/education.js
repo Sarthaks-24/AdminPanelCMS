@@ -6,14 +6,18 @@ const {
   updateEducation,
   deleteEducation,
 } = require('../controllers/educationController');
-const requireAdmin = require('../middleware/requireAdmin');
+const requireVerifiedSession = require('../middleware/requireVerifiedSession');
+const pickWritable = require('../middleware/pickWritable');
+const validateId = require('../middleware/validateId');
+const { WRITABLE_FIELDS } = require('../lib/modelConstants');
+const optionalSession = require('../middleware/optionalSession');
 
 // Public route
-router.get('/', getEducation);
+router.get('/', optionalSession, getEducation);
 
 // Protected routes (Admin only)
-router.post('/', requireAdmin, createEducation);
-router.put('/:id', requireAdmin, updateEducation);
-router.delete('/:id', requireAdmin, deleteEducation);
+router.post('/', requireVerifiedSession, pickWritable(WRITABLE_FIELDS.Education), createEducation);
+router.put('/:id', requireVerifiedSession, validateId(), pickWritable(WRITABLE_FIELDS.Education), updateEducation);
+router.delete('/:id', requireVerifiedSession, validateId(), deleteEducation);
 
 module.exports = router;

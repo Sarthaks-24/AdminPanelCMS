@@ -1,10 +1,12 @@
 const mongoose = require('mongoose');
+const { ownerGuardPlugin } = require('../plugins/ownerGuard');
 
 const ProfileSchema = new mongoose.Schema(
   {
     name: {
       type: String,
       required: [true, 'Full name is required'],
+      maxlength: 120,
       trim: true,
       default: () => process.env.ADMIN_NAME || 'Portfolio Administrator',
     },
@@ -16,17 +18,19 @@ const ProfileSchema = new mongoose.Schema(
     headline: {
       type: String,
       required: [true, 'Professional headline is required'],
+      maxlength: 120,
       trim: true,
       default: 'Full Stack Engineer · Systems & Architecture',
     },
     shortBio: {
       type: String,
       required: [true, 'Short bio is required'],
-      maxlength: 300,
+      maxlength: 500,
       default: 'Building low-latency distributed web systems and high-throughput cloud architectures.',
     },
     aboutMarkdown: {
       type: String,
+      maxlength: 20000,
       default: '# Professional Overview\n\nFull-stack software engineer with expertise in distributed microservices, real-time WebSockets, and modern cloud infrastructure.',
     },
     email: {
@@ -77,10 +81,14 @@ const ProfileSchema = new mongoose.Schema(
         description: { type: String, default: '' },
       },
     ],
+    owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, immutable: true },
   },
   {
     timestamps: true,
   }
 );
+
+ProfileSchema.index({ owner: 1 }, { unique: true });
+ProfileSchema.plugin(ownerGuardPlugin, { modelName: 'Profile' });
 
 module.exports = mongoose.model('Profile', ProfileSchema);

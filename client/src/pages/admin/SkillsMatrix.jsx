@@ -212,6 +212,34 @@ export default function SkillsMatrix() {
     }
   };
 
+  const handleBulkPublish = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkSaving(true);
+    setErrorMsg(null);
+    try {
+      await api.patch('/skills/bulk', { ids: selectedIds, updates: { visibility: 'published' } });
+      setSkills((prev) => prev.map((skill) => selectedIds.includes(skill._id) ? { ...skill, visibility: 'published' } : skill));
+      setSuccessMsg(`Published ${selectedIds.length} skills.`);
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch (err) {
+      setErrorMsg(err.response?.data?.message || 'Error publishing selected skills');
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
+  const handleVisibilityToggle = async (skill) => {
+    const visibility = skill.visibility === 'published' ? 'draft' : 'published';
+    try {
+      await api.put(`/skills/${skill._id}`, { visibility });
+      setSkills((prev) => prev.map((item) => item._id === skill._id ? { ...item, visibility } : item));
+      setSuccessMsg(`${skill.name} moved to ${visibility}.`);
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch (err) {
+      setErrorMsg(err.response?.data?.message || 'Error changing visibility');
+    }
+  };
+
   // Bulk Quick Action: Delete
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
@@ -550,6 +578,15 @@ export default function SkillsMatrix() {
               </button>
 
               <button
+                onClick={handleBulkPublish}
+                disabled={bulkSaving}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-t-accent2-dim text-t-accent2 border border-t-accent2/30 text-xs font-mono transition-all cursor-pointer"
+                title="Publish all selected skills"
+              >
+                <span>Publish</span>
+              </button>
+
+              <button
                 onClick={handleBulkDelete}
                 disabled={bulkSaving}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded bg-t-danger-dim hover:bg-red-950 text-t-danger border border-t-danger-dim/50 text-xs font-mono transition-all cursor-pointer"
@@ -642,9 +679,16 @@ export default function SkillsMatrix() {
 
                 <div className="mt-3 pt-2.5 border-t border-t-border flex items-center justify-between pl-6">
                   <span className="text-[10px] font-mono text-t-dim">
-                    {skill.featured ? '★ Featured Stack' : 'Matrix Only'}
+                    {skill.featured ? '★ Featured Stack' : 'Matrix Only'} · {skill.visibility || 'draft'}
                   </span>
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => handleVisibilityToggle(skill)}
+                      className="px-1.5 py-1 text-[9px] uppercase font-mono border border-t-border-hi rounded text-t-muted hover:text-t-accent cursor-pointer"
+                      title={`Move to ${skill.visibility === 'published' ? 'draft' : 'published'}`}
+                    >
+                      {skill.visibility === 'published' ? 'Unpublish' : 'Publish'}
+                    </button>
                     <button
                       onClick={() => openEditModal(skill)}
                       className="p-1 text-t-muted hover:text-t-text transition-colors cursor-pointer"

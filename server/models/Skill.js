@@ -1,11 +1,12 @@
 const mongoose = require('mongoose');
+const { ownerGuardPlugin } = require('../plugins/ownerGuard');
 
 const SkillSchema = new mongoose.Schema(
   {
     name: {
       type: String,
       required: [true, 'Skill name is required'],
-      unique: true,
+      maxlength: 120,
       trim: true,
     },
     category: {
@@ -21,7 +22,6 @@ const SkillSchema = new mongoose.Schema(
         'Tools & Frameworks',
       ],
       default: 'Backend & Systems',
-      index: true,
     },
     proficiency: {
       type: String,
@@ -36,17 +36,21 @@ const SkillSchema = new mongoose.Schema(
     featured: {
       type: Boolean,
       default: false,
-      index: true,
     },
     order: {
       type: Number,
       default: 0,
-      index: true,
     },
+    owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true, immutable: true },
+    visibility: { type: String, enum: ['draft', 'published'], default: 'draft' },
   },
   {
     timestamps: true,
   }
 );
+
+SkillSchema.index({ owner: 1, name: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
+SkillSchema.index({ owner: 1, category: 1 });
+SkillSchema.plugin(ownerGuardPlugin, { modelName: 'Skill' });
 
 module.exports = mongoose.model('Skill', SkillSchema);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
   Award,
   Plus,
@@ -188,6 +189,7 @@ export default function CertificationsManager() {
                     <span className="text-xs text-t-accent font-medium block mt-0.5">{item.issuer}</span>
                   </div>
                   <div className="flex items-center gap-1">
+                    <VisibilityToggle endpoint="/certifications" item={item} onChange={(updated) => setItems((prev) => prev.map((x) => x._id === updated._id ? updated : x))} />
                     <button
                       onClick={() => openEditModal(item)}
                       className="p-1.5 rounded text-t-muted hover:text-t-text hover:bg-t-surface-hi cursor-pointer"

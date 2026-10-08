@@ -1,6 +1,8 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 const Resume = require('../models/Resume');
+const User = require('../models/User');
+const contentChanged = require('../lib/onContentChanged');
 
 /**
  * update-resume.js
@@ -42,8 +44,12 @@ async function updateResume() {
     console.log(`[OK] Connected successfully to database: ${mongoose.connection.name}`);
 
     console.log('\n[2/3] Upserting single resume row in database...');
-    // Find the existing single resume or create one
-    let resume = await Resume.findOne();
+    const email = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+    const user = await User.findOne({ email, status: 'active' });
+    if (!user) throw new Error('Admin User is missing. Run npm run setup first.');
+
+    // Find or create this owner's singleton resume.
+    let resume = await Resume.findOne({ owner: user._id });
 
     if (resume) {
       resume.resumeUrl = resumeUrl;
@@ -52,6 +58,7 @@ async function updateResume() {
       console.log(`[OK] Existing resume entry updated.`);
     } else {
       resume = await Resume.create({
+        owner: user._id,
         resumeUrl,
         lastUpdated: new Date(),
       });
@@ -59,15 +66,11 @@ async function updateResume() {
     }
 
     // Guarantee singleton: remove any duplicate entries if they somehow exist
-    const excess = await Resume.deleteMany({ _id: { $ne: resume._id } });
-    if (excess.deletedCount > 0) {
-      console.log(`[Clean] Removed ${excess.deletedCount} duplicate resume entries.`);
-    }
-
     // Ensure index/model initialization
     await Resume.init();
+    await contentChanged.onContentChanged(user._id);
 
-    const totalRows = await Resume.countDocuments();
+    const totalRows = await Resume.countDocuments({ owner: user._id });
 
     console.log('\n====================================================');
     console.log('              RESUME SYNC COMPLETE                  ');

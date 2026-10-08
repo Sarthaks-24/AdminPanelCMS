@@ -77,9 +77,9 @@ Build database collection indexes and upsert the admin credentials:
 npm run setup
 ```
 
-*(Optional)* If starting completely fresh and you wish to clear existing collections before building indexes:
+*(Optional)* After reviewing the exact target database and taking a backup, a fresh setup requires its database name as explicit confirmation. It drops the legacy and content collections, including their old global unique indexes:
 ```bash
-npm run setup:fresh
+npm run setup:fresh -- --confirm Portfolio_db
 ```
 
 *(Optional)* Seed sample structured content for initial review:
