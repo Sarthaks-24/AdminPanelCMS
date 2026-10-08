@@ -8,6 +8,7 @@ const ownerForRequest = require('../lib/ownerForRequest');
 const qString = require('../lib/qString');
 const { LIMITS } = require('../lib/modelConstants');
 const contentChanged = require('../lib/onContentChanged');
+const pullContentFromApps = require('../lib/pullContentFromApps');
 
 async function getSkills(req, res, next) {
   try {
@@ -65,7 +66,10 @@ async function bulkDeleteSkills(req, res, next) {
     const ids = (req.body.ids || []).filter(mongoose.isValidObjectId);
     if (!ids.length) return res.status(400).json({ success: false, message: 'Please provide skill IDs' });
     const result = await Skill.deleteMany({ _id: { $in: ids }, owner: req.userId });
-    if (result.deletedCount) await contentChanged.onContentChanged(req.userId);
+    if (result.deletedCount) {
+      await pullContentFromApps(req.userId, 'Skill', ids);
+      await contentChanged.onContentChanged(req.userId);
+    }
     return res.json({ success: true, deletedCount: result.deletedCount });
   } catch (error) { return next(error); }
 }
