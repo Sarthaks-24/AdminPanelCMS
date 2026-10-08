@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const pickFields = require('./pickFields');
 const ownerForRequest = require('./ownerForRequest');
 const qString = require('./qString');
-const { LIMITS } = require('./modelConstants');
+const LIMITS = require('../config/limits');
 const contentChanged = require('./onContentChanged');
 const pullContentFromApps = require('./pullContentFromApps');
 

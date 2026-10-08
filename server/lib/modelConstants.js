@@ -31,5 +31,4 @@ const WRITABLE_FIELDS = {
   Certification: ['title', 'issuer', 'issueDate', 'expirationDate', 'credentialId', 'credentialUrl', 'skills', 'order', 'featured', 'visibility'],
 };
 
-const LIMITS = { itemsPerCollection: 500, appsPerOwner: 10 };
-module.exports = { WRITABLE_FIELDS, PUBLIC_FIELDS, DEFAULT_FIELDS, LIMITS };
+module.exports = { WRITABLE_FIELDS, PUBLIC_FIELDS, DEFAULT_FIELDS };

@@ -59,6 +59,8 @@ The CMS is intentionally decoupled from the public-facing presentation layer. Ex
 - **Social Link Management:** Ordered external links with icon identifiers, modal creation/editing, and featured spotlight toggles.
 - **Resume Metadata Management:** Master PDF URL management, version tracking, and quick-download launcher.
 - **Ordering & Reordering:** Atomic bulk write reordering endpoints for sequential domain collections.
+- **App API Tokens:** Per-app publishable and secret API keys with two-token quotas, expiry, revocation, and dashboard management.
+- **Versioned Public API:** Scoped `/v1/*` read endpoints with origin checks, rate limits, ETags, and in-memory TTL caching.
 - **Markdown Editing & Preview:** Split/tabbed live Markdown rendering using `react-markdown` and `remark-gfm`.
 - **Administrative Mutations:** Stateful write operations protected by JWT authentication and route middleware.
 
@@ -234,6 +236,7 @@ All endpoints are prefixed with `/api`. Public endpoints require no authenticati
 | **Certifications**| `GET /certifications`, `GET /certifications/:id` | `POST /certifications`, `PUT /certifications/:id`, `DELETE /certifications/:id` |
 | **Resume** | `GET /resume`, `GET /resume/download` | `PUT /resume` |
 | **Virtual FS** | `GET /fs` | - |
+| **Versioned API** | `GET /v1/app`, `/v1/profile`, `/v1/resume`, `/v1/socials`, `/v1/skills`, `/v1/projects`, `/v1/experience`, `/v1/education`, `/v1/certifications`, `/v1/fs` | API-token authenticated, scoped read-only endpoints |
 | **Auth** | `POST /auth/login` | `GET /auth/verify` |
 
 For full endpoint definitions and schema payloads, see [DATABASE_REFERENCE.md](./DATABASE_REFERENCE.md) and [docs/API_REFERENCE.md](./docs/API_REFERENCE.md).

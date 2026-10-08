@@ -404,3 +404,28 @@ This document provides complete technical specifications for every endpoint expo
 - **Path:** `/api/fs`
 - **Access:** Public
 - **Description:** Returns the complete in-memory JSON hierarchy representing all database entities as files and directories.
+
+## Versioned public API (`/v1`)
+
+External consumers use an API token in `Authorization: Bearer <token>`. Static apps receive `pk_live_…` publishable tokens restricted to the app's configured origins. Protected apps receive `sk_live_…` secret tokens for server-side use. Tokens in query strings are rejected. Responses include an `ETag`; send `If-None-Match` to receive `304 Not Modified`.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/v1/app` | App name, type, and enabled sections |
+| GET | `/v1/profile`, `/v1/resume` | Enabled singleton projections |
+| GET | `/v1/socials`, `/v1/skills`, `/v1/skills/categories` | Enabled published collection projections |
+| GET | `/v1/projects`, `/v1/projects/:slug` | Project list or one published project; list accepts `stack`, `tag`, and `featured=true` |
+| GET | `/v1/experience`, `/v1/education`, `/v1/certifications` | Enabled published collection projections |
+| GET | `/v1/fs` | Virtual filesystem projection when enabled |
+
+Every endpoint is limited to the selected App's enabled sections and field projection. Publishable keys use `Cache-Control: public, max-age=60`; secret keys use `private, max-age=60`. `GET /v1/skills` accepts `category`.
+
+### Dashboard token endpoints
+
+These routes require a verified dashboard JWT and verified email. Each App can have at most two active tokens. Static Apps issue publishable keys; protected Apps issue secret keys. Secret plaintext is returned only on creation.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/apps/:id/tokens` | List token metadata (publishable keys can be copied again) |
+| POST | `/api/apps/:id/tokens` | Create a token with optional `label` and `expiresInDays` (`30`, `90`, or `365`) |
+| DELETE | `/api/apps/:id/tokens/:tokenId` | Revoke a token immediately |
