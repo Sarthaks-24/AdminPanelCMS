@@ -550,7 +550,7 @@ export default function AdminLayout() {
         </header>
 
         {/* Main Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto" style={{ backgroundColor: 'var(--theme-bg)', backgroundImage: 'radial-gradient(ellipse at 52% -20%, color-mix(in srgb, var(--theme-accent) 7%, transparent), transparent 52%)' }}>
+        <main className="admin-content flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto" style={{ backgroundColor: 'var(--theme-bg)', backgroundImage: 'radial-gradient(ellipse at 52% -20%, color-mix(in srgb, var(--theme-accent) 7%, transparent), transparent 52%)' }}>
           <Outlet />
         </main>
       </div>
