@@ -61,4 +61,13 @@ describe('ownerGuard', () => {
     expect(Project.schema.path('owner').options.immutable).toBe(true);
     expect(Skill.schema.path('owner').options.immutable).toBe(true);
   });
+
+  it('requires immutable ownership and validates App origin count', async () => {
+    const App = require('../models/App');
+    expect(App.schema.path('owner').options.required).toBe(true);
+    expect(App.schema.path('owner').options.immutable).toBe(true);
+    const owner = new mongoose.Types.ObjectId();
+    const app = new App({ owner, name: 'Portfolio', type: 'static', allowedOrigins: Array(11).fill('https://site.test') });
+    await expect(app.validate()).rejects.toThrow(/Max 10 origins/);
+  });
 });
