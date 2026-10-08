@@ -567,6 +567,25 @@ html, body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Consistent keyboard focus treatment across dashboard forms and navigation. */
+:where(a, button, input, select, textarea, summary, [role="switch"]):focus-visible {
+  outline: 2px solid var(--theme-accent-bright);
+  outline-offset: 2px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Monospace font utility for PowerShell-like cues */
 .font-mono-code {
   font-family: Consolas, 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Menlo, Monaco, monospace;
