@@ -6,7 +6,7 @@ const { WRITABLE_FIELDS } = require('../lib/modelConstants');
 const { scopedBulkWrite } = require('../plugins/ownerGuard');
 const ownerForRequest = require('../lib/ownerForRequest');
 const qString = require('../lib/qString');
-const { LIMITS } = require('../lib/modelConstants');
+const LIMITS = require('../config/limits');
 const contentChanged = require('../lib/onContentChanged');
 const pullContentFromApps = require('../lib/pullContentFromApps');
 

@@ -60,9 +60,14 @@ async function createApp(App, user, overrides = {}) {
 async function createToken(ApiToken, app, type = 'pk', overrides = {}) {
   const rawToken = `${type}_live_${encodeBase62(crypto.randomBytes(32))}`;
   const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const existing = await ApiToken.find({ app: app._id, owner: app.owner }).select('quotaSlot').lean();
+  const used = new Set(existing.map((item) => item.quotaSlot));
+  const quotaSlot = Array.from({ length: 2 }, (_, index) => index).find((index) => !used.has(index));
+  if (quotaSlot === undefined) throw new Error('Test app token quota exhausted');
   const tokenDoc = await ApiToken.create({
+    quotaSlot,
     type,
-    prefix: rawToken.slice(0, 16),
+    prefix: rawToken.slice(0, 12),
     hash,
     value: type === 'pk' ? rawToken : null,
     expiresAt: null,

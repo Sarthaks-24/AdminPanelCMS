@@ -1,11 +1,15 @@
 const mongoose = require('mongoose');
 const App = require('../models/App');
-const { PUBLIC_FIELDS, LIMITS } = require('../lib/modelConstants');
+const { PUBLIC_FIELDS } = require('../lib/modelConstants');
+const LIMITS = require('../config/limits');
 const pickFields = require('../lib/pickFields');
 const loadOwnerData = require('../lib/loadOwnerData');
 const { applyInclude } = require('../lib/applyInclude');
 const buildFsTree = require('../lib/buildFsTree');
 const contentChanged = require('../lib/onContentChanged');
+const ApiToken = require('../models/ApiToken');
+const { generateToken } = require('../lib/tokens');
+const { evictApp, evictTokenByHash } = require('../lib/cache');
 
 const COLLECTION_MODELS = {
   socials: 'Social', skills: 'Skill', projects: 'Project', experience: 'Experience',
@@ -86,6 +90,13 @@ exports.listApps = async (req, res, next) => {
   catch (error) { next(error); }
 };
 
+exports.getApp = async (req, res, next) => {
+  try {
+    const app = await App.findOne({ _id: req.params.id, owner: req.userId }).select('-quotaSlot').lean();
+    return app ? res.json(app) : res.status(404).json({ success: false, error: 'not_found' });
+  } catch (error) { return next(error); }
+};
+
 exports.createApp = async (req, res, next) => {
   try {
     const payload = pickFields(req.body, editable);
@@ -120,6 +131,7 @@ exports.updateApp = async (req, res, next) => {
     if (errors.length) return res.status(400).json({ success: false, error: 'validation_failed', details: errors });
     for (const field of editable) if (field in patch) app.set(field, merged[field]);
     await app.save();
+    evictApp(app._id);
     await contentChanged.onContentChanged(req.userId);
     const response = app.toObject({ getters: false, virtuals: false });
     delete response.quotaSlot;
@@ -131,9 +143,61 @@ exports.deleteApp = async (req, res, next) => {
   try {
     const app = await App.findOneAndDelete({ _id: req.params.id, owner: req.userId });
     if (!app) return res.status(404).json({ success: false, error: 'not_found' });
+    evictApp(app._id);
+    const tokens = await ApiToken.find({ app: app._id, owner: req.userId, revokedAt: null }).select('hash').lean();
+    await ApiToken.updateMany({ app: app._id, owner: req.userId, revokedAt: null }, { $set: { revokedAt: new Date() } });
+    for (const token of tokens) evictTokenByHash(token.hash);
     await contentChanged.onContentChanged(req.userId);
     return res.json({ success: true });
   } catch (error) { next(error); }
+};
+
+exports.getTokens = async (req, res, next) => {
+  try {
+    const app = await App.findOne({ _id: req.params.id, owner: req.userId }).select('_id').lean();
+    if (!app) return res.status(404).json({ success: false, error: 'not_found' });
+    const tokens = await ApiToken.find({ app: app._id, owner: req.userId })
+      .select('type prefix value label expiresAt lastUsedAt revokedAt createdAt +value').sort({ createdAt: -1 }).lean();
+    return res.json(tokens.map((token) => {
+      if (token.type === 'sk') delete token.value;
+      return token;
+    }));
+  } catch (error) { return next(error); }
+};
+
+exports.createToken = async (req, res, next) => {
+  try {
+    const app = await App.findOne({ _id: req.params.id, owner: req.userId }).select('_id type').lean();
+    if (!app) return res.status(404).json({ success: false, error: 'not_found' });
+    if (!req.user.emailVerifiedAt) return res.status(403).json({ success: false, error: 'email_unverified', message: 'Verify your email before creating API tokens' });
+    const now = new Date();
+    await ApiToken.updateMany({ app: app._id, owner: req.userId, revokedAt: null, expiresAt: { $lte: now } }, { $set: { revokedAt: now } });
+    const type = app.type === 'static' ? 'pk' : 'sk';
+    const days = [30, 90, 365].includes(Number(req.body?.expiresInDays)) ? Number(req.body.expiresInDays) : null;
+    const generated = generateToken(type);
+    for (const quotaSlot of [0, 1]) {
+      try {
+        await ApiToken.create({ owner: req.userId, app: app._id, quotaSlot, type,
+          prefix: generated.prefix, hash: generated.hash, value: type === 'pk' ? generated.token : null,
+          label: String(req.body?.label || '').trim().slice(0, 60),
+          expiresAt: days ? new Date(Date.now() + days * 86_400_000) : null });
+        return res.status(201).json({ token: generated.token, type, prefix: generated.prefix, shownOnce: type === 'sk' });
+      } catch (error) { if (error.code !== 11000) throw error; }
+    }
+    return res.status(403).json({ success: false, error: 'quota_exceeded', resource: 'tokens', limit: 2, message: 'Maximum of 2 active tokens per app reached. Revoke an existing token first.' });
+  } catch (error) { return next(error); }
+};
+
+exports.revokeToken = async (req, res, next) => {
+  try {
+    const app = await App.findOne({ _id: req.params.id, owner: req.userId }).select('_id').lean();
+    if (!app) return res.status(404).json({ success: false, error: 'not_found' });
+    const token = await ApiToken.findOneAndUpdate({ _id: req.params.tokenId, app: app._id, owner: req.userId, revokedAt: null },
+      { $set: { revokedAt: new Date() } }, { returnDocument: 'after' });
+    if (!token) return res.status(404).json({ success: false, error: 'not_found' });
+    evictTokenByHash(token.hash);
+    return res.json({ success: true });
+  } catch (error) { return next(error); }
 };
 
 exports.getAppPreview = async (req, res, next) => {

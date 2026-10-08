@@ -16,6 +16,11 @@ function ownerGuardPlugin(schema, { modelName = 'ContentModel' } = {}) {
     schema.pre(method, { query: true, document: false }, function guardOwner() {
       const owner = this.getFilter()?.owner;
       if (!isValidOwner(owner)) {
+        const filter = this.getFilter() || {};
+        const tokenHashLookup = modelName === 'ApiToken' && method === 'findOne'
+          && /^[a-f\d]{64}$/i.test(filter.hash || '')
+          && Object.keys(filter).every((key) => ['hash', 'revokedAt', '$or'].includes(key));
+        if (tokenHashLookup) return;
         throw new Error(`[CRITICAL INVARIANT VIOLATION] ${modelName}.${method} requires a concrete owner ObjectId`);
       }
     });

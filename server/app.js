@@ -16,12 +16,15 @@ const certificationRoutes = require('./routes/certifications');
 const resumeRoutes = require('./routes/resume');
 const fsRoutes = require('./routes/fs');
 const appsRoutes = require('./routes/apps');
+const v1Routes = require('./routes/v1');
 
 const app = express();
 
 app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 1));
 app.set('etag', false);
 app.use(helmet());
+// Mount /v1 before the dashboard CORS middleware so its stricter preflight policy wins.
+app.use('/v1', v1Routes);
 
 const allowedOrigins = [
   process.env.CLIENT_ORIGIN,

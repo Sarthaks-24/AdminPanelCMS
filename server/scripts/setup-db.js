@@ -11,9 +11,10 @@ const Education = require('../models/Education');
 const Certification = require('../models/Certification');
 const Resume = require('../models/Resume');
 const App = require('../models/App');
+const ApiToken = require('../models/ApiToken');
 const assertNoLegacyGlobalIndexes = require('../lib/legacyIndexPreflight');
 
-const models = [User, Profile, Social, Skill, Project, Experience, Education, Certification, Resume, App];
+const models = [User, Profile, Social, Skill, Project, Experience, Education, Certification, Resume, App, ApiToken];
 // ownerGuard-exemption: setup preflight and confirmed fresh cleanup use native database APIs
 
 function getTargetDatabase(uri) {
@@ -39,7 +40,7 @@ async function setupDatabase() {
     console.log(`Connected target host=${mongoose.connection.host} database=${mongoose.connection.name}`);
     if (!fresh) await assertNoLegacyGlobalIndexes(mongoose.connection.db);
     if (fresh) {
-      const collectionNames = ['admins', 'profiles', 'socials', 'skills', 'projects', 'experiences', 'educations', 'certifications', 'resumes', 'apps'];
+      const collectionNames = ['admins', 'profiles', 'socials', 'skills', 'projects', 'experiences', 'educations', 'certifications', 'resumes', 'apps', 'apitokens'];
       console.log(`Fresh setup confirmed for database ${confirmedDatabase}; dropping legacy content collections and indexes.`);
       for (const name of collectionNames) {
         try { await mongoose.connection.db.dropCollection(name); }

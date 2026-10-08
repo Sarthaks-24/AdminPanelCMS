@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, ChevronRight, Circle, Eye, FileJson2, FolderKanban, Globe2, Layers3, Save, UserRound, BriefcaseBusiness, GraduationCap, Award, Share2, Cpu } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, ChevronRight, Circle, Eye, FileJson2, FolderKanban, Globe2, Layers3, Save, UserRound, BriefcaseBusiness, GraduationCap, Award, Share2, Cpu, KeyRound } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../../api/client';
+import TokenManagerModal from './TokenManagerModal';
 
 const SECTIONS = {
   profile: { label: 'Profile', description: 'Public identity, biography, and contact fields.', icon: UserRound, fields: ['name', 'initials', 'headline', 'shortBio', 'aboutMarkdown', 'email', 'location.city', 'location.country', 'location.isRemoteAvailable', 'statusText', 'isAvailableForHire', 'terminalUser', 'terminalHost', 'bootGreeting', 'metrics'] },
@@ -60,6 +61,7 @@ export default function AppEditorPage() {
   const [saved, setSaved] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadingRecords, setLoadingRecords] = useState(true);
+  const [showTokens, setShowTokens] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -130,10 +132,11 @@ export default function AppEditorPage() {
         <div className="mt-2 flex flex-wrap items-center gap-2.5"><h1 className="truncate text-2xl font-bold tracking-tight text-t-text">{app.name}</h1><span className="rounded-full border border-t-border-hi bg-t-surface px-2.5 py-1 text-[10px] font-mono uppercase tracking-wide text-t-muted">{app.type}</span><span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] ${saved ? 'bg-t-accent2-dim text-t-accent2' : 'bg-t-danger-dim text-t-danger'}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{saved ? 'Saved' : 'Unsaved changes'}</span></div>
         <p className="mt-1.5 max-w-2xl text-xs text-t-muted">Control which portfolio data this app can access. Changes take effect after saving.</p>
       </div>
-      <button onClick={save} disabled={saving || saved} className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded bg-t-accent px-4 text-xs font-semibold text-t-on-accent shadow-sm transition hover:bg-t-accent-br disabled:cursor-not-allowed disabled:opacity-60"><Save size={14} />{saving ? 'Saving…' : saved ? 'Saved' : 'Save changes'}</button>
+      <div className="flex flex-wrap gap-2"><button onClick={() => setShowTokens(true)} className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded border border-t-border-hi px-4 text-xs font-semibold text-t-text hover:border-t-accent hover:text-t-accent"><KeyRound size={14} />API tokens</button><button onClick={save} disabled={saving || saved} className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded bg-t-accent px-4 text-xs font-semibold text-t-on-accent shadow-sm transition hover:bg-t-accent-br disabled:cursor-not-allowed disabled:opacity-60"><Save size={14} />{saving ? 'Saving…' : saved ? 'Saved' : 'Save changes'}</button></div>
     </header>
 
     {error && <div role="alert" className="rounded border border-t-danger/40 bg-t-danger-dim px-4 py-3 text-xs text-t-danger">{error}</div>}
+    {showTokens && <TokenManagerModal app={app} onClose={() => setShowTokens(false)} />}
 
     <section className="grid gap-3 sm:grid-cols-3" aria-label="App overview">
       {[{ label: 'Enabled sections', value: enabledCount, icon: Layers3 }, { label: 'Selected records', value: selectedCount, icon: FolderKanban }, { label: 'Allowed origins', value: app.allowedOrigins?.length || 0, icon: Globe2 }].map(({ label, value, icon: Icon }) => <div key={label} className="flex items-center gap-3 rounded border border-t-border bg-t-surface p-4"><span className="grid h-9 w-9 place-items-center rounded bg-t-surface-hi text-t-accent"><Icon size={17} /></span><div><div className="text-lg font-semibold leading-tight text-t-text">{value}</div><div className="mt-0.5 text-[10px] font-mono uppercase tracking-wider text-t-muted">{label}</div></div></div>)}
