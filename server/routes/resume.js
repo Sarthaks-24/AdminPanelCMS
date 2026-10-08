@@ -1,14 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { getResume, downloadResume, updateResume } = require('../controllers/resumeController');
+const { getResume, updateResume } = require('../controllers/resumeController');
 const requireVerifiedSession = require('../middleware/requireVerifiedSession');
 const pickWritable = require('../middleware/pickWritable');
 const { WRITABLE_FIELDS } = require('../lib/modelConstants');
-const optionalSession = require('../middleware/optionalSession');
+const requireSession = require('../middleware/requireSession');
 
-// Public route: Get the current resume link
-router.get('/download', optionalSession, downloadResume);
-router.get('/', optionalSession, getResume);
+// Dashboard read; external consumers use resumeUrl from the scoped /v1/resume API.
+router.get('/', requireSession, getResume);
 
 // Protected route: Admin CMS update for resume link
 router.put('/', requireVerifiedSession, pickWritable(WRITABLE_FIELDS.Resume), updateResume);

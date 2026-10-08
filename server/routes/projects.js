@@ -12,11 +12,11 @@ const requireVerifiedSession = require('../middleware/requireVerifiedSession');
 const pickWritable = require('../middleware/pickWritable');
 const validateId = require('../middleware/validateId');
 const { WRITABLE_FIELDS } = require('../lib/modelConstants');
-const optionalSession = require('../middleware/optionalSession');
+const requireSession = require('../middleware/requireSession');
 
-// Public routes
-router.get('/', optionalSession, getProjects);
-router.get('/:id', optionalSession, getProjectById);
+// Dashboard reads; external consumers use the scoped /v1 API.
+router.get('/', requireSession, getProjects);
+router.get('/:id', requireSession, getProjectById);
 
 // Protected routes (Admin only)
 router.post('/', requireVerifiedSession, pickWritable(WRITABLE_FIELDS.Project), createProject);

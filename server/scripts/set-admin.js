@@ -6,8 +6,8 @@ const User = require('../models/User');
 async function setAdmin() {
   const email = String(process.argv[2] || process.env.ADMIN_EMAIL || '').trim().toLowerCase();
   const password = String(process.argv[3] || process.env.ADMIN_PASSWORD || '').trim();
-  if (!email || !password || password.length < 6 || !process.env.MONGODB_URI) {
-    throw new Error('Provide MONGODB_URI, ADMIN_EMAIL and ADMIN_PASSWORD (at least 6 characters).');
+  if (!email || !password || password.length < 10 || !process.env.MONGODB_URI) {
+    throw new Error('Provide MONGODB_URI, ADMIN_EMAIL and ADMIN_PASSWORD (at least 10 characters).');
   }
   await mongoose.connect(process.env.MONGODB_URI, { maxPoolSize: 10 });
   try {

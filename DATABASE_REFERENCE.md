@@ -2,8 +2,8 @@
 
 > **System Architecture:** Decoupled Headless CMS & Data Contract  
 > **Upstream Authority:** Admin CMS Dashboard (`client/` - Port 5173, Read/Write, JWT Auth)  
-> **Backend Service:** Express.js REST API (`server/` - Port 5000, Public REST & Virtual Filesystem)  
-> **Downstream Consumer:** Separate External Applications (Read-Only Contract via API or `portfolio_ro`)  
+> **Backend Service:** Express.js REST API (`server/` - Port 5000, session-protected dashboard and token-scoped `/v1`)
+> **Downstream Consumer:** External applications use the app-scoped `/v1` read-only API
 > **Version:** 2.0.0 | September 2026
 
 ---
@@ -21,7 +21,7 @@
                             ▼
 ┌────────────────────────────────────────────────────────┐
 │                    Express REST API                    │
-│      Auth + Admin CRUD + Public Read-Only Endpoints    │
+│      Session Dashboard API + token-scoped /v1 API      │
 └───────────────────────────┬────────────────────────────┘
                             │
                             │ Read / Write (`cms_rw`)
@@ -31,8 +31,8 @@
 │                     (`Portfolio_db`)                   │
 └───────────────────────────┬────────────────────────────┘
                             │
-                            │ External Read Access
-                            │ (REST GET or portfolio_ro)
+                            │ Scoped Read Access
+                            │ (/v1 with app token)
                             ▼
 ┌────────────────────────────────────────────────────────┐
 │               Separate Portfolio Project               │
@@ -40,9 +40,7 @@
 └────────────────────────────────────────────────────────┘
 ```
 
-> **Decoupled Architecture Notice:** The public portfolio is not part of this repository. It is a separate application that consumes the CMS-managed data through one of two supported integration patterns:
-> - **REST API Contract (Recommended):** The external client issues standard HTTP `GET` requests to the Express public endpoints (or the `/api/fs` hierarchical projection).
-> - **Direct MongoDB Read Access:** The external client backend queries `Portfolio_db` directly using a strictly read-only database credential (`portfolio_ro`).
+> **Decoupled Architecture Notice:** External applications consume published, app-scoped data through the token-authenticated `/v1` API. They do not connect directly to MongoDB.
 
 ---
 
@@ -290,30 +288,32 @@ Authentication credentials and session revocation state for each CMS account.
 
 ## 4. REST API Endpoint Reference
 
-**Base URL:** `http://localhost:5000/api`
+**Dashboard Base URL:** `http://localhost:5000/api`
+**External API Base URL:** `http://localhost:5000/v1`
 
-### 4.1. Public Endpoints (Consumed by Client Applications)
+### 4.1. Dashboard Reads and External Consumer API
 
-| Method | Endpoint | Query Parameters | Returns | Client Usage |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/health` | None | `{ status, uptime, timestamp }` | Health check & uptime monitoring |
-| `GET` | `/profile` | None | Profile object with metrics & identity info | Header profile, bio, metadata |
-| `GET` | `/socials` | `?featured=true` | Array of social links | Social links & contact badges |
-| `GET` | `/skills` | `?category=...` | `{ skills: [...], byCategory: {...} }` | Technical competencies & skill tags |
-| `GET` | `/projects` | `?mode=solo\|team`, `?featured=true` | Array of projects sorted by `order` | Project showcase gallery & cards |
-| `GET` | `/projects/:idOrSlug` | None | Single project with `caseStudyBody` | Full case study reader & markdown |
-| `GET` | `/experience` | None | Array of experiences sorted by `order` | Career history & timeline views |
-| `GET` | `/education` | None | Array of education credentials | Academic history & credentials |
-| `GET` | `/certifications`| None | Array of certifications & licenses | Verified licenses & cloud badges |
-| `GET` | `/resume` | None | Resume object `{ resumeUrl, driveUrl, ... }` | Master resume link & download launcher |
-| `GET` | `/fs` | None | Complete virtual filesystem tree | Hierarchical content tree / file explorer |
+Dashboard content reads require a session JWT. External clients must use `/v1` with an App token; anonymous `/api` content reads are removed.
 
-Anonymous legacy reads resolve the configured `ADMIN_EMAIL` user and return only published collection records. Supplying a dashboard Bearer token scopes reads to that account and includes its drafts.
+| Method | Endpoint | Access | Returns |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/health` | Public | `{ status, uptime, timestamp }` |
+| `GET` | `/api/profile`, `/api/resume` | Dashboard session | Full owner-scoped dashboard records |
+| `GET` | `/api/socials`, `/api/skills`, `/api/projects` | Dashboard session | Owner-scoped dashboard collections |
+| `GET` | `/api/experience`, `/api/education`, `/api/certifications` | Dashboard session | Owner-scoped dashboard collections |
+| `GET` | `/v1/app` | App API token | App name, type, and enabled sections |
+| `GET` | `/v1/profile`, `/v1/resume` | App API token | Enabled singleton projections |
+| `GET` | `/v1/socials`, `/v1/skills`, `/v1/skills/categories` | App API token | Enabled, published collection projections |
+| `GET` | `/v1/projects`, `/v1/projects/:slug` | App API token | Enabled, published project projections |
+| `GET` | `/v1/experience`, `/v1/education`, `/v1/certifications` | App API token | Enabled, published collection projections |
+| `GET` | `/v1/fs` | App token and `include.fs.enabled` | Scoped virtual filesystem tree |
+
+`/v1` requires `Authorization: Bearer <pk_or_sk_token>`. A `pk_` token also requires an exact allowed `Origin`; a `sk_` token is server-side only. Responses contain only published records and fields selected for the App.
 
 ---
 
-### 4.2. Protected Endpoints (Admin CMS Operations)
-*Requires Header:* `Authorization: Bearer <JWT_TOKEN>`
+### 4.2. Dashboard Authentication and Mutations
+Content reads and mutations require `Authorization: Bearer <JWT_TOKEN>`. Login is the public session bootstrap endpoint.
 
 | Method | Endpoint | Body Payload | Description |
 | :--- | :--- | :--- | :--- |
@@ -345,9 +345,9 @@ Anonymous legacy reads resolve the configured `ADMIN_EMAIL` user and return only
 
 ---
 
-## 5. Virtual Filesystem (`/api/fs`) Mapping
+## 5. Virtual Filesystem (`/v1/fs`) Mapping
 
-Client applications can ingest the entire hierarchical content tree from `GET /api/fs`:
+Client applications can ingest an App-scoped, published, field-filtered hierarchical tree from `GET /v1/fs` when `include.fs.enabled` is true. Send the App token in the Authorization header:
 
 ```json
 {

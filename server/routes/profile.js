@@ -8,10 +8,10 @@ const {
 const requireVerifiedSession = require('../middleware/requireVerifiedSession');
 const pickWritable = require('../middleware/pickWritable');
 const { WRITABLE_FIELDS } = require('../lib/modelConstants');
-const optionalSession = require('../middleware/optionalSession');
+const requireSession = require('../middleware/requireSession');
 
-// Public route
-router.get('/', optionalSession, getProfile);
+// Dashboard read; external consumers use the scoped /v1 API.
+router.get('/', requireSession, getProfile);
 
 // Protected routes (Admin only)
 router.put('/', requireVerifiedSession, pickWritable(WRITABLE_FIELDS.Profile), updateProfile);

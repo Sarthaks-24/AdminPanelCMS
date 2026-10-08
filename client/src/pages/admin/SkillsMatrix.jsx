@@ -383,7 +383,7 @@ export default function SkillsMatrix() {
       const updated = { ...skill, featured: !skill.featured };
       const res = await api.put(`/skills/${skill._id}`, updated);
       setSkills((prev) => prev.map((s) => (s._id === skill._id ? res.data : s)));
-    } catch (err) {
+    } catch {
       setErrorMsg('Error updating featured flag');
     }
   };

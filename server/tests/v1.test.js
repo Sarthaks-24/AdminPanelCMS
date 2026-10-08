@@ -9,6 +9,43 @@ const { preAuthLimiter } = require('../middleware/v1Limiters');
 const { createUser, createApp, createToken, loginAs, seedContent } = require('./helpers/factory');
 
 describe('versioned public API and dashboard token lifecycle', () => {
+  it('supports a localhost consumer cutover from app creation through profile and resume reads', async () => {
+    const consumerOrigin = 'http://localhost:5174';
+    const user = await createUser(User);
+    const models = {
+      Profile: require('../models/Profile'), Project: require('../models/Project'), Resume: require('../models/Resume'),
+      Skill: require('../models/Skill'), Social: require('../models/Social'), Experience: require('../models/Experience'),
+      Education: require('../models/Education'), Certification: require('../models/Certification'),
+    };
+    const content = await seedContent(models, user);
+    const createdApp = await request(appServer).post('/api/apps').set('Authorization', loginAs(user)).send({
+      name: 'Local portfolio consumer',
+      type: 'static',
+      allowedOrigins: [consumerOrigin],
+      include: {
+        profile: { enabled: true, fields: ['name', 'shortBio'] },
+        resume: { enabled: true, fields: ['resumeUrl', 'fileName'] },
+      },
+    }).expect(201);
+    const { token } = await request(appServer).post(`/api/apps/${createdApp.body._id}/tokens`)
+      .set('Authorization', loginAs(user)).send({ label: 'Local site' }).expect(201).then(({ body }) => body);
+
+    const headers = { Authorization: `Bearer ${token}`, Origin: consumerOrigin };
+    const profile = await request(appServer).get('/v1/profile').set(headers).expect(200);
+    expect(profile.body).toMatchObject({ name: content.profile.name, shortBio: content.profile.shortBio });
+    expect(profile.body).not.toHaveProperty('owner');
+    expect(profile.headers['access-control-allow-origin']).toBe(consumerOrigin);
+
+    const resume = await request(appServer).get('/v1/resume').set(headers).expect(200);
+    expect(resume.body).toMatchObject({ resumeUrl: content.resume.resumeUrl, fileName: content.resume.fileName });
+    expect(resume.headers.location).toBeUndefined();
+
+    const wrongOrigin = await request(appServer).get('/v1/profile')
+      .set({ Authorization: `Bearer ${token}`, Origin: 'http://localhost:5173' }).expect(403);
+    expect(wrongOrigin.body.error).toBe('origin_not_allowed');
+    expect(wrongOrigin.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
   it('serves app metadata with ETag caching and origin CORS headers', async () => {
     const user = await createUser(User);
     const cmsApp = await createApp(App, user);

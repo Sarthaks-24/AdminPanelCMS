@@ -2,22 +2,18 @@ const mongoose = require('mongoose');
 const Project = require('../models/Project');
 const crud = require('../lib/scopedCrud')(Project, 'project', { queryFields: ['mode'] });
 const { scopedBulkWrite } = require('../plugins/ownerGuard');
-const ownerForRequest = require('../lib/ownerForRequest');
 const qString = require('../lib/qString');
 const slugify = (text) => String(text).toLowerCase().trim().replace(/[\s\W-]+/g, '-');
 const contentChanged = require('../lib/onContentChanged');
 
 async function getProjects(req, res, next) {
   try {
-    const owner = await ownerForRequest(req);
-    if (!owner) return res.json([]);
+    const owner = req.userId;
     const filter = { owner };
-    if (!req.userId) filter.visibility = 'published';
     const mode = qString(req, 'mode');
     if (mode && ['solo', 'team'].includes(mode)) filter.mode = mode;
     if (qString(req, 'featured') === 'true') filter.featured = true;
     const query = Project.find(filter).sort({ order: 1, createdAt: -1 });
-    if (!req.userId) query.select('-owner -visibility');
     res.json(await query);
   } catch (error) { next(error); }
 }
@@ -25,14 +21,11 @@ async function getProjects(req, res, next) {
 async function getProjectById(req, res, next) {
   try {
     const param = req.params.id;
-    const owner = await ownerForRequest(req);
-    if (!owner) return res.status(404).json({ success: false, error: 'not_found' });
+    const owner = req.userId;
     const query = mongoose.isValidObjectId(param)
       ? { _id: param, owner }
       : { slug: String(param).slice(0, 120).toLowerCase(), owner };
-    if (!req.userId) query.visibility = 'published';
     const projectQuery = Project.findOne(query);
-    if (!req.userId) projectQuery.select('-owner -visibility');
     const project = await projectQuery;
     return project ? res.json(project) : res.status(404).json({ success: false, error: 'not_found' });
   } catch (error) { return next(error); }

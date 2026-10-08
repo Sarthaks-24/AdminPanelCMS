@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { ownerGuardPlugin } = require('../plugins/ownerGuard');
+const { isSafeHttpsUrl } = require('../lib/urlValidators');
 
 const CertificationSchema = new mongoose.Schema(
   {
@@ -32,6 +33,7 @@ const CertificationSchema = new mongoose.Schema(
       type: String,
       default: '',
       trim: true,
+      validate: { validator: isSafeHttpsUrl, message: 'URL must use https://' },
     },
     skills: {
       type: [String],

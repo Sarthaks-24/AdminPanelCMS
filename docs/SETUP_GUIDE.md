@@ -23,10 +23,8 @@ Ensure your environment satisfies the following minimum requirements:
      - Click **Add New Database User** and select **Password Authentication**.
      - Create a username (e.g., `cms_rw`) and a secure password.
      - Under **Database User Privileges**, assign **readWrite** permissions specifically scoped to your database (`Portfolio_db`).
-   - **Downstream Consumer User (`portfolio_ro` - Best Practice):**
-     - For any separate portfolio application or external consumer connecting to MongoDB, create a separate user `portfolio_ro`.
-     - Assign strictly **read** privileges on `Portfolio_db`. Never share write credentials with downstream applications.
-   - **Security Guarantee:** Neither database credential should ever reach the client browser or frontend bundle.
+   - **External Consumers:** Do not create or share a MongoDB user for a portfolio site. Create a scoped App and use its `pk_` token in a browser or `sk_` token on a server through `/v1`.
+   - **Security Guarantee:** The MongoDB credential stays on the CMS backend and never reaches a browser or consumer application.
 4. Under **Security > Network Access**:
    - Click **Add IP Address**.
    - For local development, add your current IP address or add `0.0.0.0/0` (allow access from anywhere) with caution.

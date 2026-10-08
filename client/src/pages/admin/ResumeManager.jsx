@@ -7,10 +7,8 @@ import {
   Save,
   Terminal,
   FileText,
-  RefreshCw,
   AlertCircle,
   CheckCircle,
-  Link2,
 } from 'lucide-react';
 
 export default function ResumeManager() {
@@ -85,6 +83,10 @@ export default function ResumeManager() {
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  if (loading) {
+    return <main className="mx-auto max-w-4xl p-6"><p role="status" className="rounded border border-t-border bg-t-surface p-5 text-center text-xs text-t-muted">Loading resume settings…</p></main>;
+  }
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">

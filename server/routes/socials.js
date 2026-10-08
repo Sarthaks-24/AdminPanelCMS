@@ -11,10 +11,10 @@ const requireVerifiedSession = require('../middleware/requireVerifiedSession');
 const pickWritable = require('../middleware/pickWritable');
 const validateId = require('../middleware/validateId');
 const { WRITABLE_FIELDS } = require('../lib/modelConstants');
-const optionalSession = require('../middleware/optionalSession');
+const requireSession = require('../middleware/requireSession');
 
-// Public route
-router.get('/', optionalSession, getSocials);
+// Dashboard read; external consumers use the scoped /v1 API.
+router.get('/', requireSession, getSocials);
 
 // Protected routes (Admin only)
 router.post('/', requireVerifiedSession, pickWritable(WRITABLE_FIELDS.Social), createSocial);

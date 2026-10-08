@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { ownerGuardPlugin } = require('../plugins/ownerGuard');
+const { isSafeHttpsUrl } = require('../lib/urlValidators');
 
 const ExperienceSchema = new mongoose.Schema(
   {
@@ -44,6 +45,7 @@ const ExperienceSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: '',
+      validate: { validator: isSafeHttpsUrl, message: 'URL must use https://' },
     },
     description: {
       type: String,

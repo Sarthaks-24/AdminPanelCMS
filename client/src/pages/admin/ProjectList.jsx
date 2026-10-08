@@ -12,8 +12,6 @@ import {
   GitBranch,
   Video,
   Star,
-  ExternalLink,
-  Code,
 } from 'lucide-react';
 
 export default function ProjectList() {
@@ -52,7 +50,7 @@ export default function ProjectList() {
       const updated = { ...project, featured: !project.featured };
       const res = await api.put(`/projects/${project._id}`, updated);
       setProjects((prev) => prev.map((p) => (p._id === project._id ? res.data : p)));
-    } catch (err) {
+    } catch {
       alert('Error updating featured status');
     }
   };

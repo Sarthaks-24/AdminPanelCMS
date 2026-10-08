@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 const pickFields = require('./pickFields');
-const ownerForRequest = require('./ownerForRequest');
 const qString = require('./qString');
 const LIMITS = require('../config/limits');
+const { withContentQuota } = require('./contentQuota');
 const contentChanged = require('./onContentChanged');
 const pullContentFromApps = require('./pullContentFromApps');
 
@@ -10,28 +10,22 @@ function scopedCrud(Model, fieldName, { sort = { order: 1, createdAt: -1 }, quer
   return {
     list: async (req, res, next) => {
       try {
-        const ownerId = await ownerForRequest(req);
-        if (!ownerId) return res.json([]);
+        const ownerId = req.userId;
         const filter = { owner: ownerId };
-        if (!req.userId && Model.schema.path('visibility')) filter.visibility = 'published';
         for (const field of queryFields) {
           const value = qString(req, field);
           if (value !== undefined) filter[field] = field === 'featured' && ['true', 'false'].includes(value) ? value === 'true' : value;
         }
         const query = Model.find(filter).sort(sort);
-        if (!req.userId) query.select('-owner -visibility');
         return res.json(await query);
       } catch (error) { return next(error); }
     },
     get: async (req, res, next) => {
       try {
         if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: 'not_found' });
-        const ownerId = await ownerForRequest(req);
-        if (!ownerId) return res.status(404).json({ success: false, error: 'not_found' });
+        const ownerId = req.userId;
         const filter = { _id: req.params.id, owner: ownerId };
-        if (!req.userId && Model.schema.path('visibility')) filter.visibility = 'published';
         const query = Model.findOne(filter);
-        if (!req.userId) query.select('-owner -visibility');
         const item = await query;
         return item ? res.json(item) : res.status(404).json({ success: false, error: 'not_found' });
       } catch (error) { return next(error); }
@@ -39,12 +33,14 @@ function scopedCrud(Model, fieldName, { sort = { order: 1, createdAt: -1 }, quer
     create: async (req, res, next) => {
       try {
         const ownerId = req.userId;
-        const count = await Model.countDocuments({ owner: ownerId });
-        if (count >= LIMITS.itemsPerCollection) return res.status(403).json({ success: false, error: 'quota_exceeded', resource: Model.modelName.toLowerCase(), limit: LIMITS.itemsPerCollection });
-        const last = await Model.findOne({ owner: ownerId }).sort({ order: -1 }).select('order').lean();
-        const data = { ...pickFields(req.body, require('./modelConstants').WRITABLE_FIELDS[Model.modelName]), owner: ownerId };
-        if (data.order === undefined) data.order = (last?.order ?? -1) + 1;
-        const item = await Model.create(data);
+        const result = await withContentQuota(Model, ownerId, 1, async () => {
+          const last = await Model.findOne({ owner: ownerId }).sort({ order: -1 }).select('order').lean();
+          const data = { ...pickFields(req.body, require('./modelConstants').WRITABLE_FIELDS[Model.modelName]), owner: ownerId };
+          if (data.order === undefined) data.order = (last?.order ?? -1) + 1;
+          return Model.create(data);
+        });
+        if (!result.allowed) return res.status(403).json({ success: false, error: 'quota_exceeded', resource: Model.modelName.toLowerCase(), limit: LIMITS.itemsPerCollection });
+        const item = result.value;
         await contentChanged.onContentChanged(ownerId);
         return res.status(201).json(item);
       } catch (error) { return next(error); }
