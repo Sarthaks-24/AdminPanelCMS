@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { ownerGuardPlugin } = require('../plugins/ownerGuard');
+const { isSafeSocialUrl } = require('../lib/urlValidators');
 
 const SocialSchema = new mongoose.Schema(
   {
@@ -19,6 +20,7 @@ const SocialSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Valid URL is required'],
       trim: true,
+      validate: { validator: isSafeSocialUrl, message: 'URL must use https:// or a valid mailto: address' },
     },
     username: {
       type: String,

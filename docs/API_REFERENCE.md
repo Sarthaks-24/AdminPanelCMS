@@ -70,7 +70,7 @@ This document provides complete technical specifications for every endpoint expo
 ### 3.1. Fetch Profile
 - **Method:** `GET`
 - **Path:** `/api/profile`
-- **Access:** Public
+- **Access:** Protected (`requireSession`); external consumers use `/v1/profile`
 - **Response (`200 OK`):**
   ```json
   {
@@ -127,7 +127,7 @@ This document provides complete technical specifications for every endpoint expo
 ### 4.1. List All Socials
 - **Method:** `GET`
 - **Path:** `/api/socials`
-- **Access:** Public
+- **Access:** Protected (`requireSession`); external consumers use `/v1/socials`
 - **Query Params:** `?featured=true` (optional, filters by featured status)
 - **Sort:** Ascending by `order`
 
@@ -179,7 +179,7 @@ This document provides complete technical specifications for every endpoint expo
 ### 5.1. List All Skills
 - **Method:** `GET`
 - **Path:** `/api/skills`
-- **Access:** Public
+- **Access:** Protected (`requireSession`); external consumers use `/v1/skills`
 - **Query Params:**
   - `?category=Languages` (filter by category)
   - `?featured=true` (filter by featured status)
@@ -187,7 +187,7 @@ This document provides complete technical specifications for every endpoint expo
 ### 5.2. Get Skills Grouped by Category
 - **Method:** `GET`
 - **Path:** `/api/skills/categories`
-- **Access:** Public
+- **Access:** Removed; use token-authenticated `GET /v1/skills/categories` when the App enables skills
 - **Response (`200 OK`):**
   ```json
   {
@@ -264,7 +264,7 @@ This document provides complete technical specifications for every endpoint expo
 ### 6.1. List Projects
 - **Method:** `GET`
 - **Path:** `/api/projects`
-- **Access:** Public
+- **Access:** Protected (`requireSession`); external consumers use `/v1/projects`
 - **Query Params:**
   - `?featured=true` (featured projects only)
   - `?mode=solo` or `?mode=team` (filter by architecture mode)
@@ -273,7 +273,7 @@ This document provides complete technical specifications for every endpoint expo
 ### 6.2. Get Project by ID or Slug
 - **Method:** `GET`
 - **Path:** `/api/projects/:id`
-- **Access:** Public (Accepts MongoDB ObjectID or unique `slug`)
+- **Access:** Protected (`requireSession`); external consumers use `/v1/projects/:slug`
 
 ### 6.3. Create Project
 - **Method:** `POST`
@@ -329,8 +329,7 @@ This document provides complete technical specifications for every endpoint expo
 
 ## 7. Career Experience Endpoints
 
-- `GET /api/experience` - Public listing sorted by `order ASC`
-- `GET /api/experience/:id` - Public single milestone retrieval
+- `GET /api/experience` - Session-protected dashboard listing sorted by `order ASC`
 - `POST /api/experience` - Protected milestone creation
 - `PUT /api/experience/:id` - Protected milestone update
 - `DELETE /api/experience/:id` - Protected milestone deletion
@@ -339,8 +338,7 @@ This document provides complete technical specifications for every endpoint expo
 
 ## 8. Education Endpoints
 
-- `GET /api/education` - Public listing sorted by `order ASC`
-- `GET /api/education/:id` - Public single credential retrieval
+- `GET /api/education` - Session-protected dashboard listing sorted by `order ASC`
 - `POST /api/education` - Protected academic credential creation
 - `PUT /api/education/:id` - Protected academic credential update
 - `DELETE /api/education/:id` - Protected academic credential deletion
@@ -349,8 +347,7 @@ This document provides complete technical specifications for every endpoint expo
 
 ## 9. Certifications Endpoints
 
-- `GET /api/certifications` - Public listing sorted by `issueDate DESC`
-- `GET /api/certifications/:id` - Public single certification retrieval
+- `GET /api/certifications` - Session-protected dashboard listing
 - `POST /api/certifications` - Protected certification creation
 - `PUT /api/certifications/:id` - Protected certification update
 - `DELETE /api/certifications/:id` - Protected certification deletion
@@ -362,7 +359,7 @@ This document provides complete technical specifications for every endpoint expo
 ### 10.1. Get Resume Metadata
 - **Method:** `GET`
 - **Path:** `/api/resume`
-- **Access:** Public
+- **Access:** Protected (`requireSession`); external consumers use `GET /v1/resume`
 - **Response (`200 OK`):**
   ```json
   {
@@ -376,11 +373,9 @@ This document provides complete technical specifications for every endpoint expo
   }
   ```
 
-### 10.2. Direct Resume Download Redirect
-- **Method:** `GET`
-- **Path:** `/api/resume/download`
-- **Access:** Public
-- **Behavior:** Issues an HTTP `302 Found` redirect directly to the active `resumeUrl`.
+### 10.2. Direct Resume Download Redirect (Removed)
+
+`GET /api/resume/download` has been removed. External consumers should read `resumeUrl` from token-authenticated `GET /v1/resume` and use that URL directly; `/v1` does not redirect.
 
 ### 10.3. Update Resume Metadata
 - **Method:** `PUT`
@@ -398,12 +393,9 @@ This document provides complete technical specifications for every endpoint expo
 
 ---
 
-## 11. Virtual Filesystem Endpoint
+## 11. Legacy Virtual Filesystem Endpoint (Removed)
 
-- **Method:** `GET`
-- **Path:** `/api/fs`
-- **Access:** Public
-- **Description:** Returns the complete in-memory JSON hierarchy representing all database entities as files and directories.
+`GET /api/fs` has been removed. External consumers may use token-authenticated `GET /v1/fs` only when the App enables `include.fs`; the tree is built from the same scoped, published projection as the other `/v1` resources.
 
 ## Versioned public API (`/v1`)
 

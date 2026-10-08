@@ -19,7 +19,7 @@ The system functions as a standalone, authoritative upstream content management 
                             ▼
 ┌────────────────────────────────────────────────────────┐
 │                    Express REST API                    │
-│      Auth + Admin CRUD + Public Read-Only Endpoints    │
+│      Session Dashboard API + token-scoped /v1 API      │
 └───────────────────────────┬────────────────────────────┘
                             │
                             │ Read / Write (`cms_rw`)
@@ -29,8 +29,8 @@ The system functions as a standalone, authoritative upstream content management 
 │                     (`Portfolio_db`)                   │
 └───────────────────────────┬────────────────────────────┘
                             │
-                            │ External Read Access
-                            │ (REST GET or portfolio_ro)
+                            │ Scoped Read Access
+                            │ (/v1 with app token)
                             ▼
 ┌────────────────────────────────────────────────────────┐
 │               Separate Portfolio Project               │
@@ -38,9 +38,7 @@ The system functions as a standalone, authoritative upstream content management 
 └────────────────────────────────────────────────────────┘
 ```
 
-> **Decoupled Architecture Notice:** The public portfolio is not part of this repository. It is a separate application that consumes the CMS-managed data through one of two supported integration patterns:
-> - **REST API Contract (Recommended):** The external client issues standard HTTP `GET` requests to the Express public endpoints (or the `/api/fs` hierarchical projection).
-> - **Direct MongoDB Read Access:** The external client backend queries `Portfolio_db` directly using a strictly read-only database credential (`portfolio_ro`).
+> **Decoupled Architecture Notice:** External applications consume published, app-scoped data through the token-authenticated `/v1` API. Publishable keys are origin-checked for browser use; secret keys are server-only. External applications do not connect directly to MongoDB.
 
 ---
 
@@ -48,7 +46,7 @@ The system functions as a standalone, authoritative upstream content management 
 
 The data layer in `server/models/` uses owner-scoped schemas so multiple accounts can manage isolated professional content:
 
-Every content document carries a required, immutable `owner` reference to `User`. A per-schema `ownerGuard` rejects queries without a concrete owner ObjectId, requires aggregation pipelines to begin with an owner match, and validates inserts. Controllers obtain the owner from the verified dashboard session. Anonymous legacy reads resolve only the configured primary account and filter collection content to `visibility: 'published'` until the coordinated Phase 4 API cutover.
+Every content document carries a required, immutable `owner` reference to `User`. A per-schema `ownerGuard` rejects queries without a concrete owner ObjectId, requires aggregation pipelines to begin with an owner match, and validates inserts. Dashboard controllers obtain the owner from the verified session. External `/v1` requests obtain the owner from the app identified by the API token; anonymous legacy `/api` reads are removed.
 
 ### 2.1. Singleton Pattern (`Profile`, `Resume`)
 Certain domains represent unique, singular entities:
@@ -78,7 +76,7 @@ The `Skill` collection groups technical competencies under a strict enum of 7 in
 
 ---
 
-## 3. Multiple Content Representations (`/api/fs`)
+## 3. Multiple Content Representations (`/v1/fs`)
 
 The CMS engine is architected to expose multiple representations of the same underlying content models:
 
@@ -89,15 +87,15 @@ The CMS engine is architected to expose multiple representations of the same und
                         ↓
          ┌──────────────┴──────────────┐
          │                             │
-   REST Resources                    /api/fs
+   REST Resources                    /v1/fs
 (Standard JSON Endpoints)  (In-Memory Filesystem Tree)
          │                             │
          ▼                             ▼
    External Apps             File-Oriented Consumers
 ```
 
-- **REST Resources:** Standard granular REST endpoints (`/api/projects`, `/api/skills`, etc.) for conventional web frontends.
-- **Hierarchical Filesystem Tree (`/api/fs`):** An optional downstream projection that dynamically traverses all MongoDB collections to construct an in-memory Unix-style filesystem tree (`/`, `/about`, `/skills`, `/projects`, `/experience`, `/education`, `/certifications`, `/resume.pdf`). This provides file-oriented consumers, tree navigators, and static site generators with the complete content hierarchy in a single network round-trip.
+- **REST Resources:** Token-authenticated, app-scoped `/v1` endpoints for profile, resume, socials, skills, projects, experience, education, and certifications.
+- **Hierarchical Filesystem Tree (`/v1/fs`):** An optional downstream projection built only from the same published, field-filtered App view as the other `/v1` endpoints. The App must enable `include.fs`.
 
 ### 3.1. Directory Structure Mapping
 
@@ -154,8 +152,8 @@ The system enforces least-privilege credential separation across the persistence
      (This Project)                      (External Project)
            │                                      │
            ▼                                      ▼
-     User: `cms_rw`                       User: `portfolio_ro`
-  Role: Read / Write                     Role: Read-Only (db.read)
+     User: `cms_rw`                       External consumer
+  Role: Read / Write                  API token; no DB account
            │                                      │
            └──────────────────┬───────────────────┘
                               ▼
@@ -164,14 +162,14 @@ The system enforces least-privilege credential separation across the persistence
 ```
 
 1. **`cms_rw` (Read/Write):** Scoped exclusively to the CMS backend server (`server/`). Authorized to execute admin CRUD operations, index creation, and token-validated state modifications.
-2. **`portfolio_ro` (Read-Only):** Scoped for external presentation consumers that connect directly to MongoDB. Restricted strictly to read queries, preventing any possibility of unauthorized write operations from downstream code.
+2. **External consumers:** Read through app-scoped `/v1` tokens. They receive no MongoDB credentials and cannot write through the public API.
 3. **Zero Browser Exposure:** Neither database credential ever reaches the client browser or frontend bundle. All client dashboard interactions are conducted over authenticated Express HTTP routes.
 
 ---
 
 ## 5. Shared Boundary: Data Model & API Contract
 
-The architecture treats the **Data Model & API Contract** as the primary integration boundary between the CMS and downstream consumers, while direct read-only database access (`portfolio_ro`) serves as an alternative high-efficiency data path:
+The architecture treats the **Data Model & API Contract** as the only integration boundary between the CMS and downstream consumers:
 
 ```
               CMS PROJECT

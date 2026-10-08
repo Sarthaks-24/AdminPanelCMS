@@ -1,4 +1,5 @@
 const request = require('supertest');
+const mongoose = require('mongoose');
 const app = require('../app');
 
 const User = require('../models/User');
@@ -24,7 +25,7 @@ const contentRoutes = [
 ];
 
 describe('Cross-tenant data isolation safety gate', () => {
-  it.each(contentRoutes)('does not expose User A $name records in public collection reads', async (route) => {
+  it.each(contentRoutes)('does not expose User A $name records in User B dashboard reads', async (route) => {
     const userA = await createUser(User);
     const userB = await createUser(User);
     const seeded = await seedContent(allModels, userA);
@@ -78,31 +79,20 @@ describe('Cross-tenant data isolation safety gate', () => {
     expect.soft(response.status).toBe(404);
   });
 
-  it('keeps anonymous legacy reads limited to the configured primary owner and published content', async () => {
+  it('requires a session for legacy dashboard reads even when ADMIN_EMAIL is configured', async () => {
     const previousEmail = process.env.ADMIN_EMAIL;
     const userA = await createUser(User);
-    const userB = await createUser(User);
-    const projectA = (await seedContent(allModels, userA)).project;
-    projectA.visibility = 'published';
-    await projectA.save();
-    await Project.create({
-      owner: userB._id, title: 'Private Project', slug: `private-${userB._id}`,
-      shortDescription: 'Private tenant project', caseStudyBody: 'Private', visibility: 'published',
-    });
+    await seedContent(allModels, userA);
     process.env.ADMIN_EMAIL = userA.email;
     try {
-      const response = await request(app).get('/api/projects');
-      expect(response.status).toBe(200);
-      expect(response.body.map((item) => item._id)).toContain(projectA._id.toString());
-      expect(response.body[0].owner).toBeUndefined();
-      expect(JSON.stringify(response.body)).not.toContain('Private Project');
+      await request(app).get('/api/projects').expect(401);
     } finally {
       if (previousEmail === undefined) delete process.env.ADMIN_EMAIL;
       else process.env.ADMIN_EMAIL = previousEmail;
     }
   });
 
-  it('returns no unscoped records when ADMIN_EMAIL is unset', async () => {
+  it('requires sessions for dashboard reads when ADMIN_EMAIL is unset', async () => {
     const previousEmail = process.env.ADMIN_EMAIL;
     delete process.env.ADMIN_EMAIL;
     try {
@@ -110,15 +100,14 @@ describe('Cross-tenant data isolation safety gate', () => {
       await seedContent(allModels, user);
       const profile = await request(app).get('/api/profile');
       const projects = await request(app).get('/api/projects');
-      expect(profile.status).toBe(404);
-      expect(projects.status).toBe(200);
-      expect(projects.body).toEqual([]);
+      expect(profile.status).toBe(401);
+      expect(projects.status).toBe(401);
     } finally {
       if (previousEmail !== undefined) process.env.ADMIN_EMAIL = previousEmail;
     }
   });
 
-  it('rejects an invalid JWT instead of falling back to the anonymous primary read', async () => {
+  it('rejects an invalid JWT without falling back to ADMIN_EMAIL', async () => {
     const previousEmail = process.env.ADMIN_EMAIL;
     const user = await createUser(User);
     const { project } = await seedContent(allModels, user);
@@ -131,6 +120,16 @@ describe('Cross-tenant data isolation safety gate', () => {
       if (previousEmail === undefined) delete process.env.ADMIN_EMAIL;
       else process.env.ADMIN_EMAIL = previousEmail;
     }
+  });
+
+  it('retires unauthenticated legacy GET routes after the /v1 cutover', async () => {
+    const paths = [
+      '/api/profile', '/api/projects', `/api/projects/${new mongoose.Types.ObjectId()}`,
+      '/api/skills', '/api/socials', '/api/experience', '/api/education', '/api/certifications', '/api/resume',
+    ];
+    for (const path of paths) await request(app).get(path).expect(401);
+    await request(app).get('/api/resume/download').expect(404);
+    await request(app).get('/api/fs').expect(404);
   });
 
   it('keeps slug lookups working while malformed ObjectId writes fail validation', async () => {

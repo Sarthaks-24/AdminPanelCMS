@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { ownerGuardPlugin } = require('../plugins/ownerGuard');
+const { isSafeHttpsUrl } = require('../lib/urlValidators');
 
 const projectSchema = new mongoose.Schema(
   {
@@ -58,11 +59,12 @@ const projectSchema = new mongoose.Schema(
       type: String,
       default: '', // Image URL for previews
       trim: true,
+      validate: { validator: isSafeHttpsUrl, message: 'URL must use https://' },
     },
     links: {
-      github: { type: String, default: '', trim: true },
-      live: { type: String, default: '', trim: true },
-      demo: { type: String, default: '', trim: true },
+      github: { type: String, default: '', trim: true, validate: { validator: isSafeHttpsUrl, message: 'URL must use https://' } },
+      live: { type: String, default: '', trim: true, validate: { validator: isSafeHttpsUrl, message: 'URL must use https://' } },
+      demo: { type: String, default: '', trim: true, validate: { validator: isSafeHttpsUrl, message: 'URL must use https://' } },
     },
     order: {
       type: Number,

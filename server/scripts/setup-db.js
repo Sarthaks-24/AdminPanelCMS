@@ -29,7 +29,7 @@ async function setupDatabase() {
   const fresh = process.argv.includes('--fresh') || process.argv.includes('--clean');
   const confirmIndex = process.argv.indexOf('--confirm');
   const confirmedDatabase = confirmIndex >= 0 ? process.argv[confirmIndex + 1] : undefined;
-  if (!mongoUri || !email || !password) throw new Error('Configure MONGODB_URI, ADMIN_EMAIL and ADMIN_PASSWORD first.');
+  if (!mongoUri || !email || password.length < 10) throw new Error('Configure MONGODB_URI and ADMIN_EMAIL, and set ADMIN_PASSWORD to at least 10 characters.');
   const target = getTargetDatabase(mongoUri);
   if (fresh && (!confirmedDatabase || confirmedDatabase !== target.database)) {
     throw new Error(`Refusing fresh setup. Re-run with --fresh --confirm ${target.database} after reviewing and backing up the target.`);

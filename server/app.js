@@ -14,13 +14,16 @@ const experienceRoutes = require('./routes/experience');
 const educationRoutes = require('./routes/education');
 const certificationRoutes = require('./routes/certifications');
 const resumeRoutes = require('./routes/resume');
-const fsRoutes = require('./routes/fs');
 const appsRoutes = require('./routes/apps');
 const v1Routes = require('./routes/v1');
 
 const app = express();
 
-app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 1));
+const trustProxyHops = process.env.TRUST_PROXY_HOPS === undefined ? 0 : Number(process.env.TRUST_PROXY_HOPS);
+if (!Number.isSafeInteger(trustProxyHops) || trustProxyHops < 0) {
+  throw new Error('TRUST_PROXY_HOPS must be a non-negative integer');
+}
+app.set('trust proxy', trustProxyHops);
 app.set('etag', false);
 app.use(helmet());
 // Mount /v1 before the dashboard CORS middleware so its stricter preflight policy wins.
@@ -28,25 +31,16 @@ app.use('/v1', v1Routes);
 
 const allowedOrigins = [
   process.env.CLIENT_ORIGIN,
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'http://localhost:5174',
-  'http://127.0.0.1:5174',
-  'http://localhost:4000',
-  'http://127.0.0.1:4000',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
 ].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
 
-    const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-    if (isLocalhost || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+    if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(new Error('Blocked by CORS policy'));
+    return callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -80,7 +74,6 @@ app.use('/api/experience', experienceRoutes);
 app.use('/api/education', educationRoutes);
 app.use('/api/certifications', certificationRoutes);
 app.use('/api/resume', resumeRoutes);
-app.use('/api/fs', fsRoutes);
 app.use('/api/apps', appsRoutes);
 
 app.use((req, res) => {

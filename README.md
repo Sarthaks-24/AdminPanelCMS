@@ -5,7 +5,7 @@
 
 The system provides an authenticated administrative dashboard for creating, updating, deleting, and reordering content such as projects, skills, experience, education, certifications, social links, profile information, and resume metadata.
 
-The CMS is intentionally decoupled from the public-facing presentation layer. External applications can consume the managed content through the read-only API contract or a dedicated read-only database connection.
+The CMS is intentionally decoupled from the public-facing presentation layer. External applications read managed content through the app-scoped, read-only `/v1` API and do not receive database credentials.
 
 ---
 
@@ -22,7 +22,7 @@ The CMS is intentionally decoupled from the public-facing presentation layer. Ex
                             ▼
 ┌────────────────────────────────────────────────────────┐
 │                    Express REST API                    │
-│      Auth + Admin CRUD + Public Read-Only Endpoints    │
+│      Session Dashboard API + token-scoped /v1 API      │
 └───────────────────────────┬────────────────────────────┘
                             │
                             │ Read / Write (`cms_rw`)
@@ -32,8 +32,8 @@ The CMS is intentionally decoupled from the public-facing presentation layer. Ex
 │                     (`Portfolio_db`)                   │
 └───────────────────────────┬────────────────────────────┘
                             │
-                            │ External Read Access
-                            │ (REST GET or portfolio_ro)
+                            │ Scoped Read Access
+                            │ (/v1 with app token)
                             ▼
 ┌────────────────────────────────────────────────────────┐
 │               Separate Portfolio Project               │
@@ -41,9 +41,7 @@ The CMS is intentionally decoupled from the public-facing presentation layer. Ex
 └────────────────────────────────────────────────────────┘
 ```
 
-> **Note on Architecture:** The public portfolio is not part of this repository. It is a separate application that consumes the CMS-managed data through one of two supported integration patterns:
-> - **REST API Contract (Recommended):** The external client issues standard HTTP `GET` requests to the Express public endpoints (or the `/api/fs` hierarchical projection).
-> - **Direct MongoDB Read Access:** The external client backend queries `Portfolio_db` directly using a strictly read-only database credential (`portfolio_ro`).
+> **Note on Architecture:** External applications consume published, app-scoped data through the token-authenticated `/v1` API. They do not connect directly to MongoDB. Publishable tokens are restricted to configured browser origins; secret tokens are for server-side requests only.
 
 ---
 
@@ -65,10 +63,10 @@ The CMS is intentionally decoupled from the public-facing presentation layer. Ex
 - **Administrative Mutations:** Stateful write operations protected by JWT authentication and route middleware.
 
 ### API Capabilities
-- **Public Read Endpoints:** Clean RESTful GET endpoints for public consumption by external frontends.
-- **Protected Mutation Endpoints:** Bearer token authorization for all administrative write operations.
+- **Scoped Read Endpoints:** `/v1` GET endpoints expose only enabled, published, allowlisted data for an App token.
+- **Protected Dashboard API:** Session authorization guards dashboard reads and mutations.
 - **Structured Content Schemas:** Strict Mongoose schemas, unique indexes, and enum taxonomy validations.
-- **Multiple Content Representations:** Standard REST JSON resources alongside an in-memory hierarchical filesystem projection (`/api/fs`).
+- **Multiple Content Representations:** Scoped `/v1` JSON resources and an in-memory hierarchical filesystem projection (`/v1/fs`).
 - **Filtering & Categorization:** Query parameters for category segregation, solo/team modes, and spotlight highlights.
 
 ### Security & Reliability
@@ -222,22 +220,14 @@ Navigate to `http://localhost:5173/admin/login` and log in with your configured 
 
 ## API Summary
 
-All endpoints are prefixed with `/api`. Public endpoints require no authentication. Protected mutation endpoints require header `Authorization: Bearer <token>`.
+Dashboard endpoints are prefixed with `/api` and require a session JWT for all account and content reads and writes, except login and health. External consumers use `/v1` with an app API token.
 
-| Domain | Public Routes | Protected Admin Routes |
+| Domain | Dashboard API (`/api`, session required) | External API (`/v1`, app token required) |
 | :--- | :--- | :--- |
 | **System** | `GET /health` | - |
-| **Profile** | `GET /profile` | `PUT /profile`, `PATCH /profile/availability` |
-| **Socials** | `GET /socials` | `POST /socials`, `PUT /socials/:id`, `DELETE /socials/:id`, `PATCH /socials/reorder` |
-| **Skills** | `GET /skills`, `GET /skills/categories` | `POST /skills`, `PUT /skills/:id`, `DELETE /skills/:id` |
-| **Projects** | `GET /projects`, `GET /projects/:id` | `POST /projects`, `PUT /projects/:id`, `DELETE /projects/:id`, `PATCH /projects/reorder` |
-| **Experience** | `GET /experience`, `GET /experience/:id` | `POST /experience`, `PUT /experience/:id`, `DELETE /experience/:id` |
-| **Education** | `GET /education`, `GET /education/:id` | `POST /education`, `PUT /education/:id`, `DELETE /education/:id` |
-| **Certifications**| `GET /certifications`, `GET /certifications/:id` | `POST /certifications`, `PUT /certifications/:id`, `DELETE /certifications/:id` |
-| **Resume** | `GET /resume`, `GET /resume/download` | `PUT /resume` |
-| **Virtual FS** | `GET /fs` | - |
-| **Versioned API** | `GET /v1/app`, `/v1/profile`, `/v1/resume`, `/v1/socials`, `/v1/skills`, `/v1/projects`, `/v1/experience`, `/v1/education`, `/v1/certifications`, `/v1/fs` | API-token authenticated, scoped read-only endpoints |
-| **Auth** | `POST /auth/login` | `GET /auth/verify` |
+| **Profile, resume, collections** | Session-protected CRUD and dashboard reads | `GET /v1/profile`, `/v1/resume`, `/v1/socials`, `/v1/skills`, `/v1/projects`, `/v1/experience`, `/v1/education`, `/v1/certifications` |
+| **Virtual filesystem** | Removed | `GET /v1/fs` when enabled for the App |
+| **Auth** | `POST /auth/login`; session-protected `GET /auth/verify` | - |
 
 For full endpoint definitions and schema payloads, see [DATABASE_REFERENCE.md](./DATABASE_REFERENCE.md) and [docs/API_REFERENCE.md](./docs/API_REFERENCE.md).
 
@@ -262,4 +252,4 @@ This repository adheres to strict sanitization and security protocols:
 
 ### Tenant isolation
 
-Each dashboard account owns its profile, resume, and content records. Dashboard writes and authenticated reads use the verified session owner; anonymous legacy portfolio reads are limited to published content for the configured `ADMIN_EMAIL` account. Do not deploy this tenancy migration by itself: the coordinated public API cutover is planned for Phase 4.
+Each dashboard account owns its profile, resume, and content records. Dashboard reads and writes use the session owner. External reads use app-scoped `/v1` tokens and only return published content selected by the App's include settings. Unauthenticated legacy `/api` reads, `/api/fs`, and `/api/resume/download` have been removed.

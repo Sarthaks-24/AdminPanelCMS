@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { ownerGuardPlugin } = require('../plugins/ownerGuard');
+const { isSafeHttpsUrl } = require('../lib/urlValidators');
 
 const ResumeSchema = new mongoose.Schema(
   {
@@ -7,6 +8,7 @@ const ResumeSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Direct PDF or Google Drive shareable link is required'],
       trim: true,
+      validate: { validator: isSafeHttpsUrl, message: 'URL must use https://' },
     },
     fileName: {
       type: String,
