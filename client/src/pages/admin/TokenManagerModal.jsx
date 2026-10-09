@@ -52,7 +52,7 @@ export default function TokenManagerModal({ app, onClose }) {
     onClose();
   }
 
-  return <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4" role="dialog" aria-modal="true" aria-labelledby="token-manager-title">
+  return <div className="fixed inset-0 z-50 grid place-items-center bg-t-bg/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="token-manager-title">
     <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded border border-t-border-hi bg-t-surface shadow-2xl">
       <header className="flex items-center justify-between border-b border-t-border p-5"><div className="flex items-center gap-3"><KeyRound size={18} className="text-t-accent" /><div><h2 id="token-manager-title" className="text-sm font-semibold">API tokens</h2><p className="mt-1 text-[11px] text-t-muted">{app.name} · {activeCount}/2 active</p></div></div><button type="button" onClick={close} aria-label="Close token manager" className="rounded p-2 text-t-muted hover:bg-t-surface-hi"><X size={16} /></button></header>
       <div className="space-y-5 p-5">

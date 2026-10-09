@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
   Award,
@@ -171,13 +172,9 @@ export default function CertificationsManager() {
 
       {/* Cards List */}
       {loading ? (
-        <div className="p-12 text-center text-xs font-mono text-t-accent animate-pulse">
-          Querying certifications...
-        </div>
+        <ListSkeleton label="Loading certifications" />
       ) : items.length === 0 ? (
-        <div className="p-12 text-center text-xs font-mono text-t-dim rounded bg-t-surface border border-dashed border-t-border">
-          No certifications logged. Click "Add Certification" to register a credential.
-        </div>
+        <EmptyState title="No certifications yet" hint="Use “Add Certification” to list a credential." />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {items.map((item) => (
@@ -202,7 +199,7 @@ export default function CertificationsManager() {
                     </button>
                     <button
                       onClick={() => handleDelete(item._id, item.title)}
-                      className="p-1.5 rounded text-t-danger hover:text-t-text hover:bg-red-950 cursor-pointer"
+                      className="p-1.5 rounded text-t-danger hover:text-t-text hover:bg-t-danger-dim cursor-pointer"
                       title="Delete"
                     >
                       <Trash2 size={13} />

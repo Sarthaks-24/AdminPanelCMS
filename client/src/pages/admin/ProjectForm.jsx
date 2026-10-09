@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../../api/client';
+import { useToast } from '../../components/admin/Toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -23,6 +24,7 @@ const slugify = (text) =>
     .replace(/(^-|-$)/g, '');
 
 export default function ProjectForm() {
+  const { notify } = useToast();
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
@@ -87,7 +89,7 @@ export default function ProjectForm() {
           setSlugManuallyEdited(true);
         })
         .catch((err) => {
-          alert('Failed to load project: ' + (err.response?.data?.message || err.message));
+          notify('Could not load this project. ' + (err.response?.data?.message || err.message));
           navigate('/admin/projects');
         })
         .finally(() => setFetching(false));
@@ -164,7 +166,7 @@ export default function ProjectForm() {
       }
       navigate('/admin/projects');
     } catch (err) {
-      alert(err.response?.data?.message || 'Error saving project');
+      notify(err.response?.data?.message || 'Could not save the project. Try again.');
     } finally {
       setLoading(false);
     }
@@ -344,7 +346,7 @@ export default function ProjectForm() {
                 id="projFeatured"
                 checked={formData.featured}
                 onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
-                className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-[#10b981]"
+                className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-t-accent2"
               />
               <label htmlFor="projFeatured" className="text-xs text-t-muted cursor-pointer">
                 Feature on Homepage &amp; Spotlight Highlights

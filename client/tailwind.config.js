@@ -7,9 +7,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Inter"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-        readable: ['"Inter"', 'system-ui', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+        sans: ['"Geist"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+        readable: ['"Geist"', 'system-ui', 'sans-serif'],
+        mono: ['"Geist Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
       colors: {
         // ── Legacy brand palette (kept for backward compatibility) ─────────
@@ -44,8 +44,9 @@ export default {
         't-code':         'var(--theme-code-bg)',
       },
       boxShadow: {
-        'card':           '0 4px 20px -2px rgba(0, 0, 0, 0.25)',
-        'card-hover':     '0 10px 25px -3px rgba(0, 0, 0, 0.35)',
+        // Shadows take their tint from the active theme instead of pure black.
+        'card':           '0 1px 0 color-mix(in srgb, var(--theme-text) 6%, transparent) inset, 0 8px 24px -12px color-mix(in srgb, var(--theme-bg) 70%, var(--theme-brand))',
+        'card-hover':     '0 1px 0 color-mix(in srgb, var(--theme-text) 8%, transparent) inset, 0 16px 32px -14px color-mix(in srgb, var(--theme-bg) 60%, var(--theme-brand))',
         'glow-indigo':    '0 0 25px -5px rgba(99, 102, 241, 0.3)',
         'glow-emerald':   '0 0 25px -5px rgba(16, 185, 129, 0.3)',
         'glow-accent':    '0 0 20px -4px var(--theme-brand-glow)',

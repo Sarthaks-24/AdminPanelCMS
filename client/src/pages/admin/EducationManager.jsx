@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
   GraduationCap,
@@ -171,13 +172,9 @@ export default function EducationManager() {
 
       {/* Education Cards */}
       {loading ? (
-        <div className="p-12 text-center text-xs font-mono text-t-accent animate-pulse">
-          Querying academic credentials...
-        </div>
+        <ListSkeleton label="Loading education" />
       ) : items.length === 0 ? (
-        <div className="p-12 text-center text-xs font-mono text-t-dim rounded bg-t-surface border border-dashed border-t-border">
-          No education credentials recorded yet. Click "Add Education" to register your degree.
-        </div>
+        <EmptyState title="No education added" hint="Use “Add Education” to record a degree or course." />
       ) : (
         <div className="space-y-4">
           {items.map((item) => (
@@ -211,7 +208,7 @@ export default function EducationManager() {
                     </button>
                     <button
                       onClick={() => handleDelete(item._id, item.degree)}
-                      className="p-1.5 rounded text-t-danger hover:text-t-text hover:bg-red-950 cursor-pointer"
+                      className="p-1.5 rounded text-t-danger hover:text-t-text hover:bg-t-danger-dim cursor-pointer"
                       title="Delete"
                     >
                       <Trash2 size={14} />

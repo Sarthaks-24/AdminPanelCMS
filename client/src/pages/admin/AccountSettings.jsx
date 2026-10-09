@@ -74,12 +74,12 @@ export default function AccountSettings() {
         <h2 className="text-base font-semibold">Export your data</h2><p className="mt-2 text-sm text-t-muted">Download your profile, content, app configuration, and safe token metadata.</p>
         <button type="button" onClick={exportData} disabled={busy} className="mt-4 rounded-lg border border-t-border-hi px-4 py-2.5 text-sm font-medium hover:bg-t-bg disabled:opacity-60">Download account export</button>
       </section>
-      <section className="rounded-xl border border-red-500/30 bg-red-500/5 p-5 sm:p-6">
+      <section className="rounded-xl border border-t-danger/30 bg-t-danger-dim p-5 sm:p-6">
         <h2 className="text-base font-semibold text-red-400">Delete account</h2><p className="mt-2 text-sm text-t-muted">Deletion immediately disables sign-in and removes your account data. This cannot be undone.</p>
         <form onSubmit={deleteAccount} className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="text-sm">Current password<input className={inputClass} type="password" autoComplete="current-password" required value={deleteForm.password} onChange={(event) => setDeleteForm((p) => ({ ...p, password: event.target.value }))} /></label>
           <label className="text-sm">Type DELETE to confirm<input className={inputClass} type="text" autoComplete="off" required value={deleteForm.confirmation} onChange={(event) => setDeleteForm((p) => ({ ...p, confirmation: event.target.value }))} /></label>
-          <button className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-60 sm:col-span-2 sm:w-fit" disabled={busy}>Delete account</button>
+          <button className="rounded-lg bg-t-danger px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60 sm:col-span-2 sm:w-fit" disabled={busy}>Delete account</button>
         </form>
       </section>
     </div>

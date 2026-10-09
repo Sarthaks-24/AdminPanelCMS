@@ -33,7 +33,7 @@ export default function AdminLogin() {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-t-bg px-4 py-12 text-t-text antialiased">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-t-accent/10 via-transparent to-transparent" />
-      <div className="relative grid w-full max-w-5xl overflow-hidden rounded-2xl border border-t-border bg-t-surface shadow-2xl shadow-black/10 lg:grid-cols-[1fr_0.9fr]">
+      <div className="page-enter relative grid w-full max-w-5xl overflow-hidden rounded-3xl border border-t-border bg-t-surface shadow-card lg:grid-cols-[1.1fr_0.9fr]">
         <section className="hidden flex-col justify-between bg-t-accent/5 p-10 lg:flex xl:p-14">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-t-accent text-t-on-accent shadow-md shadow-t-accent/20">
@@ -45,11 +45,16 @@ export default function AdminLogin() {
             </div>
           </div>
           <div className="max-w-md py-10">
-            <p className="mb-4 text-sm font-medium text-t-accent">A clearer way to manage your portfolio</p>
-            <h1 className="text-4xl font-semibold leading-tight tracking-tight">Your work, organized in one place.</h1>
-            <p className="mt-5 text-sm leading-6 text-t-muted">Sign in to update projects, profile details, and the content that appears on your portfolio.</p>
+            <p className="mb-4 font-mono text-xs uppercase tracking-widest text-t-accent">Portfolio control</p>
+            <h1 className="text-5xl font-semibold leading-[1.05] tracking-tight">Write once.<br />Publish everywhere.</h1>
+            <p className="mt-5 text-sm leading-6 text-t-muted">Edit projects, skills and your story in one workspace, then serve them to any site with a scoped API key.</p>
+            <ul className="mt-8 space-y-3 text-sm">
+              <li className="flex gap-3"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-t-accent" /><span className="text-t-muted"><strong className="font-medium text-t-text">Drafts stay private.</strong> Only published items ever reach your sites.</span></li>
+              <li className="flex gap-3"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-t-accent2" /><span className="text-t-muted"><strong className="font-medium text-t-text">One source of truth.</strong> Update a role or project and every connected app follows.</span></li>
+              <li className="flex gap-3"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-t-accent" /><span className="text-t-muted"><strong className="font-medium text-t-text">Keys you control.</strong> Rotate or revoke access without touching your content.</span></li>
+            </ul>
           </div>
-          <p className="text-xs text-t-muted">Secure access for portfolio administrators</p>
+          <p className="text-xs text-t-muted">Secure access for portfolio owners</p>
         </section>
 
         <section className="p-6 sm:p-10 xl:p-14" aria-labelledby="login-title">
@@ -59,8 +64,8 @@ export default function AdminLogin() {
           </div>
           <div className="mb-8">
             <p className="text-sm font-medium text-t-accent">Welcome back</p>
-            <h2 id="login-title" className="mt-2 text-2xl font-semibold tracking-tight">Sign in to your workspace</h2>
-            <p className="mt-2 text-sm text-t-muted">Enter your administrator credentials to continue.</p>
+            <h2 id="login-title" className="mt-2 text-3xl font-semibold tracking-tight">Sign in to your workspace</h2>
+            <p className="mt-2 text-sm text-t-muted">Use the email and password for your account.</p>
           </div>
 
           {error && (
