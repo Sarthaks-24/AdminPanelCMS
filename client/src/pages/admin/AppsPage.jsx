@@ -54,11 +54,10 @@ export default function AppsPage() {
     <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-t-border">
       <div>
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded bg-t-surface text-t-accent border border-t-border"><Boxes size={20} /></div>
-          <h1 className="text-xl font-bold text-t-text tracking-tight">Apps &amp; Views</h1>
-          <span className="px-2 py-0.5 rounded bg-t-surface-hi text-[11px] font-mono text-t-muted border border-t-border-hi">{apps.length} / 10</span>
+          <h1 className="text-3xl text-t-text">Connected websites</h1>
+          <span className="text-sm text-t-muted">{apps.length} of 10</span>
         </div>
-        <p className="text-xs text-t-muted mt-2">Create scoped portfolio views for your websites and integrations.</p>
+        <p className="text-xs text-t-muted mt-2">Each website you connect gets its own access key and chooses which content it can show.</p>
       </div>
     </header>
 

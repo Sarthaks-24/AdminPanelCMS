@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, THEME_GROUPS } from '../../context/ThemeContext';
@@ -16,8 +16,6 @@ import {
   LogOut,
   Menu,
   X,
-  Plus,
-  ChevronRight,
   Palette,
   Check,
   Boxes,
@@ -31,7 +29,6 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [themePickerOpen, setThemePickerOpen] = useState(false);
   const [topThemePickerOpen, setTopThemePickerOpen] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState('');
   const [resendingVerification, setResendingVerification] = useState(false);
@@ -54,38 +51,43 @@ export default function AdminLayout() {
 
   const navLinks = [
     { to: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
-    { to: '/admin/profile', label: 'Profile & Identity', icon: User },
-    { to: '/admin/socials', label: 'Social Links', icon: Share2 },
-    { to: '/admin/skills', label: 'Skills Matrix', icon: Cpu },
-    { to: '/admin/projects', label: 'Projects Studio', icon: FolderGit2 },
-    { to: '/admin/experience', label: 'Career Timeline', icon: Briefcase },
+    { to: '/admin/profile', label: 'Your profile', icon: User },
+    { to: '/admin/socials', label: 'Links', icon: Share2 },
+    { to: '/admin/skills', label: 'Skills', icon: Cpu },
+    { to: '/admin/projects', label: 'Projects', icon: FolderGit2 },
+    { to: '/admin/experience', label: 'Work experience', icon: Briefcase },
     { to: '/admin/education', label: 'Education', icon: GraduationCap },
     { to: '/admin/certifications', label: 'Certifications', icon: Award },
-    { to: '/admin/resume', label: 'Resume Hub', icon: FileText },
-    { to: '/admin/apps', label: 'Apps & Views', icon: Boxes },
-    { to: '/admin/account', label: 'Account Settings', icon: Settings },
-    ...(user?.role === 'superadmin' ? [{ to: '/admin/superadmin', label: 'Platform Admin', icon: ShieldCheck }] : []),
+    { to: '/admin/resume', label: 'Resume', icon: FileText },
+    { to: '/admin/apps', label: 'Connected websites', icon: Boxes },
+    { to: '/admin/account', label: 'Account', icon: Settings },
+    ...(user?.role === 'superadmin' ? [{ to: '/admin/superadmin', label: 'Platform admin', icon: ShieldCheck }] : []),
   ];
 
+  // Where you are, in plain words: the section, and the item inside it when there is one.
   const getBreadcrumb = () => {
     const path = location.pathname;
-    if (path === '/admin/dashboard' || path === '/admin') return 'admin > overview';
-    if (path.includes('/admin/profile')) return 'admin > profile & identity';
-    if (path.includes('/admin/socials')) return 'admin > socials';
-    if (path.includes('/admin/skills')) return 'admin > skills matrix';
-    if (path.includes('/admin/projects/new')) return 'admin > projects > create';
-    if (path.includes('/admin/projects/edit')) return 'admin > projects > edit';
-    if (path.includes('/admin/projects')) return 'admin > projects';
-    if (path.includes('/admin/experience')) return 'admin > career timeline';
-    if (path.includes('/admin/education')) return 'admin > education';
-    if (path.includes('/admin/certifications')) return 'admin > certifications';
-    if (path.includes('/admin/resume')) return 'admin > resume hub';
-    if (path.includes('/admin/apps/')) return 'admin > apps > configuration';
-    if (path.includes('/admin/apps')) return 'admin > apps & views';
-    if (path.includes('/admin/account')) return 'admin > account settings';
-    if (path.includes('/admin/superadmin')) return 'admin > platform'; 
-    return 'admin > console';
+    if (path === '/admin/dashboard' || path === '/admin') return ['Overview'];
+    if (path.includes('/admin/projects/new')) return ['Projects', 'New project'];
+    if (path.includes('/admin/projects/edit')) return ['Projects', 'Edit project'];
+    if (path.includes('/admin/apps/')) return ['Connected websites', 'Settings'];
+    const match = navLinks.find((link) => !link.exact && path.startsWith(link.to));
+    return [match?.label || 'Portfolio Control'];
   };
+
+  // Keep the browser tab title in step with the page, and let Escape close anything that is open.
+  const crumbs = getBreadcrumb();
+  const pageTitle = crumbs[crumbs.length - 1];
+  useEffect(() => { document.title = `${pageTitle} · Portfolio Control`; }, [pageTitle]);
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key !== 'Escape') return;
+      setMobileMenuOpen(false);
+      setTopThemePickerOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const currentTheme = themes[themeId];
 
@@ -106,8 +108,9 @@ export default function AdminLayout() {
 
       {/* Sidebar Navigation */}
       <aside
+        aria-label="Sidebar"
         className={`fixed top-0 bottom-0 left-0 z-50 w-64 flex flex-col justify-between shadow-xl transition-transform duration-200 ease-in-out md:translate-x-0 ${
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full invisible md:visible'
         }`}
         style={{
           backgroundColor: 'var(--theme-surface)',
@@ -125,7 +128,7 @@ export default function AdminLayout() {
           >
             <Link to="/admin/dashboard" className="flex items-center gap-3">
               <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs shadow-md"
+                className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shadow-md"
                 style={{
                   backgroundColor: 'var(--theme-accent)',
                   color: 'var(--theme-on-accent)',
@@ -139,16 +142,14 @@ export default function AdminLayout() {
                 <span className="font-bold text-sm tracking-tight block" style={{ color: 'var(--theme-text)' }}>
                   Portfolio Control
                 </span>
-                <span className="text-[10px] font-mono tracking-wider" style={{ color: 'var(--theme-accent2)' }}>
-                  ADMIN WORKSPACE
-                </span>
+                <span className="text-xs" style={{ color: 'var(--theme-text-muted)' }}>Content manager</span>
               </div>
             </Link>
 
             <button
               aria-label="Close navigation"
               onClick={() => setMobileMenuOpen(false)}
-              className="p-1 rounded md:hidden"
+              className="-m-1 rounded p-2.5 md:hidden"
               style={{ color: 'var(--theme-text-muted)' }}
             >
               <X size={18} />
@@ -156,9 +157,9 @@ export default function AdminLayout() {
           </div>
 
           {/* Navigation Links */}
-          <div className="p-3 space-y-1 flex-1 overflow-y-auto">
-            <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest" style={{ color: 'var(--theme-text-dim)' }}>
-              Workspace
+          <nav aria-label="Main" className="p-3 space-y-1 flex-1 overflow-y-auto">
+            <div className="px-3 py-1.5 text-xs font-medium" style={{ color: 'var(--theme-text-dim)' }}>
+              Your portfolio
             </div>
             {navLinks.map(({ to, label, icon: Icon, exact }) => {
               const active = exact
@@ -167,7 +168,7 @@ export default function AdminLayout() {
 
               return (
                 <div key={to}>
-                {to === '/admin/apps' && <div className="px-3 pb-1 pt-4 text-[10px] font-mono uppercase tracking-widest" style={{ color: 'var(--theme-text-dim)' }}>Developer tools</div>}
+                {to === '/admin/apps' && <div className="px-3 pb-1 pt-4 text-xs font-medium" style={{ color: 'var(--theme-text-dim)' }}>Connections and account</div>}
                 <Link
                   to={to}
                   onClick={() => setMobileMenuOpen(false)}
@@ -205,12 +206,11 @@ export default function AdminLayout() {
                     />
                     <span>{label}</span>
                   </div>
-                  {active && <ChevronRight size={12} style={{ color: 'var(--theme-accent)', opacity: 0.85 }} />}
                 </Link>
                 </div>
               );
             })}
-          </div>
+          </nav>
         </div>
 
         {/* Sidebar Footer */}
@@ -219,158 +219,10 @@ export default function AdminLayout() {
             className="p-3 rounded space-y-2.5"
             style={{ backgroundColor: 'var(--theme-surface)', border: '1px solid var(--theme-border)' }}
           >
-            {/* System Status */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span
-                  className="w-2 h-2 rounded-full shadow-sm"
-                  style={{ backgroundColor: 'var(--theme-accent2)', boxShadow: '0 0 6px var(--theme-accent2)' }}
-                />
-                <span className="text-[11px] font-mono" style={{ color: 'var(--theme-accent2)' }}>
-                  Workspace ready
-                </span>
-              </div>
-              <span
-                className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                style={{
-                  color: 'var(--theme-text-muted)',
-                  backgroundColor: 'var(--theme-bg)',
-                  border: '1px solid var(--theme-border-hi)',
-                }}
-              >
-                ADMIN
-              </span>
-            </div>
-
-            {/* ── Theme Picker ──────────────────────────────── */}
-            <div style={{ borderTop: '1px solid var(--theme-border)' }} className="pt-2">
-              <button
-                onClick={() => setThemePickerOpen((p) => !p)}
-                className="w-full flex items-center justify-between px-2 py-1.5 rounded text-xs font-mono transition-all cursor-pointer"
-                style={{
-                  backgroundColor: 'var(--theme-surface-hi)',
-                  border: '1px solid var(--theme-border-hi)',
-                  color: 'var(--theme-text-muted)',
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <Palette size={13} style={{ color: 'var(--theme-accent)' }} />
-                  <span style={{ color: 'var(--theme-text)' }}>{currentTheme?.label ?? 'Theme'}</span>
-                  {currentTheme?.isLight !== undefined && (
-                    <span
-                      className="text-[9px] font-bold px-1 py-0.5 rounded uppercase tracking-wider"
-                      style={{
-                        backgroundColor: currentTheme.isLight ? 'rgba(255,200,50,0.15)' : 'rgba(100,150,255,0.15)',
-                        color: currentTheme.isLight ? '#c8870a' : '#7090e0',
-                        border: `1px solid ${currentTheme.isLight ? 'rgba(200,135,10,0.3)' : 'rgba(100,150,255,0.3)'}`,
-                      }}
-                    >
-                      {currentTheme.isLight ? '☀ Light' : '☾ Dark'}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  {currentTheme?.preview.map((c, i) => (
-                    <span
-                      key={i}
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: c, border: '1px solid rgba(128,128,128,0.35)' }}
-                    />
-                  ))}
-                </div>
-              </button>
-
-              {themePickerOpen && (
-                <div
-                  className="mt-1.5 rounded overflow-hidden"
-                  style={{
-                    border: '1px solid var(--theme-border-hi)',
-                    backgroundColor: 'var(--theme-bg)',
-                    maxHeight: '340px',
-                    overflowY: 'auto',
-                  }}
-                >
-                  {(groups || THEME_GROUPS).map((group) => {
-                    const groupThemes = Object.values(themes).filter((t) => t.group === group);
-                    if (groupThemes.length === 0) return null;
-                    return (
-                      <div key={group}>
-                        {/* Group Header */}
-                        <div
-                          className="px-3 py-1 text-[9px] font-bold uppercase tracking-widest sticky top-0"
-                          style={{
-                            backgroundColor: 'var(--theme-surface-hi)',
-                            color: 'var(--theme-accent)',
-                            borderBottom: '1px solid var(--theme-border)',
-                            letterSpacing: '0.12em',
-                          }}
-                        >
-                          {group === 'Dark' && '🌑 '}
-                          {group === 'Light' && '☀️ '}
-                          {group === 'Funky' && '⚡ '}
-                          {group === 'Unique' && '✦ '}
-                          {group}
-                        </div>
-                        {/* Theme Rows */}
-                        {groupThemes.map((t) => {
-                          const isActive = t.id === themeId;
-                          return (
-                            <button
-                              key={t.id}
-                              onClick={() => {
-                                changeTheme(t.id);
-                                setThemePickerOpen(false);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-[11px] transition-all cursor-pointer"
-                              style={{
-                                backgroundColor: isActive ? 'var(--theme-surface-hi)' : 'transparent',
-                                borderBottom: '1px solid var(--theme-border)',
-                              }}
-                              onMouseEnter={(e) => {
-                                if (!isActive) e.currentTarget.style.backgroundColor = 'var(--theme-surface)';
-                              }}
-                              onMouseLeave={(e) => {
-                                if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
-                              }}
-                            >
-                              {/* Swatch stack */}
-                              <div className="flex -space-x-1 shrink-0">
-                                {t.preview.map((c, i) => (
-                                  <span
-                                    key={i}
-                                    className="w-3 h-3 rounded-full"
-                                    style={{
-                                      backgroundColor: c,
-                                      border: '1px solid rgba(128,128,128,0.4)',
-                                      position: 'relative',
-                                      zIndex: t.preview.length - i,
-                                    }}
-                                  />
-                                ))}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="font-semibold truncate" style={{ color: 'var(--theme-text)', fontSize: '11px' }}>
-                                  {t.label}
-                                </div>
-                              </div>
-                              {isActive && (
-                                <Check size={11} style={{ color: 'var(--theme-accent)', flexShrink: 0 }} />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            {/* ─────────────────────────────────────────────── */}
-
             {/* Admin User Info */}
             <div className="flex items-center gap-2 pt-1" style={{ borderTop: '1px solid var(--theme-border)' }}>
               <div
-                className="w-7 h-7 rounded flex items-center justify-center font-mono font-bold text-xs uppercase"
+                className="w-7 h-7 rounded flex items-center justify-center font-bold text-xs uppercase"
                 style={{
                   backgroundColor: 'var(--theme-surface-hi)',
                   color: 'var(--theme-accent)',
@@ -383,8 +235,8 @@ export default function AdminLayout() {
                 <div className="text-xs font-semibold truncate" style={{ color: 'var(--theme-text)' }}>
                   {user?.email}
                 </div>
-                <div className="text-[10px] font-mono" style={{ color: 'var(--theme-text-muted)' }}>
-                  Administrator
+                <div className="text-[10px]" style={{ color: 'var(--theme-text-muted)' }}>
+                  {user?.role === 'superadmin' ? 'Platform admin' : 'Signed in'}
                 </div>
               </div>
             </div>
@@ -424,8 +276,9 @@ export default function AdminLayout() {
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
               aria-label="Open navigation"
+              aria-expanded={mobileMenuOpen}
               onClick={() => setMobileMenuOpen(true)}
-              className="p-1.5 rounded md:hidden"
+              className="-m-1 rounded p-2.5 md:hidden"
               style={{
                 backgroundColor: 'var(--theme-surface-hi)',
                 color: 'var(--theme-text-muted)',
@@ -434,29 +287,34 @@ export default function AdminLayout() {
             >
               <Menu size={16} />
             </button>
-            <div className="flex min-w-0 items-center gap-2 font-mono text-xs" style={{ color: 'var(--theme-text-muted)' }}>
-              <span className="hidden h-2 w-2 rounded-full sm:block" style={{ backgroundColor: 'var(--theme-accent2)' }} />
-              <span className="flex min-w-0 items-center gap-1.5 truncate" style={{ color: 'var(--theme-text)' }}>
-                {getBreadcrumb().split(' > ').map((part, index, parts) => <React.Fragment key={`${part}-${index}`}>{index > 0 && <ChevronRight size={11} style={{ color: 'var(--theme-text-dim)' }} />}<span className={index === parts.length - 1 ? 'font-semibold' : ''}>{part}</span></React.Fragment>)}
-              </span>
-            </div>
+            <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-sm" style={{ color: 'var(--theme-text-muted)' }}>
+              {crumbs.map((part, index, parts) => (
+                <React.Fragment key={part}>
+                  {index > 0 && <span aria-hidden="true">/</span>}
+                  <span className={`truncate ${index === parts.length - 1 ? 'font-medium' : ''}`} style={index === parts.length - 1 ? { color: 'var(--theme-text)' } : undefined} aria-current={index === parts.length - 1 ? 'page' : undefined}>{part}</span>
+                </React.Fragment>
+              ))}
+            </nav>
           </div>
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {/* Top Bar Quick Theme Switcher */}
             <div className="relative">
               <button
+                type="button"
                 onClick={() => setTopThemePickerOpen((p) => !p)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-all cursor-pointer"
+                aria-haspopup="true"
+                aria-expanded={topThemePickerOpen}
+                aria-label={`Theme: ${currentTheme?.label || 'Theme'}. Change theme`}
+                className="inline-flex min-h-10 items-center gap-2 rounded px-3 py-2 text-xs font-medium transition-colors cursor-pointer"
                 style={{
                   backgroundColor: 'var(--theme-surface)',
                   border: '1px solid var(--theme-border)',
                   color: 'var(--theme-text)',
                 }}
-                title="Change Dashboard Theme"
               >
                 <Palette size={14} style={{ color: 'var(--theme-accent)' }} />
-                <span className="hidden sm:inline font-mono">{currentTheme?.label || 'Theme'}</span>
+                <span className="hidden sm:inline">{currentTheme?.label || 'Theme'}</span>
                 <div className="flex items-center gap-1">
                   {currentTheme?.preview?.map((c, i) => (
                     <span
@@ -481,6 +339,7 @@ export default function AdminLayout() {
                       backgroundColor: 'var(--theme-surface)',
                       maxHeight: '380px',
                       overflowY: 'auto',
+                      overscrollBehavior: 'contain',
                     }}
                   >
                     {(groups || THEME_GROUPS).map((group) => {
@@ -489,24 +348,22 @@ export default function AdminLayout() {
                       return (
                         <div key={group}>
                           <div
-                            className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider sticky top-0"
+                            className="px-3 py-2 text-xs font-semibold sticky top-0"
                             style={{
                               backgroundColor: 'var(--theme-surface-hi)',
                               color: 'var(--theme-accent)',
                               borderBottom: '1px solid var(--theme-border)',
                             }}
                           >
-                            {group === 'Dark' && '🌑 '}
-                            {group === 'Light' && '☀️ '}
-                            {group === 'Funky' && '⚡ '}
-                            {group === 'Unique' && '✦ '}
-                            {group} Themes
+                            {group} themes
                           </div>
                           {groupThemes.map((t) => {
                             const isActive = t.id === themeId;
                             return (
                               <button
                                 key={t.id}
+                                type="button"
+                                aria-current={isActive ? 'true' : undefined}
                                 onClick={() => {
                                   changeTheme(t.id);
                                   setTopThemePickerOpen(false);
@@ -554,19 +411,6 @@ export default function AdminLayout() {
               )}
             </div>
 
-            <Link
-              to="/admin/projects/new"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer"
-              style={{
-                backgroundColor: 'var(--theme-accent)',
-                color: 'var(--theme-on-accent)',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--theme-accent-bright)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--theme-accent)')}
-            >
-              <Plus size={14} />
-              <span className="whitespace-nowrap">New<span className="hidden sm:inline"> project</span></span>
-            </Link>
           </div>
         </header>
 
@@ -576,9 +420,7 @@ export default function AdminLayout() {
             <span className="text-t-text">Verify your email to unlock content editing and API token management.{verificationMessage && <span role="status" className="ml-2 text-t-muted">{verificationMessage}</span>}</span>
             <button type="button" onClick={resendVerification} disabled={resendingVerification} className="font-semibold text-t-accent hover:underline disabled:opacity-60">{resendingVerification ? 'Sending…' : 'Resend verification'}</button>
           </div>}
-          <div key={location.pathname} className="page-enter">
-            <Outlet />
-          </div>
+          <Outlet />
         </main>
       </div>
     </div>

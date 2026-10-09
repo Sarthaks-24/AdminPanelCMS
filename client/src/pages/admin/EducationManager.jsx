@@ -3,7 +3,6 @@ import { api } from '../../api/client';
 import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
-  GraduationCap,
   Plus,
   Trash2,
   Edit2,
@@ -133,17 +132,14 @@ export default function EducationManager() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-t-border">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded bg-t-surface text-t-accent border border-t-border">
-              <GraduationCap size={20} />
-            </div>
-            <h1 className="text-xl font-bold text-t-text tracking-tight">Academic History &amp; Education</h1>
-            <span className="px-2 py-0.5 rounded bg-t-surface-hi text-[11px] font-mono text-t-muted border border-t-border-hi">
-              {items.length} Credentials
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="text-3xl text-t-text">Education</h1>
+            <span className="text-sm text-t-muted">
+              {items.length} {items.length === 1 ? 'entry' : 'entries'}
             </span>
           </div>
-          <p className="text-xs text-t-muted mt-1">
-            University degrees, relevant coursework, and academic milestones served across client applications.
+          <p className="text-sm text-t-muted mt-2 max-w-prose">
+            Degrees, courses and where you studied.
           </p>
         </div>
 
@@ -152,7 +148,7 @@ export default function EducationManager() {
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs transition-all shadow-sm cursor-pointer"
         >
           <Plus size={15} />
-          <span>Add Education</span>
+          <span>Add education</span>
         </button>
       </div>
 
@@ -234,7 +230,7 @@ export default function EducationManager() {
 
               {item.achievements && item.achievements.length > 0 && (
                 <div className="pt-2">
-                  <div className="text-[11px] font-mono text-t-dim mb-1">Highlights &amp; Coursework:</div>
+                  <div className="text-[11px] font-mono text-t-dim mb-1">Highlights:</div>
                   <ul className="list-disc list-inside text-xs text-t-muted space-y-0.5 pl-1">
                     {item.achievements.map((ach, i) => (
                       <li key={i}>{ach}</li>
@@ -337,7 +333,7 @@ export default function EducationManager() {
 
               <div>
                 <label className="block text-xs font-mono text-t-muted mb-1">
-                  Key Coursework &amp; Academic Honors (One per line)
+                  Coursework and honors (one per line)
                 </label>
                 <textarea
                   rows={3}

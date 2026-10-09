@@ -219,7 +219,7 @@ export default function ProjectForm() {
               {isEdit ? 'Edit Engineering Case Study' : 'Create Engineering Case Study'}
             </h1>
             <p className="text-xs text-t-muted mt-0.5">
-              Comprehensive case study architecture, URL slug, and live metrics.
+              The write-up, link and details for this project.
             </p>
           </div>
         </div>
@@ -349,7 +349,7 @@ export default function ProjectForm() {
                 className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-t-accent2"
               />
               <label htmlFor="projFeatured" className="text-xs text-t-muted cursor-pointer">
-                Feature on Homepage &amp; Spotlight Highlights
+                Feature this project
               </label>
             </div>
           </div>
@@ -357,7 +357,7 @@ export default function ProjectForm() {
           {/* Section: Short Bio & Tech Stack */}
           <div className="p-4 rounded bg-t-surface border border-t-border space-y-3.5">
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted block pb-2 border-b border-t-border">
-              Summary &amp; Technologies
+              Summary and tools
             </span>
 
             <div>
@@ -390,7 +390,7 @@ export default function ProjectForm() {
 
               {availableSkills.length > 0 && (
                 <div className="mt-2">
-                  <span className="text-[10px] font-mono text-t-dim block mb-1">Quick Add From Skills Matrix:</span>
+                  <span className="text-[10px] font-mono text-t-dim block mb-1">Add from your skills:</span>
                   <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
                     {availableSkills.map((sk) => (
                       <button
@@ -424,7 +424,7 @@ export default function ProjectForm() {
           {/* Section: Media & URLs */}
           <div className="p-4 rounded bg-t-surface border border-t-border space-y-3.5">
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted block pb-2 border-b border-t-border">
-              Media &amp; External Repositories
+              Images and links
             </span>
 
             <div>

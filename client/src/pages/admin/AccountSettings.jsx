@@ -54,7 +54,7 @@ export default function AccountSettings() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header><p className="font-mono text-xs uppercase tracking-widest text-t-accent">Your account</p><h1 className="mt-2 text-2xl font-semibold">Account settings</h1><p className="mt-2 text-sm text-t-muted">Manage your sign-in and account data.</p></header>
+      <header><h1 className="text-3xl">Account</h1><p className="mt-2 text-sm text-t-muted">Manage your sign-in and account data.</p></header>
       {(error || message) && <p role={error ? 'alert' : 'status'} className={`rounded-lg border p-3 text-sm ${error ? 'border-t-danger/30 bg-t-danger-dim text-t-danger' : 'border-t-accent/30 bg-t-accent/10 text-t-text'}`}>{error || message}</p>}
       <section className="rounded-xl border border-t-border bg-t-surface p-5 sm:p-6">
         <h2 className="text-base font-semibold">Account</h2>

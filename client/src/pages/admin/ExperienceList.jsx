@@ -3,7 +3,6 @@ import { api } from '../../api/client';
 import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
-  Briefcase,
   Plus,
   Trash2,
   Edit2,
@@ -148,17 +147,14 @@ export default function ExperienceList() {
       {/* Header & Add Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-t-border">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded bg-t-surface text-t-accent2 border border-t-border">
-              <Briefcase size={20} />
-            </div>
-            <h1 className="text-xl font-bold text-t-text tracking-tight">Career Milestones &amp; Experience</h1>
-            <span className="px-2 py-0.5 rounded bg-t-surface-hi text-[11px] font-mono text-t-muted border border-t-border-hi">
-              {items.length} Positions
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="text-3xl text-t-text">Work experience</h1>
+            <span className="text-sm text-t-muted">
+              {items.length} {items.length === 1 ? 'role' : 'roles'}
             </span>
           </div>
-          <p className="text-xs text-t-muted mt-1">
-            Engineering positions, contracts, and roles rendered across career timeline views.
+          <p className="text-sm text-t-muted mt-2 max-w-prose">
+            Your roles and what you did in them. Published roles appear on your timeline.
           </p>
         </div>
 
@@ -167,7 +163,7 @@ export default function ExperienceList() {
           className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs transition-all shadow-sm cursor-pointer"
         >
           <Plus size={15} />
-          <span>Add Position</span>
+          <span>Add a role</span>
         </button>
       </div>
 
@@ -254,7 +250,7 @@ export default function ExperienceList() {
 
               {item.achievements && item.achievements.length > 0 && (
                 <div className="pt-2">
-                  <div className="text-[11px] font-mono text-t-dim mb-1">Key Deliverables &amp; Outcomes:</div>
+                  <div className="text-[11px] font-mono text-t-dim mb-1">What you did:</div>
                   <ul className="list-disc list-inside text-xs text-t-muted space-y-1 pl-1">
                     {item.achievements.map((ach, i) => (
                       <li key={i}>{ach}</li>

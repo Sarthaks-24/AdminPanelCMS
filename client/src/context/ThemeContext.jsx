@@ -203,6 +203,10 @@ export const ThemeProvider = ({ children }) => {
     root.setAttribute('data-theme', themeId);
     // Apply light/dark color-scheme so browsers adjust native controls
     const theme = THEMES[themeId];
+    // Match the browser chrome (mobile address bar) to the theme's background.
+    const meta = document.querySelector('meta[name="theme-color"]');
+    const background = getComputedStyle(root).getPropertyValue('--theme-bg').trim();
+    if (meta && background) meta.setAttribute('content', background);
     if (theme?.isLight) {
       root.style.colorScheme = 'light';
     } else {

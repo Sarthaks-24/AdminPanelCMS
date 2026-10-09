@@ -3,7 +3,6 @@ import { api } from '../../api/client';
 import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
-  Award,
   Plus,
   Trash2,
   Edit2,
@@ -133,17 +132,14 @@ export default function CertificationsManager() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-t-border">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded bg-t-surface text-t-accent border border-t-border">
-              <Award size={20} />
-            </div>
-            <h1 className="text-xl font-bold text-t-text tracking-tight">Certifications &amp; Professional Licenses</h1>
-            <span className="px-2 py-0.5 rounded bg-t-surface-hi text-[11px] font-mono text-t-muted border border-t-border-hi">
-              {items.length} Credentials
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="text-3xl text-t-text">Certifications</h1>
+            <span className="text-sm text-t-muted">
+              {items.length} {items.length === 1 ? 'certification' : 'certifications'}
             </span>
           </div>
-          <p className="text-xs text-t-muted mt-1">
-            Verified vendor certifications, cloud badges, and technical licenses served across client applications.
+          <p className="text-sm text-t-muted mt-2 max-w-prose">
+            Credentials you have earned, with links so visitors can verify them.
           </p>
         </div>
 
@@ -152,7 +148,7 @@ export default function CertificationsManager() {
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs transition-all shadow-sm cursor-pointer"
         >
           <Plus size={15} />
-          <span>Add Certification</span>
+          <span>Add a certification</span>
         </button>
       </div>
 

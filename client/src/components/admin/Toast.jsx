@@ -12,19 +12,20 @@ export function ToastProvider({ children }) {
   const notify = useCallback((message, tone = 'error') => {
     const id = nextId.current += 1;
     setToasts((current) => [...current.slice(-3), { id, message, tone }]);
-    window.setTimeout(() => dismiss(id), tone === 'error' ? 7000 : 4000);
+    // Errors stay until dismissed so nobody misses them; confirmations clear themselves.
+    if (tone !== 'error') window.setTimeout(() => dismiss(id), 5000);
   }, [dismiss]);
   const value = useMemo(() => ({ notify }), [notify]);
 
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-[95] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2">
+      <div className="pointer-events-none fixed right-4 z-[95] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2" style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
         {toasts.map(({ id, message, tone }) => (
           <div key={id} role={tone === 'error' ? 'alert' : 'status'} className="page-enter pointer-events-auto flex items-start gap-3 rounded-xl border border-t-border-hi bg-t-surface-hi p-3.5 text-sm text-t-text shadow-card">
-            {tone === 'error' ? <AlertCircle size={17} className="mt-0.5 shrink-0 text-t-danger" /> : <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-t-accent2" />}
+            {tone === 'error' ? <AlertCircle size={17} aria-hidden="true" className="mt-0.5 shrink-0 text-t-danger" /> : <CheckCircle2 size={17} aria-hidden="true" className="mt-0.5 shrink-0 text-t-accent2" />}
             <span className="min-w-0 flex-1 break-words">{message}</span>
-            <button type="button" aria-label="Dismiss message" onClick={() => dismiss(id)} className="shrink-0 rounded p-0.5 text-t-muted hover:text-t-text"><X size={15} /></button>
+            <button type="button" aria-label="Dismiss message" onClick={() => dismiss(id)} className="-m-1.5 shrink-0 rounded p-2.5 text-t-muted hover:text-t-text"><X size={15} aria-hidden="true" /></button>
           </div>
         ))}
       </div>

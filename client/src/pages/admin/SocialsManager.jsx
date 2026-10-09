@@ -3,7 +3,6 @@ import { api } from '../../api/client';
 import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
-  Share2,
   Plus,
   Trash2,
   Edit2,
@@ -173,17 +172,14 @@ export default function SocialsManager() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-t-border">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded bg-t-surface text-t-accent border border-t-border">
-              <Share2 size={20} />
-            </div>
-            <h1 className="text-xl font-bold text-t-text tracking-tight">Social Media &amp; Developer Coordinates</h1>
-            <span className="px-2 py-0.5 rounded bg-t-surface-hi text-[11px] font-mono text-t-muted border border-t-border-hi">
-              {socials.length}
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="text-3xl text-t-text">Links</h1>
+            <span className="text-sm text-t-muted">
+              {socials.length} {socials.length === 1 ? 'link' : 'links'}
             </span>
           </div>
-          <p className="text-xs text-t-muted mt-1">
-            External platform links, developer handles, and spotlight contact coordinates.
+          <p className="text-sm text-t-muted mt-2 max-w-prose">
+            Where people can find you: profiles, handles and your contact email.
           </p>
         </div>
 
@@ -192,7 +188,7 @@ export default function SocialsManager() {
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs transition-all shadow-sm cursor-pointer"
         >
           <Plus size={15} />
-          <span>Add Social Link</span>
+          <span>Add a link</span>
         </button>
       </div>
 
@@ -214,7 +210,7 @@ export default function SocialsManager() {
       <div className="rounded bg-t-surface border border-t-border overflow-hidden">
         <div className="p-3.5 border-b border-t-border flex items-center justify-between bg-t-bg">
           <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted">
-            Registered Coordinates
+            Your links
           </span>
           <span className="text-[11px] font-mono text-t-dim">
             Sorted by Execution Order
