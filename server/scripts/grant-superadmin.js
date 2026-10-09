@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const { connectMongo, databaseNameFor } = require('../lib/mongoConnect');
 const User = require('../models/User');
 
 function argument(name) {
@@ -11,10 +12,9 @@ async function main() {
   const email = String(argument('--email') || '').trim().toLowerCase();
   const confirmedDatabase = argument('--confirm-db');
   if (!email || !process.env.MONGODB_URI) throw new Error('Provide --email and configure MONGODB_URI.');
-  const configured = new URL(process.env.MONGODB_URI);
-  const database = decodeURIComponent(configured.pathname.replace(/^\//, '').split('/')[0]);
+  const database = databaseNameFor(process.env.MONGODB_URI);
   if (!database || confirmedDatabase !== database) throw new Error(`Refusing role grant. Re-run with --confirm-db ${database} after checking the target database.`);
-  await mongoose.connect(process.env.MONGODB_URI, { maxPoolSize: 2 });
+  await connectMongo(process.env.MONGODB_URI, { maxPoolSize: 2 });
   try {
     const user = await User.findOne({ email });
     if (!user) throw new Error('No matching user account exists.');

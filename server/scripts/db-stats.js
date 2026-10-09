@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const { connectMongo } = require('../lib/mongoConnect');
 
 const CAP_BYTES = Number(process.env.DB_STORAGE_CAP_BYTES || 512 * 1024 * 1024);
 // ownerGuard-exemption: db stats utility uses native database stats and collection inventory
@@ -7,7 +8,7 @@ const CAP_BYTES = Number(process.env.DB_STORAGE_CAP_BYTES || 512 * 1024 * 1024);
 async function main() {
   if (!process.env.MONGODB_URI) throw new Error('Configure MONGODB_URI first.');
   if (!Number.isSafeInteger(CAP_BYTES) || CAP_BYTES <= 0) throw new Error('DB_STORAGE_CAP_BYTES must be a positive integer.');
-  await mongoose.connect(process.env.MONGODB_URI, { maxPoolSize: 2 });
+  await connectMongo(process.env.MONGODB_URI, { maxPoolSize: 2 });
   try {
     const stats = await mongoose.connection.db.stats();
     const used = Number(stats.storageSize || 0) + Number(stats.indexSize || 0);

@@ -1,8 +1,8 @@
-const mongoose = require('mongoose');
+const { connectMongo } = require('../lib/mongoConnect');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+    const conn = await connectMongo(process.env.MONGODB_URI, {
       autoIndex: true,
       maxPoolSize: 10,
     });

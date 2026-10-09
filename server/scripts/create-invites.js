@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const { connectMongo } = require('../lib/mongoConnect');
 const crypto = require('node:crypto');
 const Invite = require('../models/Invite');
 const { inviteDigest } = require('../lib/emailTokens');
@@ -9,7 +10,7 @@ async function main() {
   const count = Number(flag >= 0 ? process.argv[flag + 1] : 1);
   if (!Number.isInteger(count) || count < 1 || count > 100) throw new Error('Use --count with an integer from 1 to 100.');
   if (!process.env.MONGODB_URI) throw new Error('Configure MONGODB_URI first.');
-  await mongoose.connect(process.env.MONGODB_URI);
+  await connectMongo(process.env.MONGODB_URI);
   try {
     for (let i = 0; i < count; i += 1) {
       let code;

@@ -1,6 +1,7 @@
 require('dotenv').config();
 const readline = require('node:readline/promises');
 const mongoose = require('mongoose');
+const { connectMongo } = require('../lib/mongoConnect');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
@@ -67,7 +68,7 @@ async function main() {
   console.log(`Production target: host=${target.host}; database=${target.database}`);
   await confirm('Type the database name exactly to continue:', target.database);
 
-  await mongoose.connect(process.env.MONGODB_URI, { maxPoolSize: 5, autoIndex: false });
+  await connectMongo(process.env.MONGODB_URI, { maxPoolSize: 5, autoIndex: false });
   try {
     console.log(`Connected to ${mongoose.connection.name}. Checking existing indexes and preparing indexes…`);
     await assertNoLegacyGlobalIndexes(mongoose.connection.db);

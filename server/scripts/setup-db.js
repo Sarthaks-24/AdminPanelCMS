@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const { connectMongo, databaseNameFor } = require('../lib/mongoConnect');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
@@ -21,7 +22,7 @@ const models = [User, Profile, Social, Skill, Project, Experience, Education, Ce
 
 function getTargetDatabase(uri) {
   const parsed = new URL(uri);
-  return { host: parsed.hostname, database: decodeURIComponent(parsed.pathname.replace(/^\//, '').split('/')[0]) };
+  return { host: parsed.hostname, database: databaseNameFor(uri) };
 }
 
 async function setupDatabase() {
@@ -37,7 +38,7 @@ async function setupDatabase() {
     throw new Error(`Refusing fresh setup. Re-run with --fresh --confirm ${target.database} after reviewing and backing up the target.`);
   }
 
-  await mongoose.connect(mongoUri, { maxPoolSize: 10, autoIndex: false });
+  await connectMongo(mongoUri, { maxPoolSize: 10, autoIndex: false });
   try {
     console.log(`Connected target host=${mongoose.connection.host} database=${mongoose.connection.name}`);
     if (!fresh) await assertNoLegacyGlobalIndexes(mongoose.connection.db);

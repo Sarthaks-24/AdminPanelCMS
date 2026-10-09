@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const { connectMongo } = require('../lib/mongoConnect');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 
@@ -9,7 +10,7 @@ async function setAdmin() {
   if (!email || !password || password.length < 10 || !process.env.MONGODB_URI) {
     throw new Error('Provide MONGODB_URI, ADMIN_EMAIL and ADMIN_PASSWORD (at least 10 characters).');
   }
-  await mongoose.connect(process.env.MONGODB_URI, { maxPoolSize: 10 });
+  await connectMongo(process.env.MONGODB_URI, { maxPoolSize: 10 });
   try {
     const passwordHash = await bcrypt.hash(password, 10);
     let user = await User.findOne({ email });
