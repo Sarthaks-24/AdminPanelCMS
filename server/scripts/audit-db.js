@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const { connectMongo } = require('../lib/mongoConnect');
 
 const collections = ['users', 'admins', 'profiles', 'socials', 'skills', 'projects', 'experiences', 'educations', 'certifications', 'resumes'];
 const visibleCollections = new Set(['projects', 'skills', 'socials', 'experiences', 'educations', 'certifications']);
@@ -7,7 +8,7 @@ const visibleCollections = new Set(['projects', 'skills', 'socials', 'experience
 
 async function run() {
   if (!process.env.MONGODB_URI) throw new Error('Configure MONGODB_URI first.');
-  await mongoose.connect(process.env.MONGODB_URI, { maxPoolSize: 2, autoIndex: false, serverSelectionTimeoutMS: 10000 });
+  await connectMongo(process.env.MONGODB_URI, { maxPoolSize: 2, autoIndex: false, serverSelectionTimeoutMS: 10000 });
   try {
     console.log(`Read-only target host=${mongoose.connection.host} database=${mongoose.connection.name}`);
     for (const name of collections) {

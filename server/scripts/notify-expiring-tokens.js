@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const { connectMongo } = require('../lib/mongoConnect');
 const ApiToken = require('../models/ApiToken');
 const User = require('../models/User');
 const mailer = require('../lib/mailer');
@@ -11,7 +12,7 @@ async function main() {
   if (!Number.isInteger(days) || days < 1 || days > 30) throw new Error('TOKEN_EXPIRY_WARNING_DAYS must be an integer from 1 to 30.');
   const now = new Date();
   const deadline = new Date(now.getTime() + days * 86_400_000);
-  await mongoose.connect(process.env.MONGODB_URI, { maxPoolSize: 3 });
+  await connectMongo(process.env.MONGODB_URI, { maxPoolSize: 3 });
   try {
     const tokens = await ApiToken.find({ revokedAt: null, expiryWarningSentAt: null, expiresAt: { $gt: now, $lte: deadline } })
       .select('_id owner prefix label expiresAt').sort({ expiresAt: 1 }).lean();

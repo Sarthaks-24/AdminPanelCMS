@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const { connectMongo, databaseNameFor } = require('../lib/mongoConnect');
 const User = require('../models/User');
 const contentChanged = require('../lib/onContentChanged');
 
@@ -7,7 +8,7 @@ const collections = ['profiles', 'resumes', 'projects', 'skills', 'socials', 'ex
 const visibleCollections = new Set(['projects', 'skills', 'socials', 'experiences', 'educations', 'certifications']);
 
 function databaseFromUri(uri) {
-  return decodeURIComponent(new URL(uri).pathname.replace(/^\//, '').split('/')[0]);
+  return databaseNameFor(uri);
 }
 
 async function migrate() {
@@ -19,7 +20,7 @@ async function migrate() {
   const dbName = databaseFromUri(uri);
   if (!confirmed || confirmed !== dbName) throw new Error(`Refusing migration. Review backup and target, then pass --confirm ${dbName}.`);
 
-  await mongoose.connect(uri, { maxPoolSize: 2, autoIndex: false });
+  await connectMongo(uri, { maxPoolSize: 2, autoIndex: false });
   try {
     console.log(`Migration target host=${mongoose.connection.host} database=${mongoose.connection.name}`);
     let user = await User.findOne({ email });

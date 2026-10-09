@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const { connectMongo } = require('../lib/mongoConnect');
 const Resume = require('../models/Resume');
 const User = require('../models/User');
 const contentChanged = require('../lib/onContentChanged');
@@ -40,7 +41,7 @@ async function updateResume() {
 
   try {
     console.log('\n[1/3] Connecting to MongoDB...');
-    await mongoose.connect(mongoUri);
+    await connectMongo(mongoUri);
     console.log(`[OK] Connected successfully to database: ${mongoose.connection.name}`);
 
     console.log('\n[2/3] Upserting single resume row in database...');

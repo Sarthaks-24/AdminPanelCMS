@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const { connectMongo } = require('../lib/mongoConnect');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
@@ -247,7 +248,7 @@ async function runSeed() {
   }
 
   try {
-    await mongoose.connect(mongoUri);
+    await connectMongo(mongoUri);
     console.log(`[Seed] Connected to database: ${mongoose.connection.name}`);
 
     const email = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
