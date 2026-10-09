@@ -48,3 +48,41 @@ describe('superadmin controls', () => {
     expect((await App.findOne({ owner: owner._id, _id: appDoc._id })).name).toBe('Owner App');
   });
 });
+
+describe('signup mode setting', () => {
+  afterEach(() => { delete process.env.SIGNUP_MODE; delete process.env.LEGAL_POLICIES_APPROVED; process.env.NODE_ENV = 'test'; });
+
+  it('is superadmin-only and rejects unknown modes', async () => {
+    const regular = await createUser(User);
+    const admin = await createUser(User, { role: 'superadmin' });
+    await request(app).get('/api/admin/settings').set('Authorization', loginAs(regular)).expect(403);
+    await request(app).put('/api/admin/settings').set('Authorization', loginAs(regular)).send({ signupMode: 'open' }).expect(403);
+    await request(app).put('/api/admin/settings').set('Authorization', loginAs(admin)).send({ signupMode: 'anyone' }).expect(400);
+    await request(app).put('/api/admin/settings').set('Authorization', loginAs(admin)).send({}).expect(400);
+  });
+
+  it('defaults to the environment value and lets the dashboard override it for signup', async () => {
+    const admin = await createUser(User, { role: 'superadmin' });
+    const auth = loginAs(admin);
+    process.env.SIGNUP_MODE = 'invite';
+    const initial = await request(app).get('/api/admin/settings').set('Authorization', auth).expect(200);
+    expect(initial.body.settings).toMatchObject({ signupMode: 'invite', source: 'environment' });
+    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: true, signupMode: 'invite' });
+
+    const updated = await request(app).put('/api/admin/settings').set('Authorization', auth).send({ signupMode: 'open' }).expect(200);
+    expect(updated.body.settings).toMatchObject({ signupMode: 'open', source: 'dashboard' });
+    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: true, signupMode: 'open' });
+
+    await request(app).put('/api/admin/settings').set('Authorization', auth).send({ signupMode: 'invite' }).expect(200);
+    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: true, signupMode: 'invite' });
+  });
+
+  it('stays closed in production until legal policies are approved, even when set to open', async () => {
+    const admin = await createUser(User, { role: 'superadmin' });
+    await request(app).put('/api/admin/settings').set('Authorization', loginAs(admin)).send({ signupMode: 'open' }).expect(200);
+    process.env.NODE_ENV = 'production';
+    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: false, signupMode: 'closed' });
+    process.env.LEGAL_POLICIES_APPROVED = 'true';
+    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: true, signupMode: 'open' });
+  });
+});

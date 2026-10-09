@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const pickFields = require('./pickFields');
+const flattenPaths = require('./flattenPaths');
 const qString = require('./qString');
 const LIMITS = require('../config/limits');
 const { withContentQuota } = require('./contentQuota');
@@ -49,9 +50,10 @@ function scopedCrud(Model, fieldName, { sort = { order: 1, createdAt: -1 }, quer
       try {
         if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: 'not_found' });
         const data = pickFields(req.body, require('./modelConstants').WRITABLE_FIELDS[Model.modelName]);
-        const item = await Model.findOneAndUpdate({ _id: req.params.id, owner: req.userId }, { $set: data }, { returnDocument: 'after', runValidators: true });
+        const item = await Model.findOneAndUpdate({ _id: req.params.id, owner: req.userId }, { $set: flattenPaths(data) }, { returnDocument: 'after', runValidators: true });
         if (item) {
-          if (['Social', 'Skill', 'Project', 'Experience', 'Education', 'Certification'].includes(Model.modelName)) {
+          // Editing content must not silently drop it from apps' "selected" lists; only unpublishing does.
+          if (item.visibility && item.visibility !== 'published' && ['Social', 'Skill', 'Project', 'Experience', 'Education', 'Certification'].includes(Model.modelName)) {
             await pullContentFromApps(req.userId, Model.modelName, item._id);
           }
           await contentChanged.onContentChanged(req.userId);

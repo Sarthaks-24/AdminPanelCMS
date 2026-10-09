@@ -35,10 +35,10 @@ const ProfileSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: [true, 'Contact email is required'],
       trim: true,
       lowercase: true,
-      default: () => process.env.ADMIN_EMAIL || 'admin@example.com',
+      // Never default to the operator's address: new tenants would publish it unknowingly.
+      default: '',
     },
     phone: {
       type: String,

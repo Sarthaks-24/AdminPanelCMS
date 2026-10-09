@@ -6,7 +6,10 @@ const Invite = require('../models/Invite');
 const { digest, inviteDigest, issueEmailToken, consumeEmailToken } = require('../lib/emailTokens');
 const { usableInviteFilter } = require('../lib/inviteUses');
 const mailer = require('../lib/mailer');
+const inviteGuard = require('../lib/inviteGuard');
+const { getSignupMode } = require('../lib/signupMode');
 const { evictOwner } = require('../lib/cache');
+const { setSessionCookie, clearSessionCookie, readSessionCookie } = require('../lib/sessionCookie');
 
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10);
 
@@ -25,7 +28,8 @@ const login = async (req, res, next) => {
     }
     const token = jwt.sign({ sub: user._id, tv: user.tokenVersion }, process.env.JWT_SECRET, { expiresIn: '7d' });
     const identity = { id: user._id, email: user.email, emailVerified: Boolean(user.emailVerifiedAt), role: user.role };
-    return res.json({ success: true, token, user: identity, admin: identity });
+    setSessionCookie(res, token);
+    return res.json({ success: true, user: identity, admin: identity });
   } catch (error) {
     return next(error);
   }
@@ -40,27 +44,25 @@ const GENERIC_SIGNUP = { success: true, message: 'Check your email to complete r
 const GENERIC_RECOVERY = { success: true, message: 'If the account exists, password reset instructions will be sent' };
 const validPassword = (value) => typeof value === 'string' && value.length >= 10 && value.length <= 1024;
 
-function signupMode() {
-  if (process.env.NODE_ENV === 'production' && process.env.LEGAL_POLICIES_APPROVED !== 'true') return null;
-  const mode = process.env.SIGNUP_MODE || 'invite';
-  return ['invite', 'open'].includes(mode) ? mode : null;
-}
-
-function signupConfig(_req, res) {
-  const mode = signupMode();
-  return res.json({ success: true, signupEnabled: Boolean(mode), signupMode: mode || 'closed' });
+async function signupConfig(_req, res, next) {
+  try {
+    const mode = await getSignupMode();
+    return res.json({ success: true, signupEnabled: Boolean(mode), signupMode: mode || 'closed' });
+  } catch (error) { return next(error); }
 }
 
 async function signup(req, res, next) {
   try {
-    const mode = signupMode();
+    const mode = await getSignupMode();
     if (!mode) return res.status(503).json({ success: false, error: 'signup_unavailable' });
     if (process.env.NODE_ENV === 'production' && !mailer.isConfigured()) {
       return res.status(503).json({ success: false, error: 'email_unavailable' });
     }
     const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
     const password = req.body?.password;
-    const inviteCode = req.body?.inviteCode;
+    // Codes are often pasted as "123 456" or "123-456"; ignore the separators.
+    const rawInvite = typeof req.body?.inviteCode === 'string' ? req.body.inviteCode.trim() : req.body?.inviteCode;
+    const inviteCode = typeof rawInvite === 'string' && /^\d{3}[\s-]?\d{3}$/.test(rawInvite) ? rawInvite.replace(/[\s-]/g, '') : rawInvite;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || !validPassword(password)) {
       return res.status(400).json({ success: false, error: 'validation_failed', message: 'Enter a valid email and a password of at least 10 characters' });
     }
@@ -73,10 +75,14 @@ async function signup(req, res, next) {
       if (typeof inviteCode !== 'string' || !( /^\d{6}$/.test(inviteCode) || (inviteCode.length >= 16 && inviteCode.length <= 128) )) {
         return res.status(400).json({ success: false, error: 'invite_invalid' });
       }
-      inviteHashes = /^\d{6}$/.test(inviteCode) ? [inviteDigest(inviteCode), digest(inviteCode)] : [digest(inviteCode)];
+      // Older invites were hashed with plain sha256 before the keyed digest existed; keep accepting both.
+      inviteHashes = [inviteDigest(inviteCode), digest(inviteCode)];
       inviteHash = inviteHashes[0];
+      const ticket = inviteGuard.reserve();
+      if (!ticket) return res.status(429).json({ success: false, error: 'invite_locked', message: 'Too many incorrect invite codes. Try again later or ask for a new invite.' });
       const invite = await Invite.exists({ codeHash: { $in: inviteHashes }, ...usableInviteFilter() });
       if (!invite) return res.status(400).json({ success: false, error: 'invite_invalid' });
+      inviteGuard.release(ticket);
     }
     const passwordHash = await bcrypt.hash(password, 10);
     const existing = await User.findOne({ email, status: 'active' });
@@ -171,7 +177,28 @@ async function changePassword(req, res, next) {
     await user.save();
     evictOwner(user._id);
     const token = jwt.sign({ sub: user._id, tv: user.tokenVersion }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    return res.json({ success: true, token });
+    setSessionCookie(res, token);
+    return res.json({ success: true });
+  } catch (error) { return next(error); }
+}
+
+async function logout(req, res, next) {
+  try {
+    // Only the dashboard can send this header, so a cross-site page cannot force a logout.
+    if (req.get('x-requested-with') !== 'XMLHttpRequest') return res.status(403).json({ success: false, error: 'csrf_rejected', message: 'Missing request header' });
+    const token = readSessionCookie(req);
+    if (token) {
+      try {
+        const payload = jwt.verify(token, process.env.JWT_SECRET);
+        // Bumping the version revokes this JWT everywhere, so a copied cookie stops working too.
+        if (payload.sub && typeof payload.tv === 'number') {
+          await User.updateOne({ _id: payload.sub, tokenVersion: payload.tv }, { $inc: { tokenVersion: 1 } });
+          evictOwner(payload.sub);
+        }
+      } catch { /* expired or invalid token: nothing to revoke */ }
+    }
+    clearSessionCookie(res);
+    return res.json({ success: true });
   } catch (error) { return next(error); }
 }
 
@@ -179,4 +206,4 @@ function me(req, res) {
   return res.json({ success: true, user: { id: req.user._id, email: req.user.email, emailVerified: Boolean(req.user.emailVerifiedAt), acceptedTermsAt: req.user.acceptedTermsAt || null, role: req.user.role } });
 }
 
-module.exports = { login, verify, signup, signupConfig, verifyEmail, resendVerification, forgotPassword, resetPassword, changePassword, me };
+module.exports = { login, verify, signup, signupConfig, verifyEmail, resendVerification, forgotPassword, resetPassword, changePassword, logout, me };

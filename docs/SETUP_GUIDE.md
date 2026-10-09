@@ -167,7 +167,7 @@ $env:BACKUP_RESTORE_URI = 'mongodb://127.0.0.1:27017'
 npm run backup:verify -- --file 'C:\path\to\backup.gz.gpg' --target-db 'portfolio_restore_test' --confirm-db 'portfolio_restore_test'
 ```
 
-Use the production scheduler to run these commands daily: `npm run backup`, `npm run stats`, `npm run sweep:deleted`, and `npm run tokens:notify-expiring`. The expiry job sends one reminder per token within `TOKEN_EXPIRY_WARNING_DAYS` (default 7) and never includes a token secret. `npm run stats` exits with status 2 at 70% of `DB_STORAGE_CAP_BYTES`; the operator must review storage and keep registration invite-only. The app's current auth and content quota limiters use process-local memory, so run one API instance until shared enforcement is added.
+Use the production scheduler to run these commands daily: `npm run backup`, `npm run stats`, `npm run sweep:deleted`, and `npm run tokens:notify-expiring`. The expiry job sends one reminder per token within `TOKEN_EXPIRY_WARNING_DAYS` (default 7) and never includes a token secret. `npm run stats` exits with status 2 at 70% of `DB_STORAGE_CAP_BYTES`; the operator must review storage and keep registration invite-only. The app's current auth and content quota limiters use process-local memory, so run one API instance until shared enforcement is added. The token, response and revocation caches are also per-process (changes can take up to 60 seconds to reach other instances). The server refuses to start if `JWT_SECRET` is missing, shorter than 32 characters, or still the example value. In production, signup stays closed (503 `signup_unavailable`) until `LEGAL_POLICIES_APPROVED=true`. Behind a reverse proxy set `TRUST_PROXY_HOPS` (usually `1`); with the default `0` every visitor shares the proxy's IP and the login/signup rate limits apply to everyone at once.
 
 ---
 
@@ -175,7 +175,7 @@ Use the production scheduler to run these commands daily: `npm run backup`, `npm
 
 ### CORS Policy Errors
 - **Symptom:** Browser console outputs `Blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present`.
-- **Solution:** Verify the client port matches the origin allowed in `server/server.js`. In development mode (`NODE_ENV !== 'production'`), dynamic localhost regex matching is automatically enabled for all local ports (`5173`, `5174`, `3000`).
+- **Solution:** Set `CLIENT_ORIGIN` in `server/.env` to the exact origin the dashboard is served from (scheme, host and port, e.g. `http://localhost:5174`). Only that single origin is allowed; there is no localhost wildcard. In production `CLIENT_ORIGIN` must be `https` (the server refuses to start otherwise) because it is also used in emailed verification and reset links.
 
 ### MongoDB Authentication Failure
 - **Symptom:** `MongoServerError: bad auth : authentication failed`.

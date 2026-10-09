@@ -7,7 +7,7 @@ const Invite = require('../models/Invite');
 const EmailToken = require('../models/EmailToken');
 const { digest, inviteDigest, issueEmailToken } = require('../lib/emailTokens');
 const mailer = require('../lib/mailer');
-const { signupRateLimiters } = require('../middleware/authRateLimiters');
+const { signupRateLimiters, loginRateLimiters } = require('../middleware/authRateLimiters');
 
 describe('session compatibility', () => {
   it('uses the configured local client origin only and does not trust forwarded IPs by default', async () => {
@@ -36,11 +36,17 @@ describe('session compatibility', () => {
     const user = await User.create({ email: 'owner@test.com', passwordHash, tokenVersion: 3, emailVerifiedAt: new Date() });
     const login = await request(app).post('/api/auth/login').send({ email: 'OWNER@test.com', password: 'correct horse battery' });
     expect(login.status).toBe(200);
-    const claims = jwt.verify(login.body.token, process.env.JWT_SECRET);
+    expect(login.body.token).toBeUndefined();
+    const cookie = login.headers['set-cookie'][0];
+    expect(cookie).toMatch(/^session=/);
+    expect(cookie).toMatch(/HttpOnly/i);
+    expect(cookie).toMatch(/SameSite=Lax/i);
+    const sessionToken = cookie.split(';')[0].slice('session='.length);
+    const claims = jwt.verify(sessionToken, process.env.JWT_SECRET);
     expect(claims).toMatchObject({ sub: user._id.toString(), tv: 3 });
     expect(login.body.admin).toEqual(login.body.user);
 
-    const verify = await request(app).get('/api/auth/verify').set('Authorization', `Bearer ${login.body.token}`);
+    const verify = await request(app).get('/api/auth/verify').set('Cookie', `session=${sessionToken}`);
     expect(verify.status).toBe(200);
     expect(verify.body).toMatchObject({ success: true, valid: true, admin: { id: user._id.toString(), email: user.email } });
   });
@@ -51,7 +57,8 @@ describe('session compatibility', () => {
     const login = await request(app).post('/api/auth/login').send({ email: user.email, password: 'another secure password' });
     user.tokenVersion += 1;
     await user.save();
-    const response = await request(app).get('/api/auth/verify').set('Authorization', `Bearer ${login.body.token}`);
+    const sessionToken = login.headers['set-cookie'][0].split(';')[0].slice('session='.length);
+    const response = await request(app).get('/api/auth/verify').set('Cookie', `session=${sessionToken}`);
     expect(response.status).toBe(401);
     expect(response.body.error).toBe('session_expired');
   });
@@ -161,5 +168,72 @@ describe('account registration and email flows', () => {
   it('fails closed for an invalid signup mode', async () => {
     process.env.SIGNUP_MODE = 'anything-else';
     await request(app).post('/api/auth/signup').send({}).expect(503, { success: false, error: 'signup_unavailable' });
+  });
+});
+
+describe('cookie sessions', () => {
+  beforeEach(async () => {
+    for (const key of ['127.0.0.1', '::ffff:127.0.0.1', '::1']) await loginRateLimiters[0].resetKey(key);
+  });
+  const sessionFor = async (email, password) => {
+    const login = await request(app).post('/api/auth/login').send({ email, password });
+    return login.headers['set-cookie'][0].split(';')[0];
+  };
+
+  it('requires the CSRF header on cookie-authenticated writes but not reads', async () => {
+    const passwordHash = await bcrypt.hash('cookie session password', 4);
+    const user = await User.create({ email: 'cookie@test.com', passwordHash, emailVerifiedAt: new Date() });
+    const cookie = await sessionFor(user.email, 'cookie session password');
+    await request(app).get('/api/auth/me').set('Cookie', cookie).expect(200);
+    const blocked = await request(app).post('/api/projects').set('Cookie', cookie).send({ title: 'x' });
+    expect(blocked.status).toBe(403);
+    expect(blocked.body.error).toBe('csrf_rejected');
+    const allowed = await request(app).post('/api/projects').set('Cookie', cookie).set('X-Requested-With', 'XMLHttpRequest').send({ title: 'x' });
+    expect(allowed.status).not.toBe(403);
+  });
+
+  it('clears the cookie on logout and rotates it on password change', async () => {
+    const passwordHash = await bcrypt.hash('cookie session password', 4);
+    const user = await User.create({ email: 'rotate@test.com', passwordHash, emailVerifiedAt: new Date() });
+    const cookie = await sessionFor(user.email, 'cookie session password');
+    const changed = await request(app).post('/api/auth/change-password').set('Cookie', cookie).set('X-Requested-With', 'XMLHttpRequest')
+      .send({ currentPassword: 'cookie session password', newPassword: 'a different long password' });
+    expect(changed.status).toBe(200);
+    expect(changed.body.token).toBeUndefined();
+    expect(changed.headers['set-cookie'][0]).toMatch(/^session=ey/);
+    await request(app).get('/api/auth/me').set('Cookie', cookie).expect(401);
+    const fresh = await sessionFor(user.email, 'a different long password');
+    await request(app).post('/api/auth/logout').set('Cookie', fresh).expect(403);
+    const out = await request(app).post('/api/auth/logout').set('Cookie', fresh).set('X-Requested-With', 'XMLHttpRequest').expect(200);
+    expect(out.headers['set-cookie'][0]).toMatch(/Max-Age=0/);
+    await request(app).get('/api/auth/me').set('Cookie', fresh).expect(401); // the copied cookie is revoked too
+  });
+});
+
+describe('six-digit invite protection', () => {
+  const inviteGuard = require('../lib/inviteGuard');
+  beforeEach(async () => {
+    inviteGuard.reset();
+    process.env.SIGNUP_MODE = 'invite';
+    mailer.setMailTransport({ send: async () => {} });
+    await Promise.all(signupRateLimiters.map((limiter) => limiter.resetKey('127.0.0.1')));
+  });
+  afterEach(() => { inviteGuard.reset(); mailer.setMailTransport(null); delete process.env.SIGNUP_MODE; delete process.env.INVITE_FAILURE_LIMIT; });
+
+  const body = (email, inviteCode) => ({ email, password: 'a long enough password', inviteCode, acceptedTerms: true, acceptedPrivacy: true });
+
+  it('accepts a code pasted with spaces or dashes', async () => {
+    await Invite.create({ codeHash: inviteDigest('123456'), expiresAt: new Date(Date.now() + 86400000), maxUses: 1 });
+    await request(app).post('/api/auth/signup').send(body('spaces@test.com', '123 456')).expect(200);
+    expect(await User.countDocuments({ email: 'spaces@test.com' })).toBe(1);
+  });
+
+  it('pauses invite signups after too many wrong codes in total', async () => {
+    process.env.INVITE_FAILURE_LIMIT = '3';
+    for (let i = 0; i < 3; i += 1) await request(app).post('/api/auth/signup').send(body(`wrong${i}@test.com`, '000000')).expect(400);
+    await Invite.create({ codeHash: inviteDigest('654321'), expiresAt: new Date(Date.now() + 86400000), maxUses: 1 });
+    const locked = await request(app).post('/api/auth/signup').send(body('late@test.com', '654321'));
+    expect(locked.status).toBe(429);
+    expect(locked.body.error).toBe('invite_locked');
   });
 });

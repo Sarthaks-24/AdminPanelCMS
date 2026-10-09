@@ -1,12 +1,12 @@
+const pickFields = require('../lib/pickFields');
+
+// Allowlist entries may be dotted paths (e.g. 'links.github'); pickFields resolves them against nested bodies.
 module.exports = function pickWritable(allowedFields) {
   if (!Array.isArray(allowedFields) || allowedFields.length === 0) {
     throw new Error('[SECURITY FATAL] pickWritable requires a non-empty field allowlist');
   }
   return (req, res, next) => {
-    const source = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
-    const body = {};
-    for (const field of allowedFields) if (source[field] !== undefined) body[field] = source[field];
-    req.body = body;
+    req.body = pickFields(req.body, allowedFields);
     next();
   };
 };

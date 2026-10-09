@@ -18,7 +18,7 @@ async function main() {
       console.log(`${collection.name.padEnd(24)} ${((value.storageSize || 0) / 1024).toFixed(0)} KB storage  ${((value.totalIndexSize || 0) / 1024).toFixed(0)} KB indexes  ${value.count || 0} docs`);
     }
     if (percent >= 70) {
-      console.error('\nALERT: Storage is at or above 70%. Operator action required: set SIGNUP_MODE=invite and review upgrade/cleanup options. This command does not change signup configuration.');
+      console.error('\nALERT: Storage is at or above 70%. Operator action required: set signup to invite-only (superadmin dashboard, or SIGNUP_MODE=invite) and review upgrade/cleanup options. This command does not change signup configuration.');
       process.exitCode = 2;
     }
   } finally { await mongoose.disconnect(); }
