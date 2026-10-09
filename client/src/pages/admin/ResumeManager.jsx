@@ -6,7 +6,6 @@ import {
   Check,
   Save,
   Terminal,
-  FileText,
   AlertCircle,
   CheckCircle,
 } from 'lucide-react';
@@ -93,14 +92,11 @@ export default function ResumeManager() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-t-border">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded bg-t-surface text-t-accent2 border border-t-border">
-              <FileText size={20} />
-            </div>
-            <h1 className="text-xl font-bold text-t-text tracking-tight">Resume Hub &amp; PDF Asset Manager</h1>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="text-3xl text-t-text">Resume</h1>
           </div>
-          <p className="text-xs text-t-muted mt-1">
-            Single source of truth cloud PDF link served dynamically to web visitors and client applications.
+          <p className="text-sm text-t-muted mt-2 max-w-prose">
+            The link to the PDF visitors download from your site.
           </p>
         </div>
 
@@ -112,7 +108,7 @@ export default function ResumeManager() {
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-t-surface-hi hover:bg-t-surface-hi text-t-text font-semibold text-xs border border-t-border transition-all cursor-pointer"
           >
             <ExternalLink size={14} className="text-t-accent" />
-            <span>Open &amp; Test Link</span>
+            <span>Open resume</span>
           </a>
         )}
       </div>

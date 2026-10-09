@@ -8,6 +8,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['"Geist"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+        display: ['"Bricolage Grotesque"', '"Geist"', 'system-ui', 'sans-serif'],
         readable: ['"Geist"', 'system-ui', 'sans-serif'],
         mono: ['"Geist Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },

@@ -5,12 +5,16 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%232563eb%27/%3E%3Cpath d=%27M9 22V10h7a4 4 0 010 8h-4%27 fill=%27none%27 stroke=%27white%27 stroke-width=%273%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Portfolio Control</title>
+    <script>
+      // Apply the saved theme before first paint so the page never flashes the default one.
+      try { var t = localStorage.getItem('admin_dashboard_theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+    </script>
     <meta name="description" content="Manage your portfolio content, API keys and published apps from one workspace." />
     <meta name="theme-color" content="#0c1017" />
-    <!-- Fonts: Geist (UI) and Geist Mono (code, figures) -->
+    <!-- Fonts: Bricolage Grotesque (titles), Geist (interface), Geist Mono (slugs and keys) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   </head>
   <body class="antialiased" style="background-color: var(--theme-bg); color: var(--theme-text);">
     <div id="root"></div>

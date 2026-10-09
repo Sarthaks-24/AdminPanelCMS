@@ -41,18 +41,12 @@ export default function AdminLogin() {
             </div>
             <div>
               <p className="font-semibold tracking-tight">Portfolio Control</p>
-              <p className="mt-0.5 text-xs text-t-muted">ADMIN WORKSPACE</p>
+              <p className="mt-0.5 text-xs text-t-muted">For your portfolio</p>
             </div>
           </div>
           <div className="max-w-md py-10">
-            <p className="mb-4 font-mono text-xs uppercase tracking-widest text-t-accent">Portfolio control</p>
-            <h1 className="text-5xl font-semibold leading-[1.05] tracking-tight">Write once.<br />Publish everywhere.</h1>
-            <p className="mt-5 text-sm leading-6 text-t-muted">Edit projects, skills and your story in one workspace, then serve them to any site with a scoped API key.</p>
-            <ul className="mt-8 space-y-3 text-sm">
-              <li className="flex gap-3"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-t-accent" /><span className="text-t-muted"><strong className="font-medium text-t-text">Drafts stay private.</strong> Only published items ever reach your sites.</span></li>
-              <li className="flex gap-3"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-t-accent2" /><span className="text-t-muted"><strong className="font-medium text-t-text">One source of truth.</strong> Update a role or project and every connected app follows.</span></li>
-              <li className="flex gap-3"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-t-accent" /><span className="text-t-muted"><strong className="font-medium text-t-text">Keys you control.</strong> Rotate or revoke access without touching your content.</span></li>
-            </ul>
+            <p className="font-display text-5xl font-semibold leading-[1.02] tracking-tight text-t-text">Your work, shown the way you want it seen.</p>
+            <p className="mt-6 max-w-sm text-base leading-7 text-t-muted">Sign in to edit your projects and profile, and choose what each of your websites can show.</p>
           </div>
           <p className="text-xs text-t-muted">Secure access for portfolio owners</p>
         </section>
@@ -63,9 +57,8 @@ export default function AdminLogin() {
             <p className="mt-4 text-sm font-semibold">Portfolio Control</p>
           </div>
           <div className="mb-8">
-            <p className="text-sm font-medium text-t-accent">Welcome back</p>
-            <h2 id="login-title" className="mt-2 text-3xl font-semibold tracking-tight">Sign in to your workspace</h2>
-            <p className="mt-2 text-sm text-t-muted">Use the email and password for your account.</p>
+            <h1 id="login-title" className="font-display text-3xl font-semibold tracking-tight">Sign in</h1>
+            <p className="mt-2 text-sm text-t-muted">Welcome back. Use the email and password for your account.</p>
           </div>
 
           {error && (
@@ -103,13 +96,13 @@ export default function AdminLogin() {
           </form>
 
           <div className="mt-5 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
-            <Link to="/admin/forgot-password" className="text-t-accent hover:underline">Forgot password?</Link>
+            <Link to="/admin/forgot-password" className="text-t-accent underline-offset-4 hover:underline">Forgot your password?</Link>
             {signupOpen && <Link to="/admin/signup" className="font-medium text-t-accent hover:underline">Create an account</Link>}
           </div>
 
           <div className="mt-8 flex items-center gap-2 border-t border-t-border pt-5 text-xs text-t-muted">
             <ShieldCheck size={15} className="text-t-accent2" />
-            <span>Your session is protected with secure authentication.</span>
+            <span>Your session is stored securely and expires after seven days.</span>
           </div>
         </section>
       </div>

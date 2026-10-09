@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
 import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import {
-  Cpu,
   Plus,
   Trash2,
   Edit2,
@@ -396,17 +395,14 @@ export default function SkillsMatrix() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-t-border">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded bg-t-surface text-t-accent border border-t-border">
-              <Cpu size={20} />
-            </div>
-            <h1 className="text-xl font-bold text-t-text tracking-tight">Independent Skills Matrix</h1>
-            <span className="px-2 py-0.5 rounded bg-t-surface-hi text-[11px] font-mono text-t-muted border border-t-border-hi">
-              {skills.length} Total · {featuredCount} Featured
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="text-3xl text-t-text">Skills</h1>
+            <span className="text-sm text-t-muted">
+              {skills.length} {skills.length === 1 ? 'skill' : 'skills'}, {featuredCount} featured
             </span>
           </div>
-          <p className="text-xs text-t-muted mt-1">
-            Categorized competencies, proficiencies, and highlighted stack entries served across client APIs.
+          <p className="text-sm text-t-muted mt-2 max-w-prose">
+            What you work with, grouped by category. Featured skills can be highlighted on your site.
           </p>
         </div>
 
@@ -426,7 +422,7 @@ export default function SkillsMatrix() {
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs transition-all shadow-sm cursor-pointer"
           >
             <Plus size={15} />
-            <span>Add Single Skill</span>
+            <span>Add a skill</span>
           </button>
         </div>
       </div>
@@ -450,10 +446,10 @@ export default function SkillsMatrix() {
         <div className="flex items-center gap-2 mb-2">
           <Tag size={14} className="text-t-accent2" />
           <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted">
-            Batch Quick Tag Entry
+            Add several skills at once
           </span>
           <span className="text-[10px] font-mono text-t-dim">
-            (Comma-separated list, instant creation)
+            (separate with commas)
           </span>
         </div>
         <form onSubmit={handleBatchSubmit} className="flex flex-col sm:flex-row gap-3">
@@ -676,7 +672,7 @@ export default function SkillsMatrix() {
 
                 <div className="mt-3 pt-2.5 border-t border-t-border flex items-center justify-between pl-6">
                   <span className="text-[10px] font-mono text-t-dim">
-                    {skill.featured ? '★ Featured Stack' : 'Matrix Only'} · {skill.visibility || 'draft'}
+                    {skill.featured ? 'Featured' : 'Not featured'} · {skill.visibility || 'draft'}
                   </span>
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                     <button
@@ -752,7 +748,7 @@ export default function SkillsMatrix() {
                 }`}
               >
                 <ListChecks size={13} />
-                <span>Matrix Grid Editor</span>
+                <span>Edit as a table</span>
               </button>
             </div>
 
@@ -870,7 +866,7 @@ export default function SkillsMatrix() {
                       >
                         <option value="KEEP">[ Keep Existing Featured Status ]</option>
                         <option value="FEATURE">Set All as Featured (★ Spotlight)</option>
-                        <option value="UNFEATURE">Set All as Not Featured (Matrix Only)</option>
+                        <option value="UNFEATURE">Unfeature all</option>
                       </select>
                     </div>
                   </div>

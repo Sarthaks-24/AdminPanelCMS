@@ -3,7 +3,6 @@ import { api } from '../../api/client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
-  User,
   Save,
   CheckCircle,
   AlertCircle,
@@ -146,14 +145,11 @@ export default function ProfileEditor() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-t-border">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded bg-t-surface text-t-accent border border-t-border">
-              <User size={20} />
-            </div>
-            <h1 className="text-xl font-bold text-t-text tracking-tight">Profile &amp; Identity Console</h1>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="text-3xl text-t-text">Your profile</h1>
           </div>
-          <p className="text-xs text-t-muted mt-1">
-            Global personal bio, availability telemetry, contact points, and environment configuration.
+          <p className="text-sm text-t-muted mt-2 max-w-prose">
+            The name, headline and bio at the top of your portfolio, and how people can reach you.
           </p>
         </div>
 
@@ -164,7 +160,7 @@ export default function ProfileEditor() {
           className="inline-flex items-center gap-2 px-4 py-2 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs transition-all shadow-md cursor-pointer disabled:opacity-50"
         >
           <Save size={15} />
-          <span>{saving ? 'Saving...' : 'Save Profile'}</span>
+          <span>{saving ? 'Saving…' : 'Save changes'}</span>
         </button>
       </div>
 
@@ -187,10 +183,10 @@ export default function ProfileEditor() {
         <div className="p-5 rounded bg-t-surface border border-t-border space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-t-border">
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted">
-              Employment Status &amp; Availability
+              Availability
             </span>
             <span className="text-[11px] font-mono text-t-accent2">
-              {form.isAvailableForHire ? '[STATUS: AVAILABLE]' : '[STATUS: ENGAGED]'}
+              {form.isAvailableForHire ? 'Open to new roles' : 'Not looking right now'}
             </span>
           </div>
 
@@ -204,12 +200,12 @@ export default function ProfileEditor() {
                 className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-t-accent2"
               />
               <label htmlFor="isAvailableForHire" className="text-xs text-t-text cursor-pointer">
-                Actively Open for High-Impact Software Engineering Roles
+                I’m open to new roles
               </label>
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-t-muted mb-1">Status Text Display</label>
+              <label className="block text-xs font-mono text-t-muted mb-1">Status line shown on your site</label>
               <input
                 type="text"
                 value={form.statusText}
@@ -225,13 +221,13 @@ export default function ProfileEditor() {
         <div className="p-5 rounded bg-t-surface border border-t-border space-y-4">
           <div className="pb-3 border-b border-t-border">
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted">
-              Personal Identity &amp; Contact Coordinates
+              About you and how to reach you
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-mono text-t-muted mb-1">Full Legal Name *</label>
+              <label className="block text-xs font-mono text-t-muted mb-1">Name *</label>
               <input
                 type="text"
                 required
@@ -241,7 +237,7 @@ export default function ProfileEditor() {
               />
             </div>
             <div>
-              <label className="block text-xs font-mono text-t-muted mb-1">Initials / Monogram</label>
+              <label className="block text-xs font-mono text-t-muted mb-1">Initials</label>
               <input
                 type="text"
                 value={form.initials}
@@ -251,7 +247,7 @@ export default function ProfileEditor() {
               />
             </div>
             <div>
-              <label className="block text-xs font-mono text-t-muted mb-1">Professional Title / Headline *</label>
+              <label className="block text-xs font-mono text-t-muted mb-1">Headline *</label>
               <input
                 type="text"
                 required
@@ -277,7 +273,7 @@ export default function ProfileEditor() {
                 />
               </div>
               <p className="text-[11px] text-t-muted mt-1 font-mono">
-                Syncs with public contact info &amp; Email social link. (Dashboard login email remains separate).
+                Also used as the email link on your site. Your sign-in email stays separate.
               </p>
             </div>
             <div>
@@ -335,7 +331,7 @@ export default function ProfileEditor() {
         <div className="p-5 rounded bg-t-surface border border-t-border space-y-4">
           <div className="pb-3 border-b border-t-border">
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted">
-              Elevator Pitch &amp; Extended Markdown Bio
+              Your bio
             </span>
           </div>
 
@@ -405,7 +401,7 @@ export default function ProfileEditor() {
           <div className="pb-3 border-b border-t-border flex items-center justify-between">
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted flex items-center gap-2">
               <Terminal size={14} className="text-t-accent2" />
-              System Environment &amp; Shell Parameters
+              Terminal prompt
             </span>
             <span className="text-[11px] font-mono text-t-accent">
               {form.terminalUser}@{form.terminalHost}:~$
@@ -451,7 +447,7 @@ export default function ProfileEditor() {
           <div className="flex items-center justify-between pb-3 border-b border-t-border">
             <div>
               <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted">
-                Key Performance Metrics &amp; High-Water Marks
+                Highlights
               </span>
               <p className="text-[11px] text-t-dim">
                 Rendered on profile summary and showcase cards.
@@ -469,7 +465,7 @@ export default function ProfileEditor() {
 
           {form.metrics.length === 0 ? (
             <div className="text-center py-6 text-t-dim text-xs font-mono border border-dashed border-t-border-hi rounded">
-              No performance metrics logged yet. Click "Add Metric" to define stats (e.g. "API Latency: &lt;15ms").
+              No highlights yet. Add a few numbers you are proud of, like “Latency: under 15 ms”.
             </div>
           ) : (
             <div className="space-y-3">

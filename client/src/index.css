@@ -26,7 +26,7 @@
   --theme-on-accent2:    #031f13;
   --theme-text:          #f1f5f9;
   --theme-text-muted:    #94a3b8;
-  --theme-text-dim:      #64748b;
+  --theme-text-dim:      #758398;
   --theme-brand:         #3b82f6;
   --theme-brand-glow:    rgba(59, 130, 246, 0.25);
   --theme-danger:        #ef4444;
@@ -50,7 +50,7 @@
   --theme-on-accent2:    #ffffff;
   --theme-text:          #f3f4f8;
   --theme-text-muted:    #9096ad;
-  --theme-text-dim:      #5b627a;
+  --theme-text-dim:      #797f93;
   --theme-brand:         #6366f1;
   --theme-brand-glow:    rgba(99, 102, 241, 0.25);
   --theme-danger:        #f43f5e;
@@ -74,7 +74,7 @@
   --theme-on-accent2:    #031f13;
   --theme-text:          #ededed;
   --theme-text-muted:    #a1a1aa;
-  --theme-text-dim:      #71717a;
+  --theme-text-dim:      #7d7d86;
   --theme-brand:         #0070f3;
   --theme-brand-glow:    rgba(0, 112, 243, 0.25);
   --theme-danger:        #ef4444;
@@ -99,7 +99,7 @@
   --theme-on-accent2:    #041d13;
   --theme-text:          #e6edf3;
   --theme-text-muted:    #8ba2b0;
-  --theme-text-dim:      #5a707e;
+  --theme-text-dim:      #708491;
   --theme-brand:         #3ecf8e;
   --theme-brand-glow:    rgba(62, 207, 142, 0.25);
   --theme-danger:        #f43f5e;
@@ -124,7 +124,7 @@
   --theme-on-accent2:    #ffffff;
   --theme-text:          #f5f3ff;
   --theme-text-muted:    #9e94be;
-  --theme-text-dim:      #685e88;
+  --theme-text-dim:      #81799d;
   --theme-brand:         #8b5cf6;
   --theme-brand-glow:    rgba(139, 92, 246, 0.25);
   --theme-danger:        #f43f5e;
@@ -150,7 +150,7 @@
   --theme-on-accent2:    #022014;
   --theme-text:          #f0f8ff;
   --theme-text-muted:    #88a5c4;
-  --theme-text-dim:      #587493;
+  --theme-text-dim:      #7089a4;
   --theme-brand:         #38bdf8;
   --theme-brand-glow:    rgba(56, 189, 248, 0.25);
   --theme-danger:        #fb7185;
@@ -176,7 +176,7 @@
   --theme-on-accent2:    #141c05;
   --theme-text:          #faf6ee;
   --theme-text-muted:    #b0a79a;
-  --theme-text-dim:      #787064;
+  --theme-text-dim:      #888075;
   --theme-brand:         #d4a373;
   --theme-brand-glow:    rgba(212, 163, 115, 0.25);
   --theme-danger:        #e76f51;
@@ -333,7 +333,7 @@
   --theme-on-accent2:    #160f00;
   --theme-text:          #f0f4ff;
   --theme-text-muted:    #939cbd;
-  --theme-text-dim:      #60698c;
+  --theme-text-dim:      #777f9e;
   --theme-brand:         #00f0ff;
   --theme-brand-glow:    rgba(0, 240, 255, 0.25);
   --theme-danger:        #ff3366;
@@ -360,7 +360,7 @@
   --theme-on-accent2:    #ffffff;
   --theme-text:          #fdf2f8;
   --theme-text-muted:    #b59db8;
-  --theme-text-dim:      #796580;
+  --theme-text-dim:      #8b7991;
   --theme-brand:         #f43f5e;
   --theme-brand-glow:    rgba(244, 63, 94, 0.25);
   --theme-danger:        #ff2a6d;
@@ -385,7 +385,7 @@
   --theme-on-accent2:    #02200d;
   --theme-text:          #f8f8f2;
   --theme-text-muted:    #a6a9ca;
-  --theme-text-dim:      #717498;
+  --theme-text-dim:      #8789a6;
   --theme-brand:         #bd93f9;
   --theme-brand-glow:    rgba(189, 147, 249, 0.25);
   --theme-danger:        #ff5555;
@@ -411,7 +411,7 @@
   --theme-on-accent2:    #011d20;
   --theme-text:          #f0f6fc;
   --theme-text-muted:    #90a4bf;
-  --theme-text-dim:      #5b708b;
+  --theme-text-dim:      #70839b;
   --theme-brand:         #ff2a6d;
   --theme-brand-glow:    rgba(255, 42, 109, 0.25);
   --theme-danger:        #ff2a6d;
@@ -438,7 +438,7 @@
   --theme-on-accent2:    #ffffff;
   --theme-text:          #e3fafc;
   --theme-text-muted:    #7da7c4;
-  --theme-text-dim:      #4d7490;
+  --theme-text-dim:      #5f849d;
   --theme-brand:         #00d2d3;
   --theme-brand-glow:    rgba(0, 210, 211, 0.25);
   --theme-danger:        #ff4757;
@@ -462,7 +462,7 @@
   --theme-on-accent2:    #ffffff;
   --theme-text:          #fdfaf3;
   --theme-text-muted:    #b5a997;
-  --theme-text-dim:      #7a7061;
+  --theme-text-dim:      #877e70;
   --theme-brand:         #e5a93c;
   --theme-brand-glow:    rgba(229, 169, 60, 0.25);
   --theme-danger:        #e74c3c;
@@ -486,7 +486,7 @@
   --theme-on-accent2:    #ffffff;
   --theme-text:          #f0fdf9;
   --theme-text-muted:    #7fa7a2;
-  --theme-text-dim:      #4e7570;
+  --theme-text-dim:      #658883;
   --theme-brand:         #2dd4bf;
   --theme-brand-glow:    rgba(45, 212, 191, 0.25);
   --theme-danger:        #f43f5e;
@@ -511,7 +511,7 @@
   --theme-on-accent2:    #09090b;
   --theme-text:          #f4f4f5;
   --theme-text-muted:    #a1a1aa;
-  --theme-text-dim:      #71717a;
+  --theme-text-dim:      #818189;
   --theme-brand:         #e4e4e7;
   --theme-brand-glow:    rgba(228, 228, 231, 0.20);
   --theme-danger:        #ef4444;
@@ -564,7 +564,7 @@ html, body {
   color: var(--theme-text);
   font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-feature-settings: 'ss01', 'cv11';
-  overflow-x: hidden;
+  overflow-x: clip;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
@@ -576,6 +576,8 @@ html, body {
 
 html {
   scroll-behavior: smooth;
+  /* The sticky header must not cover whatever just received focus. */
+  scroll-padding-top: 4.5rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -593,9 +595,9 @@ html {
   transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
 }
 
-.admin-content :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
+.admin-content :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus-visible {
   border-color: var(--theme-accent) !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 16%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 40%, transparent);
 }
 
 .admin-content :where(textarea) {
@@ -612,11 +614,9 @@ html {
 }
 
 .admin-content :where([class~="bg-t-surface"][class~="border"], [class~="bg-t-surface-hi"][class~="border"]) {
-  border-radius: 0.9rem;
-  /* A faint top highlight and a theme-tinted shadow give depth without a heavy outline. */
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--theme-text) 5%, transparent),
-    0 10px 24px -16px color-mix(in srgb, var(--theme-bg) 55%, var(--theme-brand));
+  /* Hairline containers: hierarchy comes from spacing and type, not from shadows. */
+  border-radius: 0.6rem;
+  box-shadow: none;
 }
 
 .admin-content :where(a) {
@@ -763,21 +763,6 @@ html {
 .font-mono, .font-mono-code, :where(code, kbd, samp) { font-variant-ligatures: none; }
 :where(table, .tabular, [class*="tabular-nums"]) { font-variant-numeric: tabular-nums; }
 
-/* Grain and ambient light sit above the UI but never intercept input. */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  pointer-events: none;
-  background:
-    radial-gradient(60rem 36rem at 12% -8%, color-mix(in srgb, var(--theme-brand) 7%, transparent), transparent 70%),
-    radial-gradient(48rem 30rem at 100% 0%, color-mix(in srgb, var(--theme-accent2) 5%, transparent), transparent 70%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
-  background-blend-mode: normal, normal, soft-light;
-  opacity: 0.28;
-}
-
 /* Interaction: every control answers hover, press and keyboard focus. */
 :where(a, button, input, select, textarea, summary, [role="switch"], [role="radio"]):focus-visible {
   outline: 2px solid var(--theme-accent-bright);
@@ -833,5 +818,27 @@ body::after {
 
 @media (prefers-reduced-motion: reduce) {
   .page-enter, .stagger > *, .skeleton { animation: none !important; }
-  body::after { opacity: 0.2; }
 }
+
+
+/* ── Voice: one display face for titles, plain sans for everything else ── */
+.admin-content h1 {
+  font-family: 'Bricolage Grotesque', 'Geist', system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+/* Small all-caps monospace labels are template chrome. Monospace is kept for literal code only,
+   so everything else reads as ordinary sentence-case interface text. */
+.admin-content .font-mono:not(code):not(pre):not(.font-mono-code) { font-family: inherit; }
+.admin-content .uppercase { text-transform: none; }
+.admin-content :where(.tracking-wider, .tracking-widest, .tracking-wide) { letter-spacing: 0; }
+.admin-content :where(h2, h3, h4, legend).font-mono,
+.admin-content :where(h2, h3, h4, legend).uppercase,
+.admin-content :where(h2, h3, h4, legend)[class*="font-bold"] {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--theme-text);
+}
+/* Mono stays for what is literally code: slugs, keys, URLs and counts in tables. */
+.admin-content :where(code, kbd, .font-mono-code) { font-family: 'Geist Mono', ui-monospace, monospace; }
