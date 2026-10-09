@@ -20,6 +20,9 @@ function walk(dir) {
         'scripts/migrate-legacy-tenancy.js': 'ownerGuard-exemption: legacy tenant migration requires native collection updates',
         'scripts/audit-db.js': 'ownerGuard-exemption: read-only database inventory uses native commands',
         'scripts/setup-db.js': 'ownerGuard-exemption: setup preflight and confirmed fresh cleanup use native database APIs',
+        'scripts/prepare-production-db.js': 'ownerGuard-exemption: production setup preflight uses native database metadata only',
+        'scripts/db-stats.js': 'ownerGuard-exemption: db stats utility uses native database stats and collection inventory',
+        'scripts/verify-backup-restore.js': 'ownerGuard-exemption: restore drill is constrained to a confirmed, local disposable database',
       };
       const nativeDbExempt = nativeDbExemptions[normalized] && source.includes(nativeDbExemptions[normalized]);
       if (/mongoose\.connection\.db\b/.test(source) && !nativeDbExempt) violations.push(`${relative}: native database access bypasses ownerGuard`);

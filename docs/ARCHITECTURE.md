@@ -38,7 +38,7 @@ The system functions as a standalone, authoritative upstream content management 
 └────────────────────────────────────────────────────────┘
 ```
 
-> **Decoupled Architecture Notice:** External applications consume published, app-scoped data through the token-authenticated `/v1` API. Publishable keys are origin-checked for browser use; secret keys are server-only. External applications do not connect directly to MongoDB.
+> **Decoupled Architecture Notice:** External applications consume published, app-scoped data through the token-authenticated `/v1` API. Publishable keys can use an origin allowlist or `*` for browser use; secret keys are server-only. External applications do not connect directly to MongoDB.
 
 ---
 

@@ -399,7 +399,7 @@ This document provides complete technical specifications for every endpoint expo
 
 ## Versioned public API (`/v1`)
 
-External consumers use an API token in `Authorization: Bearer <token>`. Static apps receive `pk_live_…` publishable tokens restricted to the app's configured origins. Protected apps receive `sk_live_…` secret tokens for server-side use. Tokens in query strings are rejected. Responses include an `ETag`; send `If-None-Match` to receive `304 Not Modified`.
+External consumers use an API token in `Authorization: Bearer <token>`. Static apps receive `pk_live_…` publishable tokens. Their `allowedOrigins` can be exact HTTPS origins or `*`; an empty origin list on a static app is normalized to `*`. This setting controls which browser origins may read responses. It is not API authentication: every request still needs its valid Bearer token, and `pk` tokens are public keys intended only for the app's selected public data. Protected apps receive `sk_live_…` secret tokens for server-side use. Requests without a browser `Origin` header are also allowed when the token is valid. Tokens in query strings are rejected. Responses include an `ETag`; send `If-None-Match` to receive `304 Not Modified`.
 
 | Method | Path | Description |
 |---|---|---|
@@ -414,7 +414,7 @@ Every endpoint is limited to the selected App's enabled sections and field proje
 
 ### Dashboard token endpoints
 
-These routes require a verified dashboard JWT and verified email. Each App can have at most two active tokens. Static Apps issue publishable keys; protected Apps issue secret keys. Secret plaintext is returned only on creation.
+These routes require a verified dashboard JWT and verified email. Each App can have at most two active tokens. Static Apps issue publishable keys; protected Apps issue secret keys. Secret plaintext is returned only on creation. Configure a static app's allowed origins as `*` to allow browser calls from any site; keep the selected fields limited to content intended to be public.
 
 | Method | Path | Description |
 |---|---|---|

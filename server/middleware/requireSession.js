@@ -16,7 +16,7 @@ async function requireSession(req, res, next) {
       return res.status(401).json({ success: false, error: 'invalid_session', message: 'Please log in again' });
     }
     // ownerGuard-exemption: User is an identity lookup, not tenant content
-    const user = await User.findById(payload.sub).select('_id email tokenVersion status emailVerifiedAt');
+    const user = await User.findById(payload.sub).select('_id email tokenVersion status emailVerifiedAt acceptedTermsAt role');
     if (!user || user.status !== 'active') {
       return res.status(401).json({ success: false, error: 'account_inactive', message: 'Account is invalid or deactivated' });
     }

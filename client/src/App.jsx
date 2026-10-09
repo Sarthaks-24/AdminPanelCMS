@@ -19,6 +19,14 @@ import ResumeManager from './pages/admin/ResumeManager';
 import ProtectedRoute from './components/admin/ProtectedRoute';
 import AppsPage from './pages/admin/AppsPage';
 import AppEditorPage from './pages/admin/AppEditorPage';
+import AccountSettings from './pages/admin/AccountSettings';
+import SuperadminPanel from './pages/admin/SuperadminPanel';
+import Signup from './pages/auth/Signup';
+import CheckEmail from './pages/auth/CheckEmail';
+import VerifyEmail from './pages/auth/VerifyEmail';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
+import LegalPreview from './pages/auth/LegalPreview';
 
 export default function App() {
   return (
@@ -31,6 +39,13 @@ export default function App() {
 
             {/* Admin Authentication */}
             <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin/signup" element={<Signup />} />
+            <Route path="/admin/check-email" element={<CheckEmail />} />
+            <Route path="/admin/verify-email" element={<VerifyEmail />} />
+            <Route path="/admin/forgot-password" element={<ForgotPassword />} />
+            <Route path="/admin/reset-password" element={<ResetPassword />} />
+            <Route path="/legal/terms" element={<LegalPreview />} />
+            <Route path="/legal/privacy" element={<LegalPreview />} />
 
             {/* Admin CMS Protected Routes */}
             <Route
@@ -55,6 +70,8 @@ export default function App() {
               <Route path="resume" element={<ResumeManager />} />
               <Route path="apps" element={<AppsPage />} />
               <Route path="apps/:id" element={<AppEditorPage />} />
+              <Route path="account" element={<AccountSettings />} />
+              <Route path="superadmin" element={<SuperadminPanel />} />
             </Route>
 
             {/* Fallback */}

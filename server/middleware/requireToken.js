@@ -34,11 +34,13 @@ async function requireToken(req, res, next) {
     if (!ownerUser || ownerUser.status !== 'active') return fail(401, 'account_inactive', 'Account is suspended or deactivated');
     if (tokenDoc.type === 'pk') {
       const origin = req.get('origin');
-      if (!origin) return fail(403, 'origin_required', 'Origin header is required for publishable tokens');
-      if (!(appDoc.allowedOrigins || []).includes(origin)) return fail(403, 'origin_not_allowed', 'This origin is not allowed for this app');
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Expose-Headers', 'ETag, Retry-After, RateLimit, RateLimit-Policy');
-      res.setHeader('Vary', 'Authorization, Origin');
+      const allowedOrigins = appDoc.allowedOrigins || [];
+      if (origin && !allowedOrigins.includes('*') && !allowedOrigins.includes(origin)) return fail(403, 'origin_not_allowed', 'This origin is not allowed for this app');
+      if (origin) {
+        res.setHeader('Access-Control-Allow-Origin', allowedOrigins.includes('*') ? '*' : origin);
+        res.setHeader('Access-Control-Expose-Headers', 'ETag, Retry-After, RateLimit, RateLimit-Policy');
+        res.setHeader('Vary', 'Authorization, Origin');
+      }
     }
     req.cmsApp = appDoc;
     req.ownerId = appDoc.owner;

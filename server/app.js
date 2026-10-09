@@ -6,6 +6,8 @@ const errorHandler = require('./middleware/errorHandler');
 const sanitizeMongoInput = require('./middleware/sanitizeMongoInput');
 
 const authRoutes = require('./routes/auth');
+const accountRoutes = require('./routes/account');
+const adminRoutes = require('./routes/admin');
 const profileRoutes = require('./routes/profile');
 const socialRoutes = require('./routes/socials');
 const skillRoutes = require('./routes/skills');
@@ -66,6 +68,8 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api', sanitizeMongoInput);
 app.use('/api/auth', authRoutes);
+app.use('/api/account', accountRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/socials', socialRoutes);
 app.use('/api/skills', skillRoutes);

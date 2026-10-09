@@ -11,11 +11,13 @@ const ApiTokenSchema = new mongoose.Schema({
   value: { type: String, default: null, select: false },
   label: { type: String, maxlength: 60, trim: true, default: '' },
   expiresAt: { type: Date, default: null },
+  expiryWarningSentAt: { type: Date, default: null },
   lastUsedAt: { type: Date, default: null },
   revokedAt: { type: Date, default: null, index: true },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 ApiTokenSchema.index({ app: 1, revokedAt: 1 });
+ApiTokenSchema.index({ revokedAt: 1, expiresAt: 1, expiryWarningSentAt: 1 });
 ApiTokenSchema.index({ app: 1, quotaSlot: 1 }, { unique: true, partialFilterExpression: { revokedAt: null } });
 ApiTokenSchema.pre('validate', function keepSecretTokensHashOnly() {
   if (this.type === 'sk') this.value = null;
