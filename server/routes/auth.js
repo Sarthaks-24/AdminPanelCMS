@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { login, verify, signup, signupConfig, verifyEmail, resendVerification, forgotPassword, resetPassword, changePassword, me } = require('../controllers/authController');
+const { login, verify, signup, signupConfig, verifyEmail, resendVerification, forgotPassword, resetPassword, changePassword, logout, me } = require('../controllers/authController');
 const requireSession = require('../middleware/requireSession');
 const { loginRateLimiters, signupRateLimiters, verificationRateLimiter, resendVerificationRateLimiters, recoveryRateLimiters, changePasswordRateLimiter } = require('../middleware/authRateLimiters');
 
@@ -11,6 +11,7 @@ router.post('/signup', ...signupRateLimiters, signup);
 router.post('/verify-email', verificationRateLimiter, verifyEmail);
 router.post('/forgot-password', ...recoveryRateLimiters, forgotPassword);
 router.post('/reset-password', verificationRateLimiter, resetPassword);
+router.post('/logout', logout);
 
 // Protected route
 router.get('/verify', requireSession, verify);

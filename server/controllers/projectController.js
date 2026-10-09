@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Project = require('../models/Project');
 const crud = require('../lib/scopedCrud')(Project, 'project', { queryFields: ['mode'] });
 const { scopedBulkWrite } = require('../plugins/ownerGuard');
+const { buildReorderOps, applyReorder, MAX_BULK_ITEMS } = require('../lib/reorderOps');
 const qString = require('../lib/qString');
 const slugify = (text) => String(text).toLowerCase().trim().replace(/[\s\W-]+/g, '-');
 const contentChanged = require('../lib/onContentChanged');
@@ -48,12 +49,11 @@ async function updateProject(req, res, next) {
 
 async function reorderProjects(req, res, next) {
   try {
-    if (!Array.isArray(req.body.items)) return res.status(400).json({ success: false, message: 'Items array required' });
-    const ops = req.body.items.filter((item) => mongoose.isValidObjectId(item.id) && Number.isInteger(Number(item.order)))
-      .map((item) => ({ updateOne: { filter: { _id: item.id, owner: req.userId }, update: { $set: { order: Number(item.order) } } } }));
+    const ops = buildReorderOps(req.body.items, req.userId);
+    if (!ops) return res.status(400).json({ success: false, message: `Items array required (max ${MAX_BULK_ITEMS})` });
     if (!ops.length) return res.json({ success: true, matchedCount: 0 });
-    const result = await scopedBulkWrite(Project, req.userId, ops);
-    if (result.matchedCount < ops.length) return res.status(404).json({ success: false, error: 'not_found' });
+    const result = await applyReorder(Project, req.userId, ops, scopedBulkWrite);
+    if (!result.ok) return res.status(404).json({ success: false, error: 'not_found' });
     await contentChanged.onContentChanged(req.userId);
     return res.json({ success: true, matchedCount: result.matchedCount });
   } catch (error) { return next(error); }

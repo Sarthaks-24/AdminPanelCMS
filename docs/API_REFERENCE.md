@@ -10,10 +10,7 @@ This document provides complete technical specifications for every endpoint expo
 - **Content-Type:** `application/json`
 - **Response Format:** All successful payloads return JSON objects or arrays with HTTP status `200` (OK) or `201` (Created).
 - **Protected Endpoint Authentication:**
-  Protected endpoints require an `Authorization` HTTP header with a Bearer JWT token:
-  ```http
-  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-  ```
+  Logging in sets an `httpOnly` session cookie (`session`, or `__Host-session` over HTTPS) that scripts cannot read. Browser clients must send requests with credentials and, for every non-GET request, the header `X-Requested-With: XMLHttpRequest` (CSRF defence; otherwise `403 csrf_rejected`). Non-browser clients may instead send the session JWT as `Authorization: Bearer <jwt>`. Set `SESSION_COOKIE_SAMESITE=none` only if the dashboard and API are on different sites (requires HTTPS).
 - **Standard Error Format:**
   ```json
   {
@@ -37,10 +34,10 @@ This document provides complete technical specifications for every endpoint expo
     "password": "your_secure_password"
   }
   ```
-- **Response (`200 OK`):**
+- **Response (`200 OK`):** sets the session cookie; no token is returned in the body.
   ```json
   {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "success": true,
     "admin": {
       "id": "66e14a2b9f84b3d14c2810a1",
       "email": "admin@example.com"
@@ -421,3 +418,27 @@ These routes require a verified dashboard JWT and verified email. Each App can h
 | GET | `/api/apps/:id/tokens` | List token metadata (publishable keys can be copied again) |
 | POST | `/api/apps/:id/tokens` | Create a token with optional `label` and `expiresInDays` (`30`, `90`, or `365`) |
 | DELETE | `/api/apps/:id/tokens/:tokenId` | Revoke a token immediately |
+
+---
+
+## Account, Signup and Platform Endpoints
+
+All responses use the `{ success, ... }` envelope. Auth endpoints are rate limited per IP and per email.
+
+| Method & path | Auth | Purpose |
+| --- | --- | --- |
+| `GET /api/auth/config` | none | `{ signupEnabled, signupMode }` |
+| `POST /api/auth/signup` | none | Body `{ email, password (10+), inviteCode, acceptedTerms, acceptedPrivacy }`. Always returns a generic 200 so account existence is not revealed. Invite codes are 6 digits (spaces or a dash such as `123 456` are ignored). After 100 wrong codes within an hour across all visitors (`INVITE_FAILURE_LIMIT`), invite signups return `429 invite_locked` until the window passes. |
+| `POST /api/auth/verify-email` | none | Body `{ token }` |
+| `POST /api/auth/forgot-password` | none | Body `{ email }`; generic response |
+| `POST /api/auth/reset-password` | none | Body `{ token, newPassword }`; invalidates all sessions |
+| `POST /api/auth/resend-verification` | session | Re-sends the verification email |
+| `POST /api/auth/change-password` | session | Body `{ currentPassword, newPassword }`; rotates the session cookie and revokes other sessions |
+| `POST /api/auth/logout` | cookie + `X-Requested-With` header | Clears the session cookie and revokes the session everywhere |
+| `GET /api/auth/me` | session | Current user |
+| `GET /api/account/export` | session | Full JSON export of the account's data (5 requests/hour) |
+| `DELETE /api/account` | session | Body `{ password }`; deletes the account (5 requests/hour) |
+| `GET/PUT /api/admin/settings` | superadmin | Read or change `signupMode` (`invite` or `open`). A saved dashboard value overrides the `SIGNUP_MODE` env default; production still stays closed until `LEGAL_POLICIES_APPROVED=true`. |
+| `GET /api/admin/overview`, `GET/POST /api/admin/invites`, `DELETE /api/admin/invites/:id` | superadmin | Platform stats and invite management. `POST` body `{ expiresInDays (1-90), maxUses (1-1000) }`; the code is returned once. |
+
+Bulk and reorder endpoints accept at most 500 items; reorders are all-or-nothing and return 404 if any id is not owned by the caller. `/v1` requests are limited per IP (300/min), per token (600/min for `sk_`, 60/min for `pk_`), per account (12/s) and process-wide (25/s).

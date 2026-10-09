@@ -4,61 +4,33 @@ import { api } from '../api/client';
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(() => localStorage.getItem('admin_token'));
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const verifySession = async () => {
-      if (token) {
-        try {
-          const res = await api.get('/auth/verify');
-          setUser(res.data.user || res.data.admin);
-        } catch {
-          localStorage.removeItem('admin_token');
-          setToken(null);
-          setUser(null);
-        }
-      }
-      setLoading(false);
-    };
-    verifySession();
-  }, [token]);
+    // Drop the pre-cookie token left in localStorage by older versions.
+    try { localStorage.removeItem('admin_token'); } catch { /* storage unavailable */ }
+    let active = true;
+    api.get('/auth/verify', { skipAuthRedirect: true })
+      .then((res) => { if (active) setUser(res.data.user || res.data.admin); })
+      .catch(() => { if (active) setUser(null); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
-    const { token: newToken } = res.data;
-    const userData = res.data.user || res.data.admin;
-    localStorage.setItem('admin_token', newToken);
-    setToken(newToken);
-    setUser(userData);
+    setUser(res.data.user || res.data.admin);
     return res.data;
   };
 
-  const logout = () => {
-    localStorage.removeItem('admin_token');
-    setToken(null);
+  const logout = async () => {
+    try { await api.post('/auth/logout'); } catch { /* the cookie expires on its own */ }
     setUser(null);
   };
 
-  const updateSessionToken = (nextToken) => {
-    localStorage.setItem('admin_token', nextToken);
-    setToken(nextToken);
-  };
-
   return (
-    <AuthContext.Provider
-      value={{
-        token,
-        user,
-        admin: user,
-        loading,
-        login,
-        updateSessionToken,
-        logout,
-        isAuthenticated: !!token,
-      }}
-    >
+    <AuthContext.Provider value={{ user, admin: user, loading, login, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

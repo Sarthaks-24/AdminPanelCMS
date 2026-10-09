@@ -3,8 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const modelDirectory = path.join(__dirname, '..', 'models');
 const contentModels = fs.readdirSync(modelDirectory)
-  // EmailToken and Invite belong to account workflows; they are not tenant content.
-  .filter((file) => file.endsWith('.js') && !['User.js', 'EmailToken.js', 'Invite.js'].includes(file))
+  // EmailToken, Invite and Setting belong to account/platform workflows; they are not tenant content.
+  .filter((file) => file.endsWith('.js') && !['User.js', 'EmailToken.js', 'Invite.js', 'Setting.js'].includes(file))
   .map((file) => require(path.join(modelDirectory, file)))
   .map((Model) => [Model.modelName, Model]);
 const Project = require('../models/Project');

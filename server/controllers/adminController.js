@@ -5,6 +5,7 @@ const App = require('../models/App');
 const ApiToken = require('../models/ApiToken');
 const { inviteDigest } = require('../lib/emailTokens');
 const mongoose = require('mongoose');
+const { getSignupSetting, setSignupMode, legalBlocked, MODES } = require('../lib/signupMode');
 const { capacityFilter, usableInviteFilter, inviteUsage } = require('../lib/inviteUses');
 
 async function overview(_req, res, next) {
@@ -64,4 +65,22 @@ async function revokeInvite(req, res, next) {
   } catch (error) { return next(error); }
 }
 
-module.exports = { overview, listInvites, createInvite, revokeInvite };
+async function settingsPayload() {
+  const { dashboard, env, effective } = await getSignupSetting();
+  return { signupMode: effective || 'closed', source: dashboard ? 'dashboard' : 'environment', environmentDefault: env || 'closed', blockedByLegalApproval: legalBlocked() };
+}
+
+async function getSettings(_req, res, next) {
+  try { return res.json({ success: true, settings: await settingsPayload() }); } catch (error) { return next(error); }
+}
+
+async function updateSettings(req, res, next) {
+  try {
+    const mode = req.body?.signupMode;
+    if (!MODES.includes(mode)) return res.status(400).json({ success: false, error: 'validation_failed', message: `signupMode must be one of: ${MODES.join(', ')}` });
+    await setSignupMode(mode, req.userId);
+    return res.json({ success: true, settings: await settingsPayload() });
+  } catch (error) { return next(error); }
+}
+
+module.exports = { overview, listInvites, createInvite, revokeInvite, getSettings, updateSettings };

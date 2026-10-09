@@ -178,7 +178,7 @@ describe('versioned public API and dashboard token lifecycle', () => {
     const headers = { Authorization: `Bearer ${rawToken}`, Origin: 'https://portfolio.test' };
     for (let index = 0; index < 60; index += 1) {
       await request(appServer).get('/v1/app').set(headers).expect(200);
-      if (index === 19 || index === 39) await new Promise((resolve) => setTimeout(resolve, 1000));
+      if ((index + 1) % 10 === 0 && index < 59) await new Promise((resolve) => setTimeout(resolve, 1000));
     }
     const limited = await request(appServer).get('/v1/app').set(headers).expect(429);
     expect(limited.body.error).toBe('rate_limited');
@@ -186,11 +186,15 @@ describe('versioned public API and dashboard token lifecycle', () => {
   });
 
   it('bounds aggregate authenticated traffic and signals retry with CORS headers', async () => {
-    const user = await createUser(User);
-    const cmsApp = await createApp(App, user);
-    const { rawToken } = await createToken(ApiToken, cmsApp, 'pk');
-    const headers = { Authorization: `Bearer ${rawToken}`, Origin: 'https://portfolio.test' };
-    const responses = await Promise.all(Array.from({ length: 30 }, () => request(appServer).get('/v1/app').set(headers)));
+    const allHeaders = [];
+    for (let owner = 0; owner < 3; owner += 1) {
+      const user = await createUser(User);
+      const cmsApp = await createApp(App, user);
+      const { rawToken } = await createToken(ApiToken, cmsApp, 'pk');
+      allHeaders.push({ Authorization: `Bearer ${rawToken}`, Origin: 'https://portfolio.test' });
+    }
+    const headers = allHeaders[0];
+    const responses = await Promise.all(Array.from({ length: 30 }, (_, i) => request(appServer).get('/v1/app').set(allHeaders[i % 3])));
     const busy = responses.filter((response) => response.status === 503);
     expect(busy.length).toBeGreaterThan(0);
     expect(busy[0].body.error).toBe('busy');

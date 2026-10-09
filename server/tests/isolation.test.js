@@ -241,7 +241,7 @@ describe('Cross-tenant data isolation safety gate', () => {
     const response = await request(app).patch('/api/projects/reorder').set('Authorization', loginAs(userA))
       .send({ items: [{ id: projectA._id, order: 7 }, { id: projectB._id, order: 99 }] });
     expect(response.status).toBe(404);
-    expect((await Project.findOne({ _id: projectA._id, owner: userA._id })).order).toBe(7);
+    expect((await Project.findOne({ _id: projectA._id, owner: userA._id })).order).toBe(0); // all-or-nothing
     expect((await Project.findOne({ _id: projectB._id, owner: userB._id })).order).toBe(0);
   });
 

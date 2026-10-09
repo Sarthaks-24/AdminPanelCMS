@@ -252,6 +252,7 @@ async function runSeed() {
 
     const email = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
     const password = process.env.ADMIN_PASSWORD || '';
+    if (/supersecureadminpassword123|replace_me|changeme/i.test(password)) throw new Error('ADMIN_PASSWORD is still the example value. Set a unique password before seeding.');
     if (!email || password.length < 10) throw new Error('ADMIN_EMAIL and an ADMIN_PASSWORD of at least 10 characters must be configured before seeding.');
     const passwordHash = await bcrypt.hash(password, 10);
     let user = await User.findOne({ email });

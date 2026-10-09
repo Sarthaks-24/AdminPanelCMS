@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 const inputClass = 'mt-2 w-full rounded-lg border border-t-border-hi bg-t-bg px-3 py-2.5 text-sm text-t-text focus:border-t-accent focus:outline-none focus:ring-2 focus:ring-t-accent/20';
 
 export default function AccountSettings() {
-  const { user, updateSessionToken, logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [passwords, setPasswords] = useState({ currentPassword: '', newPassword: '', confirm: '' });
@@ -22,8 +22,7 @@ export default function AccountSettings() {
     if (passwords.newPassword !== passwords.confirm) return setError('The new passwords do not match.');
     setBusy(true);
     try {
-      const { data } = await api.post('/auth/change-password', { currentPassword: passwords.currentPassword, newPassword: passwords.newPassword });
-      updateSessionToken(data.token);
+      await api.post('/auth/change-password', { currentPassword: passwords.currentPassword, newPassword: passwords.newPassword });
       setPasswords({ currentPassword: '', newPassword: '', confirm: '' });
       setMessage('Password updated. Other signed-in sessions have been revoked.');
     } catch (err) { setError(err.response?.data?.error === 'credentials_invalid' ? 'Your current password is incorrect.' : 'Could not update the password.'); }

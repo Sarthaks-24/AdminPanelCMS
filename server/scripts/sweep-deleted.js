@@ -1,15 +1,12 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
-const User = require('../models/User');
-const { cascadeDeletedOwner } = require('../controllers/accountController');
+const { sweepDeletedAccounts } = require('../lib/sweepDeleted');
 
 async function main() {
   if (!process.env.MONGODB_URI) throw new Error('Configure MONGODB_URI first.');
   await mongoose.connect(process.env.MONGODB_URI, { maxPoolSize: 2 });
   try {
-    const deleted = await User.find({ status: 'deleted' }).select('_id').lean();
-    for (const user of deleted) await cascadeDeletedOwner(user._id);
-    console.log(`Deleted-account sweep complete: ${deleted.length} account(s).`);
+    console.log(`Deleted-account sweep complete: ${await sweepDeletedAccounts()} account(s).`);
   } finally { await mongoose.disconnect(); }
 }
 

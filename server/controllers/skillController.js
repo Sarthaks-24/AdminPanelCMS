@@ -9,6 +9,7 @@ const LIMITS = require('../config/limits');
 const { withContentQuota } = require('../lib/contentQuota');
 const contentChanged = require('../lib/onContentChanged');
 const pullContentFromApps = require('../lib/pullContentFromApps');
+const { MAX_BULK_ITEMS } = require('../lib/reorderOps');
 
 async function getSkills(req, res, next) {
   try {
@@ -43,12 +44,16 @@ async function createSkill(req, res, next) {
 async function bulkUpdateSkills(req, res, next) {
   try {
     let ops = [];
+    const tooLarge = [req.body.items, req.body.ids].some((value) => Array.isArray(value) && value.length > MAX_BULK_ITEMS);
+    if (tooLarge) return res.status(400).json({ success: false, message: `At most ${MAX_BULK_ITEMS} items per request` });
     if (Array.isArray(req.body.items)) {
-      ops = req.body.items.filter((item) => mongoose.isValidObjectId(item.id || item._id)).map((item) => ({
-        updateOne: { filter: { _id: item.id || item._id, owner: req.userId }, update: { $set: pickFields(item, WRITABLE_FIELDS.Skill) } },
-      }));
+      ops = req.body.items.filter((item) => item && typeof item === 'object' && mongoose.isValidObjectId(item.id || item._id))
+        .map((item) => ({ id: item.id || item._id, set: pickFields(item, WRITABLE_FIELDS.Skill) }))
+        .filter(({ set }) => Object.keys(set).length > 0)
+        .map(({ id, set }) => ({ updateOne: { filter: { _id: id, owner: req.userId }, update: { $set: set } } }));
     } else if (Array.isArray(req.body.ids)) {
       const updates = pickFields(req.body.updates, WRITABLE_FIELDS.Skill);
+      if (!Object.keys(updates).length) return res.status(400).json({ success: false, message: 'No writable fields to update' });
       ops = req.body.ids.filter(mongoose.isValidObjectId).map((id) => ({
         updateOne: { filter: { _id: id, owner: req.userId }, update: { $set: updates } },
       }));
@@ -62,7 +67,8 @@ async function bulkUpdateSkills(req, res, next) {
 
 async function bulkDeleteSkills(req, res, next) {
   try {
-    const ids = (req.body.ids || []).filter(mongoose.isValidObjectId);
+    if (Array.isArray(req.body.ids) && req.body.ids.length > MAX_BULK_ITEMS) return res.status(400).json({ success: false, message: `At most ${MAX_BULK_ITEMS} items per request` });
+    const ids = (Array.isArray(req.body.ids) ? req.body.ids : []).filter(mongoose.isValidObjectId);
     if (!ids.length) return res.status(400).json({ success: false, message: 'Please provide skill IDs' });
     const result = await Skill.deleteMany({ _id: { $in: ids }, owner: req.userId });
     if (result.deletedCount) {

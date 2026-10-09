@@ -62,4 +62,5 @@ module.exports = {
   resendVerificationRateLimiters: [createAccountLimiter(60 * 60 * 1000, 5), createAccountLimiter(60 * 60 * 1000, 5, userKey)],
   recoveryRateLimiters: [createAccountLimiter(60 * 60 * 1000, 5), createAccountLimiter(60 * 60 * 1000, 5, emailKey)],
   changePasswordRateLimiter: createAccountLimiter(60 * 60 * 1000, 5, userKey),
+  accountDestructiveRateLimiter: createAccountLimiter(60 * 60 * 1000, 5, userKey),
 };
