@@ -67,7 +67,7 @@ export default function ResumeManager() {
     try {
       const res = await api.put('/resume', form);
       setResumeData(res.data);
-      setStatusMessage('Resume document metadata successfully updated in MongoDB!');
+      setStatusMessage('Resume details saved.');
       setTimeout(() => setStatusMessage(null), 4000);
     } catch (err) {
       setErrorMessage(err.response?.data?.message || 'Error updating resume link in database.');

@@ -562,7 +562,8 @@
 html, body {
   background-color: var(--theme-bg);
   color: var(--theme-text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-feature-settings: 'ss01', 'cv11';
   overflow-x: hidden;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
@@ -611,8 +612,11 @@ html {
 }
 
 .admin-content :where([class~="bg-t-surface"][class~="border"], [class~="bg-t-surface-hi"][class~="border"]) {
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--theme-text) 4%, transparent);
+  border-radius: 0.9rem;
+  /* A faint top highlight and a theme-tinted shadow give depth without a heavy outline. */
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--theme-text) 5%, transparent),
+    0 10px 24px -16px color-mix(in srgb, var(--theme-bg) 55%, var(--theme-brand));
 }
 
 .admin-content :where(a) {
@@ -697,7 +701,7 @@ html {
   margin: 1rem 0;
   color: var(--theme-text-muted);
   font-style: italic;
-  background: rgba(37, 99, 235, 0.08);
+  background: color-mix(in srgb, var(--theme-accent) 9%, transparent);
   padding: 0.75rem 1rem;
   border-radius: 0 0.25rem 0.25rem 0;
 }
@@ -736,4 +740,98 @@ html {
 
 .preview-prose a:hover {
   color: var(--theme-accent);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   Design layer — typography, depth, motion and states.
+   Everything below reads theme tokens only, so all 20 themes keep working.
+   ═══════════════════════════════════════════════════════════════ */
+
+::selection {
+  background: color-mix(in srgb, var(--theme-accent) 40%, transparent);
+  color: var(--theme-text);
+}
+
+/* Display type: heavier presence, tighter tracking, balanced wrapping. */
+:where(h1, h2, h3) {
+  text-wrap: balance;
+  letter-spacing: -0.02em;
+}
+:where(h1) { letter-spacing: -0.03em; font-weight: 650; }
+:where(p, li) { text-wrap: pretty; }
+.font-mono, .font-mono-code, :where(code, kbd, samp) { font-variant-ligatures: none; }
+:where(table, .tabular, [class*="tabular-nums"]) { font-variant-numeric: tabular-nums; }
+
+/* Grain and ambient light sit above the UI but never intercept input. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 36rem at 12% -8%, color-mix(in srgb, var(--theme-brand) 7%, transparent), transparent 70%),
+    radial-gradient(48rem 30rem at 100% 0%, color-mix(in srgb, var(--theme-accent2) 5%, transparent), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+  background-blend-mode: normal, normal, soft-light;
+  opacity: 0.28;
+}
+
+/* Interaction: every control answers hover, press and keyboard focus. */
+:where(a, button, input, select, textarea, summary, [role="switch"], [role="radio"]):focus-visible {
+  outline: 2px solid var(--theme-accent-bright);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--theme-accent) 22%, transparent);
+}
+:where(button:not(:disabled), [role="button"]):active { transform: scale(0.98); }
+.admin-content :where(button.bg-t-accent:not(:disabled), a.bg-t-accent) {
+  box-shadow: 0 6px 18px -8px var(--theme-brand-glow), inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent);
+}
+.admin-content :where(button.bg-t-accent:not(:disabled):hover, a.bg-t-accent:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px -8px var(--theme-brand-glow), inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent);
+}
+:where(input, select, textarea)::placeholder { color: var(--theme-text-dim); }
+
+/* Page entrance: opacity and transform only, so it stays on the compositor. */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.page-enter { animation: page-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.stagger > * { animation: page-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.stagger > *:nth-child(2) { animation-delay: 50ms; }
+.stagger > *:nth-child(3) { animation-delay: 100ms; }
+.stagger > *:nth-child(4) { animation-delay: 150ms; }
+.stagger > *:nth-child(5) { animation-delay: 200ms; }
+.stagger > *:nth-child(n+6) { animation-delay: 250ms; }
+
+/* Skeleton loading blocks shaped like the content they stand in for. */
+@keyframes shimmer { to { background-position: -200% 0; } }
+.skeleton {
+  border-radius: 0.6rem;
+  background: linear-gradient(100deg, var(--theme-surface) 30%, var(--theme-surface-hi) 50%, var(--theme-surface) 70%) 0 0 / 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+/* Keyboard users can jump past the navigation. */
+.skip-link {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 100;
+  transform: translateY(-200%);
+  padding: 0.6rem 1rem;
+  border-radius: 0.6rem;
+  background: var(--theme-accent);
+  color: var(--theme-on-accent);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.skip-link:focus { transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter, .stagger > *, .skeleton { animation: none !important; }
+  body::after { opacity: 0.2; }
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
   Share2,
@@ -221,15 +222,11 @@ export default function SocialsManager() {
         </div>
 
         {loading ? (
-          <div className="p-8 text-center text-xs font-mono text-t-accent animate-pulse">
-            Querying social link graph...
-          </div>
+          <ListSkeleton label="Loading social links" />
         ) : socials.length === 0 ? (
-          <div className="p-8 text-center text-xs font-mono text-t-dim">
-            No social coordinates defined. Click "Add Social Link" to initialize.
-          </div>
+          <EmptyState title="No social links yet" hint="Use “Add Social Link” to add your first profile." />
         ) : (
-          <div className="divide-y divide-[#1a2333]">
+          <div className="divide-y divide-t-border">
             {socials.map((item, idx) => (
               <div
                 key={item._id}
@@ -309,7 +306,7 @@ export default function SocialsManager() {
                     </button>
                     <button
                       onClick={() => handleDelete(item._id, item.platform)}
-                      className="p-1.5 rounded text-t-danger hover:text-t-text hover:bg-red-950 transition-all cursor-pointer"
+                      className="p-1.5 rounded text-t-danger hover:text-t-text hover:bg-t-danger-dim transition-all cursor-pointer"
                       title="Delete"
                     >
                       <Trash2 size={14} />
@@ -428,7 +425,7 @@ export default function SocialsManager() {
                   id="featuredToggle"
                   checked={form.featured}
                   onChange={(e) => setForm({ ...form, featured: e.target.checked })}
-                  className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-[#10b981]"
+                  className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-t-accent2"
                 />
                 <label htmlFor="featuredToggle" className="text-xs text-t-muted cursor-pointer">
                   Feature in spotlight and top-tier contact coordinates

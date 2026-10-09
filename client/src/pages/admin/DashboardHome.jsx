@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
+import { useToast } from '../../components/admin/Toast';
 import {
   FolderGit2,
   Briefcase,
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 
 export default function DashboardHome() {
+  const { notify } = useToast();
   const [profile, setProfile] = useState(null);
   const [projects, setProjects] = useState([]);
   const [experience, setExperience] = useState([]);
@@ -93,7 +95,7 @@ export default function DashboardHome() {
       setStatusFeedback(`Availability set to: ${nextStatus ? 'Available for Hire' : 'Engaged'}`);
       setTimeout(() => setStatusFeedback(null), 3500);
     } catch (err) {
-      alert('Error updating availability: ' + (err.response?.data?.message || err.message));
+      notify('Could not update availability. ' + (err.response?.data?.message || err.message));
     } finally {
       setTogglingAvailability(false);
     }
@@ -110,15 +112,15 @@ export default function DashboardHome() {
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <span className="w-2 h-2 rounded-full bg-t-accent2 animate-pulse"></span>
-              <span className="text-[11px] font-mono text-t-accent2 uppercase tracking-wider">
-                Production Control Interface · Port 5000
+              <span className="text-[11px] font-mono text-t-accent2 uppercase tracking-widest">
+                Workspace overview
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-t-text tracking-tight">
-              {profile?.name || 'Developer'} - Engineering CMS
+              Welcome back{profile?.name ? `, ${profile.name.split(' ')[0]}` : ''}
             </h1>
             <p className="text-xs text-t-muted mt-1 max-w-2xl font-sans">
-              Centralized content authority governing case studies, categorized competencies, career timeline, and hierarchical content APIs.
+              Everything you publish in one place: projects, skills, career history and the API keys that serve them to your sites.
             </p>
           </div>
 
@@ -171,7 +173,7 @@ export default function DashboardHome() {
                 )}
               </span>
               <span className="text-t-dim font-mono text-[11px] ml-2 hidden sm:inline">
-                ({profile?.statusText || 'Status nominal'})
+                ({profile?.statusText || 'No status set'})
               </span>
             </div>
           </div>
@@ -207,7 +209,7 @@ export default function DashboardHome() {
       </div>
 
       {/* KPI Metric Cards (All 8 Collections) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr] gap-4">
         {/* Projects Card */}
         <div className="rounded bg-t-surface border border-t-border p-4 flex flex-col justify-between hover:border-t-accent transition-all">
           <div className="flex items-center justify-between">
@@ -219,8 +221,8 @@ export default function DashboardHome() {
             </div>
           </div>
           <div className="my-3">
-            <span className="text-2xl font-mono font-bold text-t-text tracking-tight">
-              {loading ? '...' : projects.length}
+            <span className="text-4xl font-mono font-semibold text-t-text tracking-tight tabular-nums">
+              {loading ? <span className="skeleton inline-block h-9 w-14 align-middle" /> : projects.length}
             </span>
             <span className="text-[11px] font-mono text-t-accent-br ml-2">
               ({featuredProjects} featured)
@@ -247,7 +249,7 @@ export default function DashboardHome() {
           </div>
           <div className="my-3">
             <span className="text-2xl font-mono font-bold text-t-text tracking-tight">
-              {loading ? '...' : experience.length}
+              {loading ? <span className="skeleton inline-block h-7 w-12 align-middle" /> : experience.length}
             </span>
             <span className="text-[11px] font-mono text-t-accent2 ml-2">Milestones</span>
           </div>
@@ -274,7 +276,7 @@ export default function DashboardHome() {
           </div>
           <div className="my-3">
             <span className="text-2xl font-mono font-bold text-t-text tracking-tight">
-              {loading ? '...' : skills.length}
+              {loading ? <span className="skeleton inline-block h-7 w-12 align-middle" /> : skills.length}
             </span>
             <span className="text-[11px] font-mono text-t-accent-br ml-2">
               ({featuredSkills} spotlighted)
@@ -301,7 +303,7 @@ export default function DashboardHome() {
           </div>
           <div className="my-3">
             <span className="text-2xl font-mono font-bold text-t-text tracking-tight">
-              {loading ? '...' : education.length + certifications.length}
+              {loading ? <span className="skeleton inline-block h-7 w-12 align-middle" /> : education.length + certifications.length}
             </span>
             <span className="text-[11px] font-mono text-t-muted ml-2">
               ({education.length} Edu · {certifications.length} Cert)
@@ -326,11 +328,11 @@ export default function DashboardHome() {
             </div>
             <div>
               <div className="text-xs font-mono font-bold text-t-text flex items-center gap-2">
-                <span>Database: MongoDB Atlas (`Portfolio_db`)</span>
-                <span className="px-1.5 py-0.2 rounded bg-t-accent2-dim text-t-accent2 text-[10px]">CONNECTED</span>
+                <span>Service status</span>
+                <span className="px-1.5 py-0.2 rounded bg-t-accent2-dim text-t-accent2 text-[10px]">{health ? 'ONLINE' : 'CHECKING'}</span>
               </div>
               <div className="text-[11px] font-mono text-t-muted mt-0.5">
-                Server Uptime: {health?.uptime ? `${Math.floor(health.uptime / 60)}m ${health.uptime % 60}s` : 'Active'} · Social Links: {socials.length} Active
+                Social links: {socials.length} active
               </div>
             </div>
           </div>

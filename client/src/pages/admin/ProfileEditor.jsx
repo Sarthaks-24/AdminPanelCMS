@@ -122,7 +122,7 @@ export default function ProfileEditor() {
     try {
       const res = await api.put('/profile', form);
       setForm((prev) => ({ ...prev, ...res.data }));
-      setSuccessMsg('Profile, terminal identity, and Email social coordinate successfully updated!');
+      setSuccessMsg('Profile and email link saved.');
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err) {
       setErrorMsg(err.response?.data?.message || 'Error saving profile');
@@ -201,7 +201,7 @@ export default function ProfileEditor() {
                 id="isAvailableForHire"
                 checked={form.isAvailableForHire}
                 onChange={(e) => handleChange('isAvailableForHire', e.target.checked)}
-                className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-[#10b981]"
+                className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-t-accent2"
               />
               <label htmlFor="isAvailableForHire" className="text-xs text-t-text cursor-pointer">
                 Actively Open for High-Impact Software Engineering Roles
@@ -509,7 +509,7 @@ export default function ProfileEditor() {
                     <button
                       type="button"
                       onClick={() => removeMetric(idx)}
-                      className="p-1.5 rounded text-t-danger hover:text-t-text hover:bg-red-950 transition-all cursor-pointer"
+                      className="p-1.5 rounded text-t-danger hover:text-t-text hover:bg-t-danger-dim transition-all cursor-pointer"
                       title="Remove metric"
                     >
                       <Trash2 size={14} />

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../api/client';
+import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
   Briefcase,
@@ -186,13 +187,9 @@ export default function ExperienceList() {
 
       {/* Experience Timeline */}
       {loading ? (
-        <div className="p-12 text-center text-xs font-mono text-t-accent animate-pulse">
-          Querying career timeline...
-        </div>
+        <ListSkeleton label="Loading experience" />
       ) : items.length === 0 ? (
-        <div className="p-12 text-center text-xs font-mono text-t-dim rounded bg-t-surface border border-dashed border-t-border">
-          No career milestones recorded yet. Click "Add Position" to register your work history.
-        </div>
+        <EmptyState title="No positions yet" hint="Use “Add Position” to start your career timeline." />
       ) : (
         <div className="space-y-4">
           {items.map((item) => (
@@ -242,7 +239,7 @@ export default function ExperienceList() {
                     </button>
                     <button
                       onClick={() => handleDelete(item._id, item.role, item.company)}
-                      className="p-1.5 rounded text-t-danger hover:text-t-text hover:bg-red-950 cursor-pointer"
+                      className="p-1.5 rounded text-t-danger hover:text-t-text hover:bg-t-danger-dim cursor-pointer"
                       title="Delete"
                     >
                       <Trash2 size={14} />
@@ -377,7 +374,7 @@ export default function ExperienceList() {
                     id="isCurrentPos"
                     checked={form.isCurrent}
                     onChange={(e) => setForm({ ...form, isCurrent: e.target.checked })}
-                    className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-[#10b981]"
+                    className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-t-accent2"
                   />
                   <label htmlFor="isCurrentPos" className="text-xs text-t-muted cursor-pointer">
                     Currently Working Here

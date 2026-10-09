@@ -82,6 +82,8 @@ export default function AdminLayout() {
     if (path.includes('/admin/resume')) return 'admin > resume hub';
     if (path.includes('/admin/apps/')) return 'admin > apps > configuration';
     if (path.includes('/admin/apps')) return 'admin > apps & views';
+    if (path.includes('/admin/account')) return 'admin > account settings';
+    if (path.includes('/admin/superadmin')) return 'admin > platform'; 
     return 'admin > console';
   };
 
@@ -92,6 +94,8 @@ export default function AdminLayout() {
       className="min-h-screen text-t-text flex flex-col md:flex-row antialiased font-sans"
       style={{ backgroundColor: 'var(--theme-bg)' }}
     >
+      <a href="#main-content" className="skip-link">Skip to content</a>
+
       {/* Mobile Drawer Overlay */}
       {mobileMenuOpen && (
         <div
@@ -121,7 +125,7 @@ export default function AdminLayout() {
           >
             <Link to="/admin/dashboard" className="flex items-center gap-3">
               <div
-                className="w-8 h-8 rounded flex items-center justify-center font-mono font-bold text-xs shadow-md"
+                className="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs shadow-md"
                 style={{
                   backgroundColor: 'var(--theme-accent)',
                   color: 'var(--theme-on-accent)',
@@ -129,7 +133,7 @@ export default function AdminLayout() {
                   border: '1px solid var(--theme-accent-bright)',
                 }}
               >
-                PS
+                PC
               </div>
               <div>
                 <span className="font-bold text-sm tracking-tight block" style={{ color: 'var(--theme-text)' }}>
@@ -168,17 +172,16 @@ export default function AdminLayout() {
                   to={to}
                   onClick={() => setMobileMenuOpen(false)}
                   aria-current={active ? 'page' : undefined}
-                  className="flex items-center justify-between border-l-2 px-3 py-2.5 rounded-r text-xs font-medium transition-all group"
+                  className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all group"
                   style={
                     active
                       ? {
                           backgroundColor: 'color-mix(in srgb, var(--theme-accent) 14%, transparent)',
-                          borderColor: 'var(--theme-accent)',
+                          boxShadow: 'inset 2px 0 0 var(--theme-accent)',
                           color: 'var(--theme-text)',
                           fontWeight: 600,
                         }
                       : {
-                          borderColor: 'transparent',
                           color: 'var(--theme-text-muted)',
                         }
                   }
@@ -402,7 +405,7 @@ export default function AdminLayout() {
               }}
             >
               <LogOut size={12} />
-              <span>Sign Out</span>
+              <span>Sign out</span>
             </button>
           </div>
         </div>
@@ -418,7 +421,7 @@ export default function AdminLayout() {
             borderBottom: '1px solid var(--theme-border)',
           }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
               aria-label="Open navigation"
               onClick={() => setMobileMenuOpen(true)}
@@ -431,15 +434,15 @@ export default function AdminLayout() {
             >
               <Menu size={16} />
             </button>
-            <div className="flex items-center gap-2 font-mono text-xs" style={{ color: 'var(--theme-text-muted)' }}>
+            <div className="flex min-w-0 items-center gap-2 font-mono text-xs" style={{ color: 'var(--theme-text-muted)' }}>
               <span className="hidden h-2 w-2 rounded-full sm:block" style={{ backgroundColor: 'var(--theme-accent2)' }} />
-              <span className="flex items-center gap-1.5" style={{ color: 'var(--theme-text)' }}>
+              <span className="flex min-w-0 items-center gap-1.5 truncate" style={{ color: 'var(--theme-text)' }}>
                 {getBreadcrumb().split(' > ').map((part, index, parts) => <React.Fragment key={`${part}-${index}`}>{index > 0 && <ChevronRight size={11} style={{ color: 'var(--theme-text-dim)' }} />}<span className={index === parts.length - 1 ? 'font-semibold' : ''}>{part}</span></React.Fragment>)}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {/* Top Bar Quick Theme Switcher */}
             <div className="relative">
               <button
@@ -562,18 +565,20 @@ export default function AdminLayout() {
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--theme-accent)')}
             >
               <Plus size={14} />
-              <span>New Project</span>
+              <span className="whitespace-nowrap">New<span className="hidden sm:inline"> project</span></span>
             </Link>
           </div>
         </header>
 
         {/* Main Body */}
-        <main className="admin-content flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto" style={{ backgroundColor: 'var(--theme-bg)', backgroundImage: 'radial-gradient(ellipse at 52% -20%, color-mix(in srgb, var(--theme-accent) 7%, transparent), transparent 52%)' }}>
+        <main id="main-content" tabIndex={-1} className="admin-content flex-1 outline-none p-4 sm:p-6 lg:p-8 overflow-y-auto" style={{ backgroundColor: 'var(--theme-bg)', backgroundImage: 'radial-gradient(ellipse at 52% -20%, color-mix(in srgb, var(--theme-accent) 7%, transparent), transparent 52%)' }}>
           {user && !user.emailVerified && <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm">
             <span className="text-t-text">Verify your email to unlock content editing and API token management.{verificationMessage && <span role="status" className="ml-2 text-t-muted">{verificationMessage}</span>}</span>
             <button type="button" onClick={resendVerification} disabled={resendingVerification} className="font-semibold text-t-accent hover:underline disabled:opacity-60">{resendingVerification ? 'Sending…' : 'Resend verification'}</button>
           </div>}
-          <Outlet />
+          <div key={location.pathname} className="page-enter">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

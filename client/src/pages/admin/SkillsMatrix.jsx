@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import {
   Cpu,
   Plus,
@@ -167,7 +168,7 @@ export default function SkillsMatrix() {
         const updatedList = res.data.skills || [];
         const updatedMap = new Map(updatedList.map((s) => [s._id, s]));
         setSkills((prev) => prev.map((s) => (updatedMap.has(s._id) ? updatedMap.get(s._id) : s)));
-        setSuccessMsg(`Successfully updated ${res.data.count || selectedIds.length} skills.`);
+        setSuccessMsg(`Updated ${res.data.count || selectedIds.length} skills.`);
       } else {
         // Table / Grid Mode
         const res = await api.patch('/skills/bulk', {
@@ -177,7 +178,7 @@ export default function SkillsMatrix() {
         const updatedList = res.data.skills || [];
         const updatedMap = new Map(updatedList.map((s) => [s._id, s]));
         setSkills((prev) => prev.map((s) => (updatedMap.has(s._id) ? updatedMap.get(s._id) : s)));
-        setSuccessMsg(`Successfully updated ${updatedList.length} skills.`);
+        setSuccessMsg(`Updated ${updatedList.length} skills.`);
       }
 
       setShowBulkModal(false);
@@ -589,7 +590,7 @@ export default function SkillsMatrix() {
               <button
                 onClick={handleBulkDelete}
                 disabled={bulkSaving}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-t-danger-dim hover:bg-red-950 text-t-danger border border-t-danger-dim/50 text-xs font-mono transition-all cursor-pointer"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-t-danger-dim hover:bg-t-danger-dim text-t-danger border border-t-danger-dim/50 text-xs font-mono transition-all cursor-pointer"
                 title="Delete all selected skills"
               >
                 <Trash2 size={12} />
@@ -610,13 +611,9 @@ export default function SkillsMatrix() {
 
       {/* Skills Grid */}
       {loading ? (
-        <div className="p-12 text-center text-xs font-mono text-t-accent animate-pulse">
-          Querying skills matrix...
-        </div>
+        <ListSkeleton label="Loading skills" />
       ) : filteredSkills.length === 0 ? (
-        <div className="p-12 text-center text-xs font-mono text-t-dim border border-dashed border-t-border rounded">
-          No skills matched the current filter.
-        </div>
+        <EmptyState title="No skills match" hint="Adjust the category or search filters to see more." />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredSkills.map((skill) => {
@@ -1091,7 +1088,7 @@ export default function SkillsMatrix() {
                   id="skillFeatured"
                   checked={form.featured}
                   onChange={(e) => setForm({ ...form, featured: e.target.checked })}
-                  className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-[#10b981]"
+                  className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-t-accent2"
                 />
                 <label htmlFor="skillFeatured" className="text-xs text-t-muted cursor-pointer">
                   Feature in Spotlight summary and top highlight stack

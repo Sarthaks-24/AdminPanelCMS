@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
+import { ListSkeleton, EmptyState } from '../../components/admin/States';
+import { useToast } from '../../components/admin/Toast';
 import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
   Plus,
@@ -15,6 +17,7 @@ import {
 } from 'lucide-react';
 
 export default function ProjectList() {
+  const { notify } = useToast();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,7 +44,7 @@ export default function ProjectList() {
       await api.delete(`/projects/${id}`);
       setProjects((prev) => prev.filter((p) => p._id !== id));
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete project');
+      notify(err.response?.data?.message || 'Could not delete the project. Try again.');
     }
   };
 
@@ -51,7 +54,7 @@ export default function ProjectList() {
       const res = await api.put(`/projects/${project._id}`, updated);
       setProjects((prev) => prev.map((p) => (p._id === project._id ? res.data : p)));
     } catch {
-      alert('Error updating featured status');
+      notify('Could not update the featured status. Try again.');
     }
   };
 
@@ -141,13 +144,9 @@ export default function ProjectList() {
 
       {/* Project Cards Grid */}
       {loading ? (
-        <div className="p-12 text-center text-xs font-mono text-t-accent animate-pulse">
-          Querying engineering case studies...
-        </div>
+        <ListSkeleton label="Loading projects" />
       ) : filteredProjects.length === 0 ? (
-        <div className="p-12 text-center text-xs font-mono text-t-dim border border-dashed border-t-border rounded bg-t-surface">
-          No projects found matching the filter criteria.
-        </div>
+        <EmptyState title="No projects match" hint="Clear the filters, or start a new case study with “New project”." />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredProjects.map((p) => (
@@ -288,7 +287,7 @@ export default function ProjectList() {
                   </Link>
                   <button
                     onClick={() => handleDelete(p._id, p.title)}
-                    className="p-1.5 rounded text-t-danger hover:text-t-text hover:bg-red-950 transition-all cursor-pointer"
+                    className="p-1.5 rounded text-t-danger hover:text-t-text hover:bg-t-danger-dim transition-all cursor-pointer"
                     title="Delete Case Study"
                   >
                     <Trash2 size={13} />
