@@ -3,6 +3,11 @@ const jwt = require('jsonwebtoken');
 const request = require('supertest');
 const app = require('../app');
 const User = require('../models/User');
+const Invite = require('../models/Invite');
+const EmailToken = require('../models/EmailToken');
+const { digest, inviteDigest, issueEmailToken } = require('../lib/emailTokens');
+const mailer = require('../lib/mailer');
+const { signupRateLimiters } = require('../middleware/authRateLimiters');
 
 describe('session compatibility', () => {
   it('uses the configured local client origin only and does not trust forwarded IPs by default', async () => {
@@ -62,5 +67,99 @@ describe('session compatibility', () => {
     expect(limited.status).toBe(429);
     expect(limited.body).toMatchObject({ success: false, error: 'rate_limited' });
     expect(limited.headers['ratelimit-limit']).toBe('10');
+  });
+});
+
+describe('account registration and email flows', () => {
+  let messages;
+  beforeEach(async () => {
+    messages = [];
+    mailer.setMailTransport({ send: async (message) => { messages.push(message); } });
+    process.env.SIGNUP_MODE = 'invite';
+    await Promise.all(signupRateLimiters.map((limiter) => limiter.resetKey('127.0.0.1')));
+  });
+  afterEach(() => { mailer.setMailTransport(null); delete process.env.SIGNUP_MODE; });
+
+  async function createInvite(code = `invite-${Date.now()}-${Math.random()}`) {
+    await Invite.create({ codeHash: digest(code), expiresAt: new Date(Date.now() + 60_000) });
+    return code;
+  }
+
+  it('creates an invite account with consent and verifies its single-use email token', async () => {
+    const inviteCode = '012345';
+    await Invite.create({ codeHash: inviteDigest(inviteCode), expiresAt: new Date(Date.now() + 60_000) });
+    const response = await request(app).post('/api/auth/signup').send({
+      email: ' New.User@Test.com ', password: 'a-long-secure-password', inviteCode,
+      acceptedTerms: true, acceptedPrivacy: true,
+    }).expect(200);
+    expect(response.body).toEqual({ success: true, message: 'Check your email to complete registration' });
+    const user = await User.findOne({ email: 'new.user@test.com' });
+    expect(user.acceptedTermsAt).toBeInstanceOf(Date);
+    expect(user.emailVerifiedAt).toBeNull();
+    expect(await Invite.exists({ codeHash: inviteDigest(inviteCode), usedBy: user._id })).toBeTruthy();
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({ template: 'verification', to: user.email });
+    const token = new URL(messages[0].url).searchParams.get('token');
+    expect(await EmailToken.exists({ hash: digest(token), type: 'verify' })).toBeTruthy();
+    await request(app).post('/api/auth/verify-email').send({ token }).expect(200, { success: true, verified: true });
+    await request(app).post('/api/auth/verify-email').send({ token }).expect(400);
+    expect((await User.findById(user._id)).emailVerifiedAt).toBeInstanceOf(Date);
+  });
+
+  it('allows an invite code to be used up to its configured signup limit', async () => {
+    const inviteCode = '654321';
+    const invite = await Invite.create({ codeHash: inviteDigest(inviteCode), maxUses: 2, expiresAt: new Date(Date.now() + 60_000) });
+    const signup = (email) => request(app).post('/api/auth/signup').send({
+      email, password: 'a-long-secure-password', inviteCode, acceptedTerms: true, acceptedPrivacy: true,
+    });
+    await signup('multi-one@test.com').expect(200);
+    await signup('multi-two@test.com').expect(200);
+    await signup('multi-three@test.com').expect(400, { success: false, error: 'invite_invalid' });
+    const updated = await Invite.findById(invite._id).lean();
+    expect(updated.usedCount).toBe(2);
+    expect(updated.maxUses).toBe(2);
+  });
+
+  it('supports explicitly configured open signup without consuming an invite', async () => {
+    process.env.SIGNUP_MODE = 'open';
+    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: true, signupMode: 'open' });
+    await request(app).post('/api/auth/signup').send({
+      email: 'open-signup@test.com', password: 'a-long-secure-password', acceptedTerms: true, acceptedPrivacy: true,
+    }).expect(200, { success: true, message: 'Check your email to complete registration' });
+    expect(await User.exists({ email: 'open-signup@test.com' })).toBeTruthy();
+    expect(await Invite.countDocuments()).toBe(0);
+  });
+
+  it('requires both consent flags and does not consume an invite on rejection', async () => {
+    const inviteCode = await createInvite();
+    await request(app).post('/api/auth/signup').send({ email: 'consent@test.com', password: 'a-long-secure-password', inviteCode, acceptedTerms: true }).expect(400, { success: false, error: 'consent_required' });
+    expect(await User.exists({ email: 'consent@test.com' })).toBeFalsy();
+    expect(await Invite.exists({ codeHash: digest(inviteCode), usedBy: null })).toBeTruthy();
+  });
+
+  it('returns the same signup response for an existing email and sends a reset notice', async () => {
+    const inviteCode = await createInvite();
+    const user = await User.create({ email: 'existing@test.com', passwordHash: await bcrypt.hash('old-secure-password', 4) });
+    const response = await request(app).post('/api/auth/signup').send({ email: user.email, password: 'another-secure-password', inviteCode, acceptedTerms: true, acceptedPrivacy: true }).expect(200);
+    expect(response.body).toEqual({ success: true, message: 'Check your email to complete registration' });
+    expect(messages[0]).toMatchObject({ template: 'account-exists', to: user.email });
+    expect(await User.countDocuments({ email: user.email })).toBe(1);
+  });
+
+  it('uses a generic forgot-password result and lets a reset token invalidate old sessions', async () => {
+    const passwordHash = await bcrypt.hash('old-secure-password', 4);
+    const user = await User.create({ email: 'reset@test.com', passwordHash, tokenVersion: 2 });
+    const unknown = await request(app).post('/api/auth/forgot-password').send({ email: 'missing@test.com' }).expect(200);
+    const known = await request(app).post('/api/auth/forgot-password').send({ email: user.email }).expect(200);
+    expect(known.body).toEqual(unknown.body);
+    const token = new URL(messages[0].url).searchParams.get('token');
+    await request(app).post('/api/auth/reset-password').send({ token, newPassword: 'brand-new-secure-password' }).expect(200);
+    expect((await User.findById(user._id)).tokenVersion).toBe(3);
+    await request(app).post('/api/auth/reset-password').send({ token, newPassword: 'reused-token-password' }).expect(400);
+  });
+
+  it('fails closed for an invalid signup mode', async () => {
+    process.env.SIGNUP_MODE = 'anything-else';
+    await request(app).post('/api/auth/signup').send({}).expect(503, { success: false, error: 'signup_unavailable' });
   });
 });

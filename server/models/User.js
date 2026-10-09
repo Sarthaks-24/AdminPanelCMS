@@ -6,8 +6,10 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   passwordHash: { type: String, required: true },
   emailVerifiedAt: { type: Date, default: null },
+  acceptedTermsAt: { type: Date, default: null },
   tokenVersion: { type: Number, default: 0 },
   status: { type: String, enum: ['active', 'deleted'], default: 'active', index: true },
+  role: { type: String, enum: ['user', 'superadmin'], default: 'user', index: true },
   encDEK: { type: String, default: null },
 }, { timestamps: true });
 

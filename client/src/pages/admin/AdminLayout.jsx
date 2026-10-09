@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, THEME_GROUPS } from '../../context/ThemeContext';
+import { api } from '../../api/client';
 import {
   LayoutDashboard,
   User,
@@ -20,6 +21,8 @@ import {
   Palette,
   Check,
   Boxes,
+  Settings,
+  ShieldCheck,
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -30,6 +33,19 @@ export default function AdminLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
   const [topThemePickerOpen, setTopThemePickerOpen] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState('');
+  const [resendingVerification, setResendingVerification] = useState(false);
+
+  const resendVerification = async () => {
+    setResendingVerification(true);
+    setVerificationMessage('');
+    try {
+      await api.post('/auth/resend-verification');
+      setVerificationMessage('If verification is needed, a message will be sent.');
+    } catch {
+      setVerificationMessage('Could not request a verification email. Please try again later.');
+    } finally { setResendingVerification(false); }
+  };
 
   const handleLogout = () => {
     logout();
@@ -47,6 +63,8 @@ export default function AdminLayout() {
     { to: '/admin/certifications', label: 'Certifications', icon: Award },
     { to: '/admin/resume', label: 'Resume Hub', icon: FileText },
     { to: '/admin/apps', label: 'Apps & Views', icon: Boxes },
+    { to: '/admin/account', label: 'Account Settings', icon: Settings },
+    ...(user?.role === 'superadmin' ? [{ to: '/admin/superadmin', label: 'Platform Admin', icon: ShieldCheck }] : []),
   ];
 
   const getBreadcrumb = () => {
@@ -551,6 +569,10 @@ export default function AdminLayout() {
 
         {/* Main Body */}
         <main className="admin-content flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto" style={{ backgroundColor: 'var(--theme-bg)', backgroundImage: 'radial-gradient(ellipse at 52% -20%, color-mix(in srgb, var(--theme-accent) 7%, transparent), transparent 52%)' }}>
+          {user && !user.emailVerified && <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm">
+            <span className="text-t-text">Verify your email to unlock content editing and API token management.{verificationMessage && <span role="status" className="ml-2 text-t-muted">{verificationMessage}</span>}</span>
+            <button type="button" onClick={resendVerification} disabled={resendingVerification} className="font-semibold text-t-accent hover:underline disabled:opacity-60">{resendingVerification ? 'Sending…' : 'Resend verification'}</button>
+          </div>}
           <Outlet />
         </main>
       </div>

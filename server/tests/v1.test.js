@@ -72,6 +72,16 @@ describe('versioned public API and dashboard token lifecycle', () => {
       .expect(204).expect('access-control-allow-methods', 'GET, OPTIONS');
   });
 
+  it('allows wildcard-origin publishable calls only with a valid bearer token', async () => {
+    const user = await createUser(User);
+    const cmsApp = await createApp(App, user, { allowedOrigins: ['*'] });
+    const { rawToken } = await createToken(ApiToken, cmsApp, 'pk');
+    await request(appServer).get('/v1/app').set({ Authorization: `Bearer ${rawToken}`, Origin: 'https://any-site.test' })
+      .expect(200).expect('access-control-allow-origin', '*');
+    await request(appServer).get('/v1/app').set('Authorization', `Bearer ${rawToken}`).expect(200);
+    await request(appServer).get('/v1/app').set('Origin', 'https://any-site.test').expect(401);
+  });
+
   it('groups skills through the public projection and returns the virtual filesystem', async () => {
     const user = await createUser(User);
     const models = {

@@ -127,6 +127,10 @@ Open your browser at `http://localhost:5173`. You will be automatically redirect
 
 ## 5. Production Deployment
 
+### 5.0. Prepare the production database
+
+After configuring the production `MONGODB_URI` and setting `NODE_ENV=production`, run `npm run production:prepare` from `server/` in an interactive terminal. It prints the target host and database, requires you to type the database name, prepares indexes without dropping collections, then prompts you to promote an existing active verified account or create a new superadmin. The password prompt is hidden. The command refuses non-production mode and never runs automatically during app startup.
+
 ### 5.1. Building the Frontend
 Compile the production bundle:
 ```bash
@@ -150,6 +154,20 @@ In production, update `CLIENT_ORIGIN` in `server/.env` to match your production 
 ```env
 CLIENT_ORIGIN=https://admin.yourdomain.com
 ```
+
+### 5.4. Backups, restore checks, and maintenance jobs
+
+Install MongoDB Database Tools, GPG, and rclone on the server. Store a strong backup passphrase in a protected file outside the repository and outside the backup destination. Configure an rclone remote for an off-host storage provider, then set `BACKUP_REMOTE_DESTINATION` (for example, `myremote:portfolio-backups`). In production, `npm run backup` refuses to report success without that remote destination; it encrypts before upload and retains the newest 14 local archives. Configure equivalent remote retention at the storage provider.
+
+Run a restore drill against a disposable local MongoDB instance before relying on a backup. The script requires an empty database whose name ends in `_restore_test`, checks that the restore URI is local, restores the encrypted archive, verifies collections, then drops the disposable database:
+
+```powershell
+cd server
+$env:BACKUP_RESTORE_URI = 'mongodb://127.0.0.1:27017'
+npm run backup:verify -- --file 'C:\path\to\backup.gz.gpg' --target-db 'portfolio_restore_test' --confirm-db 'portfolio_restore_test'
+```
+
+Use the production scheduler to run these commands daily: `npm run backup`, `npm run stats`, `npm run sweep:deleted`, and `npm run tokens:notify-expiring`. The expiry job sends one reminder per token within `TOKEN_EXPIRY_WARNING_DAYS` (default 7) and never includes a token secret. `npm run stats` exits with status 2 at 70% of `DB_STORAGE_CAP_BYTES`; the operator must review storage and keep registration invite-only. The app's current auth and content quota limiters use process-local memory, so run one API instance until shared enforcement is added.
 
 ---
 

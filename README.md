@@ -41,7 +41,7 @@ The CMS is intentionally decoupled from the public-facing presentation layer. Ex
 └────────────────────────────────────────────────────────┘
 ```
 
-> **Note on Architecture:** External applications consume published, app-scoped data through the token-authenticated `/v1` API. They do not connect directly to MongoDB. Publishable tokens are restricted to configured browser origins; secret tokens are for server-side requests only.
+> **Note on Architecture:** External applications consume published, app-scoped data through the token-authenticated `/v1` API. They do not connect directly to MongoDB. Static apps can use `*` to allow browser requests from any origin, but every request still needs the app's publishable Bearer token. Secret tokens are for server-side requests only.
 
 ---
 
@@ -58,7 +58,7 @@ The CMS is intentionally decoupled from the public-facing presentation layer. Ex
 - **Resume Metadata Management:** Master PDF URL management, version tracking, and quick-download launcher.
 - **Ordering & Reordering:** Atomic bulk write reordering endpoints for sequential domain collections.
 - **App API Tokens:** Per-app publishable and secret API keys with two-token quotas, expiry, revocation, and dashboard management.
-- **Versioned Public API:** Scoped `/v1/*` read endpoints with origin checks, rate limits, ETags, and in-memory TTL caching.
+- **Versioned Public API:** Scoped `/v1/*` read endpoints with optional origin allowlists, rate limits, ETags, and in-memory TTL caching.
 - **Markdown Editing & Preview:** Split/tabbed live Markdown rendering using `react-markdown` and `remark-gfm`.
 - **Administrative Mutations:** Stateful write operations protected by JWT authentication and route middleware.
 
@@ -73,7 +73,7 @@ The CMS is intentionally decoupled from the public-facing presentation layer. Ex
 - **bcrypt Password Hashing:** Salted hashing in Mongoose pre-save hooks; credentials never stored in plaintext.
 - **JWT Authentication:** Stateless, cryptographically signed JSON Web Tokens for session verification.
 - **Protected Admin Routes:** Express middleware guards enforcing valid session signatures.
-- **CORS Restrictions:** Whitelisted origin validation for development and production domains.
+- **API Access:** Bearer API tokens authenticate requests; static apps can allow any browser origin or use an HTTPS origin allowlist.
 - **Helmet Security Headers:** HTTP security headers hardening the server against common web exploits.
 - **Authentication Rate Limiting:** IP-based throttling on login attempts to mitigate brute-force vectors.
 - **Environment-Based Secrets:** Complete isolation of sensitive connection strings and secret keys from source control.

@@ -72,11 +72,11 @@ export default function AppsPage() {
           <select value={type} onChange={(event) => setType(event.target.value)} className="mt-1 w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:outline-none focus:border-t-accent"><option value="static">Static website</option><option value="protected">Protected app</option></select>
         </label>
         <label className="block text-xs font-mono text-t-muted">Allowed origins
-          <input value={origin} onChange={(event) => setOrigin(event.target.value)} placeholder="https://example.com" className="mt-1 w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:outline-none focus:border-t-accent" />
+          <input value={origin} onChange={(event) => setOrigin(event.target.value)} placeholder="* (any origin) or https://example.com" className="mt-1 w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:outline-none focus:border-t-accent" />
         </label>
       </div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <p className="text-[11px] text-t-muted">Use HTTPS origins separated by commas. Static apps require an origin; HTTP localhost is allowed in development.</p>
+        <p className="text-[11px] text-t-muted">Static apps default to * (any origin). Enter HTTPS origins to restrict browser access. Calls still require a valid Bearer API token. HTTP localhost is allowed in development.</p>
         <button disabled={busy || apps.length >= 10} className="inline-flex shrink-0 items-center justify-center gap-2 px-3.5 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs disabled:opacity-50">
           <Plus size={14} />{busy ? 'Creating…' : 'Create app'}
         </button>
@@ -94,7 +94,7 @@ export default function AppsPage() {
           <div className="min-w-0"><h2 className="font-semibold text-sm text-t-text truncate">{app.name}</h2><p className="text-[11px] text-t-muted mt-1">{app.type === 'static' ? 'Static website' : 'Protected app'} · {Object.values(app.include || {}).filter((value) => value?.enabled).length} sections enabled</p><p className="text-[10px] text-t-dim mt-1">Created {new Date(app.createdAt).toLocaleDateString()}</p></div>
           <button type="button" disabled={deletingId === app._id} onClick={() => removeApp(app._id)} aria-label={`Delete ${app.name}`} className="inline-flex items-center gap-1.5 text-[11px] text-t-danger hover:opacity-80 disabled:opacity-50"><Trash2 size={13} />{deletingId === app._id ? 'Deleting…' : 'Delete'}</button>
         </div>
-        <div className="flex items-start gap-2 text-[11px] text-t-muted"><Globe2 size={13} className="mt-0.5 shrink-0" /><span className="break-all">{(app.allowedOrigins || []).join(', ') || 'No allowed origins'}</span></div>
+        <div className="flex items-start gap-2 text-[11px] text-t-muted"><Globe2 size={13} className="mt-0.5 shrink-0" /><span className="break-all">{app.allowedOrigins?.includes('*') ? 'Any origin (Bearer token required)' : (app.allowedOrigins || []).join(', ') || 'No allowed origins'}</span></div>
         <Link to={`/admin/apps/${app._id}`} className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-t-border-hi text-xs text-t-text hover:border-t-accent hover:text-t-accent transition-colors">Configure view <ArrowRight size={13} /></Link>
       </article>)}
     </section>

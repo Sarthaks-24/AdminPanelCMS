@@ -20,6 +20,7 @@ const editable = ['name', 'type', 'allowedOrigins', 'include'];
 const isRecord = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
 function normalizeOrigin(value) {
+  if (value === '*') return '*';
   if (typeof value !== 'string') return null;
   try {
     const url = new URL(value);
@@ -42,13 +43,15 @@ async function validateApp(ownerId, data) {
   const errors = [];
   if (typeof data.name !== 'string' || !data.name.trim() || data.name.trim().length > 80) errors.push('name is required and must be at most 80 characters');
   if (!['static', 'protected'].includes(data.type)) errors.push('type must be static or protected');
-  if (data.allowedOrigins === undefined) data.allowedOrigins = [];
+  if (data.allowedOrigins === undefined) data.allowedOrigins = data.type === 'static' ? ['*'] : [];
   if (!Array.isArray(data.allowedOrigins)) errors.push('allowedOrigins must be an array');
+  if (data.type === 'static' && Array.isArray(data.allowedOrigins) && data.allowedOrigins.length === 0) data.allowedOrigins = ['*'];
   const origins = Array.isArray(data.allowedOrigins) ? data.allowedOrigins.map(normalizeOrigin) : [];
   if (origins.includes(null)) errors.push('allowedOrigins must contain valid HTTPS origins (HTTP localhost is allowed outside production)');
+  if (origins.includes('*') && origins.length !== 1) errors.push('* must be the only allowed origin');
   if (new Set(origins).size !== origins.length) errors.push('allowedOrigins must not contain duplicates');
   if (origins.length > 10) errors.push('max 10 allowedOrigins');
-  if (data.type === 'static' && !origins.length) errors.push('static apps require at least one allowedOrigin');
+  if (data.type === 'static' && !origins.length) errors.push('static apps require an allowed origin or *');
   data.allowedOrigins = origins.filter(Boolean);
   if (data.include !== undefined && !isRecord(data.include)) errors.push('include must be an object');
   const include = isRecord(data.include) ? data.include : {};
@@ -83,6 +86,34 @@ async function validateApp(ownerId, data) {
   if (include.fs !== undefined && (!isRecord(include.fs) || (include.fs.enabled !== undefined && typeof include.fs.enabled !== 'boolean'))) errors.push('fs.enabled must be a boolean');
   data.include = include;
   return errors;
+}
+
+async function patchOwnedApp(ownerId, appId, body) {
+  const app = await App.findOne({ _id: appId, owner: ownerId });
+  if (!app) return { notFound: true };
+  const patch = pickFields(body, editable);
+  const merged = { ...app.toObject(), ...patch };
+  if (Object.hasOwn(patch, 'include')) merged.include = mergeObject(app.include?.toObject?.() || app.include || {}, patch.include);
+  const errors = await validateApp(ownerId, merged);
+  if (errors.length) return { errors };
+  for (const field of editable) if (field in patch) app.set(field, merged[field]);
+  await app.save();
+  evictApp(app._id);
+  await contentChanged.onContentChanged(ownerId);
+  const response = app.toObject({ getters: false, virtuals: false });
+  delete response.quotaSlot;
+  return { app, response };
+}
+
+async function removeOwnedApp(ownerId, appId) {
+  const app = await App.findOneAndDelete({ _id: appId, owner: ownerId });
+  if (!app) return null;
+  evictApp(app._id);
+  const tokens = await ApiToken.find({ app: app._id, owner: ownerId, revokedAt: null }).select('hash').lean();
+  await ApiToken.updateMany({ app: app._id, owner: ownerId, revokedAt: null }, { $set: { revokedAt: new Date() } });
+  for (const token of tokens) evictTokenByHash(token.hash);
+  await contentChanged.onContentChanged(ownerId);
+  return app;
 }
 
 exports.listApps = async (req, res, next) => {
@@ -122,32 +153,17 @@ exports.createApp = async (req, res, next) => {
 
 exports.updateApp = async (req, res, next) => {
   try {
-    const app = await App.findOne({ _id: req.params.id, owner: req.userId });
-    if (!app) return res.status(404).json({ success: false, error: 'not_found' });
-    const patch = pickFields(req.body, editable);
-    const merged = { ...app.toObject(), ...patch };
-    if (Object.hasOwn(patch, 'include')) merged.include = mergeObject(app.include?.toObject?.() || app.include || {}, patch.include);
-    const errors = await validateApp(req.userId, merged);
-    if (errors.length) return res.status(400).json({ success: false, error: 'validation_failed', details: errors });
-    for (const field of editable) if (field in patch) app.set(field, merged[field]);
-    await app.save();
-    evictApp(app._id);
-    await contentChanged.onContentChanged(req.userId);
-    const response = app.toObject({ getters: false, virtuals: false });
-    delete response.quotaSlot;
-    return res.json(response);
+    const result = await patchOwnedApp(req.userId, req.params.id, req.body);
+    if (result.notFound) return res.status(404).json({ success: false, error: 'not_found' });
+    if (result.errors) return res.status(400).json({ success: false, error: 'validation_failed', details: result.errors });
+    return res.json(result.response);
   } catch (error) { next(error); }
 };
 
 exports.deleteApp = async (req, res, next) => {
   try {
-    const app = await App.findOneAndDelete({ _id: req.params.id, owner: req.userId });
+    const app = await removeOwnedApp(req.userId, req.params.id);
     if (!app) return res.status(404).json({ success: false, error: 'not_found' });
-    evictApp(app._id);
-    const tokens = await ApiToken.find({ app: app._id, owner: req.userId, revokedAt: null }).select('hash').lean();
-    await ApiToken.updateMany({ app: app._id, owner: req.userId, revokedAt: null }, { $set: { revokedAt: new Date() } });
-    for (const token of tokens) evictTokenByHash(token.hash);
-    await contentChanged.onContentChanged(req.userId);
     return res.json({ success: true });
   } catch (error) { next(error); }
 };
@@ -213,3 +229,5 @@ exports.getAppPreview = async (req, res, next) => {
 };
 
 exports.validateApp = validateApp;
+exports.patchOwnedApp = patchOwnedApp;
+exports.removeOwnedApp = removeOwnedApp;

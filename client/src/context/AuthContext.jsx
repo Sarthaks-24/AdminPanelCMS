@@ -41,6 +41,11 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const updateSessionToken = (nextToken) => {
+    localStorage.setItem('admin_token', nextToken);
+    setToken(nextToken);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -49,6 +54,7 @@ export const AuthProvider = ({ children }) => {
         admin: user,
         loading,
         login,
+        updateSessionToken,
         logout,
         isAuthenticated: !!token,
       }}

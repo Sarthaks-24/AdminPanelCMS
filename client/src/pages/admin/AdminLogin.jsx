@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../api/client';
 import { LockKeyhole, Mail, Eye, EyeOff, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export default function AdminLogin() {
@@ -9,8 +10,11 @@ export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [signupOpen, setSignupOpen] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => { api.get('/auth/config').then(({ data }) => setSignupOpen(Boolean(data.signupEnabled))).catch(() => setSignupOpen(false)); }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -92,6 +96,11 @@ export default function AdminLogin() {
               {loading ? 'Signing in…' : <>Sign in <ArrowRight size={16} /></>}
             </button>
           </form>
+
+          <div className="mt-5 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
+            <Link to="/admin/forgot-password" className="text-t-accent hover:underline">Forgot password?</Link>
+            {signupOpen && <Link to="/admin/signup" className="font-medium text-t-accent hover:underline">Create an account</Link>}
+          </div>
 
           <div className="mt-8 flex items-center gap-2 border-t border-t-border pt-5 text-xs text-t-muted">
             <ShieldCheck size={15} className="text-t-accent2" />

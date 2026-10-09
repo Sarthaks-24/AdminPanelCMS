@@ -22,6 +22,11 @@ describe('Apps dashboard API', () => {
 
     const badOrigin = await request(app).post('/api/apps').set('Authorization', auth).send({ name: 'Bad', type: 'static', allowedOrigins: ['http://example.test'] });
     expect(badOrigin.status).toBe(400);
+    const wildcard = await request(app).post('/api/apps').set('Authorization', auth).send({ name: 'Public API', type: 'static', allowedOrigins: ['*'] });
+    expect(wildcard.status).toBe(201);
+    expect(wildcard.body.allowedOrigins).toEqual(['*']);
+    const mixedWildcard = await request(app).post('/api/apps').set('Authorization', auth).send({ name: 'Bad wildcard', type: 'static', allowedOrigins: ['*', 'https://example.test'] });
+    expect(mixedWildcard.status).toBe(400);
     const badField = await request(app).post('/api/apps').set('Authorization', auth).send({ name: 'Bad field', type: 'protected', include: { profile: { fields: ['phone'] } } });
     expect(badField.status).toBe(400);
   });
