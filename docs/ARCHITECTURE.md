@@ -1,229 +1,143 @@
-# System Architecture & Technical Design
+# Architecture
 
-This document details the architectural principles, data flow models, security boundaries, and engineering decisions implemented across the **Admin Panel CMS** and its supporting backend services.
+How the system is put together and why. For endpoint details see [API_REFERENCE.md](API_REFERENCE.md); for schemas see [DATA_MODEL.md](DATA_MODEL.md).
 
----
+## The idea
 
-## 1. High-Level Topology
-
-The system functions as a standalone, authoritative upstream content management platform for personal and professional developer data. It is intentionally decoupled from any public presentation layer:
+One account holds one body of portfolio content. Each **App** is a named view of that content for one consumer: which sections, which items, which fields. A consumer reads its view through the public `/v1` API with the App's token.
 
 ```
-                         THIS PROJECT
-┌────────────────────────────────────────────────────────┐
-│                    Admin Dashboard                     │
-│                      (React/Vite)                      │
-└───────────────────────────┬────────────────────────────┘
-                            │ JWT Authenticated
-                            │ CRUD Mutations
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│                    Express REST API                    │
-│      Session Dashboard API + token-scoped /v1 API      │
-└───────────────────────────┬────────────────────────────┘
-                            │
-                            │ Read / Write (`cms_rw`)
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│                  MongoDB Atlas Cluster                 │
-│                     (`Portfolio_db`)                   │
-└───────────────────────────┬────────────────────────────┘
-                            │
-                            │ Scoped Read Access
-                            │ (/v1 with app token)
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│               Separate Portfolio Project               │
-│                   (Future Consumer)                    │
-└────────────────────────────────────────────────────────┘
-```
-
-> **Decoupled Architecture Notice:** External applications consume published, app-scoped data through the token-authenticated `/v1` API. Publishable keys can use an origin allowlist or `*` for browser use; secret keys are server-only. External applications do not connect directly to MongoDB.
-
----
-
-## 2. Core Data Modeling Patterns
-
-The data layer in `server/models/` uses owner-scoped schemas so multiple accounts can manage isolated professional content:
-
-Every content document carries a required, immutable `owner` reference to `User`. A per-schema `ownerGuard` rejects queries without a concrete owner ObjectId, requires aggregation pipelines to begin with an owner match, and validates inserts. Dashboard controllers obtain the owner from the verified session. External `/v1` requests obtain the owner from the app identified by the API token; anonymous legacy `/api` reads are removed.
-
-### 2.1. Singleton Pattern (`Profile`, `Resume`)
-Certain domains represent unique, singular entities:
-- **`Profile` (`server/models/Profile.js`):** At most one document exists per owner, enforced by a unique `{ owner: 1 }` index. Updates use an owner-filtered upsert.
-- **`Resume` (`server/models/Resume.js`):** At most one master resume entry exists per owner, also enforced by a unique `{ owner: 1 }` index. It provides a backward-compatible virtual field `driveUrl` that maps transparently to `resumeUrl`.
-
-### 2.2. Sequenced / Ordered Collection Pattern (`Social`, `Project`, `Experience`, `Education`)
-Collections that display chronologically or by personal preference maintain an integer `order` field:
-- When a document is created without an `order`, the controller automatically sets its order to the current maximum order + 1.
-- Both `Social` and `Project` feature atomic batch reordering endpoints:
-  - `PATCH /api/socials/reorder`
-  - `PATCH /api/projects/reorder`
-- The payload `{ items: [{ id: "...", order: 0 }, { id: "...", order: 1 }] }` executes bulk writes in MongoDB to update sort keys atomically.
-
-### 2.3. Categorized Taxonomy Pattern (`Skill`)
-The `Skill` collection groups technical competencies under a strict enum of 7 industry categories:
-1. `Languages`
-2. `Frontend`
-3. `Backend & Systems`
-4. `Databases & Caching`
-5. `DevOps & Cloud`
-6. `Hardware & Electronics`
-7. `Tools & Frameworks`
-
-- Each skill enforces a case-insensitive unique index on `{ owner, name }`.
-- An aggregated query endpoint (`GET /api/skills/categories`) uses MongoDB's aggregation pipeline (`$group`) to return skills pre-grouped by category in a single round-trip.
-
----
-
-## 3. Multiple Content Representations (`/v1/fs`)
-
-The CMS engine is architected to expose multiple representations of the same underlying content models:
-
-```
-                MongoDB Documents
-                        ↓
-                     CMS API
-                        ↓
-         ┌──────────────┴──────────────┐
-         │                             │
-   REST Resources                    /v1/fs
-(Standard JSON Endpoints)  (In-Memory Filesystem Tree)
-         │                             │
-         ▼                             ▼
-   External Apps             File-Oriented Consumers
-```
-
-- **REST Resources:** Token-authenticated, app-scoped `/v1` endpoints for profile, resume, socials, skills, projects, experience, education, and certifications.
-- **Hierarchical Filesystem Tree (`/v1/fs`):** An optional downstream projection built only from the same published, field-filtered App view as the other `/v1` endpoints. The App must enable `include.fs`.
-
-### 3.1. Directory Structure Mapping
-
-```
-/
-├── about/
-│   ├── bio.txt             # Derived from Profile.shortBio & statusText
-│   ├── background.md       # Derived from Profile.aboutMarkdown
-│   ├── contact.json        # Derived from Profile.email, phone, location
-│   └── telemetry.json      # Derived from Profile.metrics & environment settings
-├── skills/
-│   ├── languages.json      # Categorized skills filtered by category
-│   ├── frontend.json
-│   ├── backend-systems.json
-│   ├── databases-caching.json
-│   ├── devops-cloud.json
-│   ├── hardware-electronics.json
-│   └── tools-frameworks.json
-├── projects/
-│   ├── [project-slug].md   # Markdown case study + metadata headers
-│   └── index.json          # Summary index of all active projects
-├── experience/
-│   └── [order]-[company].txt # Formatted milestone, role, and achievements
-├── education/
-│   └── [institution].txt   # Academic degree, dates, and achievements
-├── certifications/
-│   └── [cert-slug].txt     # Issuer, date, credential ID, and URL
-└── resume.pdf              # File node linking to the master resume URL
-```
-
-### 3.2. Traversal Algorithm
-In `server/controllers/fsController.js`, `Promise.all` executes concurrent database reads across all active collections. It then builds a recursive JSON tree where every node conforms to:
-```typescript
-interface FSNode {
-  name: string;
-  type: 'file' | 'directory';
-  path: string;
-  size?: number;
-  mimeType?: string;
-  content?: string | object;
-  targetUrl?: string;
-  children?: FSNode[];
-}
-```
-
----
-
-## 4. Database Access Isolation
-
-The system enforces least-privilege credential separation across the persistence tier:
-
-```
-      CMS Backend                   Downstream Portfolio Backend
-     (This Project)                      (External Project)
-           │                                      │
-           ▼                                      ▼
-     User: `cms_rw`                       External consumer
-  Role: Read / Write                  API token; no DB account
-           │                                      │
-           └──────────────────┬───────────────────┘
+                 ┌──────────────────────────┐
+  you  ────────► │  Dashboard (client/)     │   React SPA
+                 └────────────┬─────────────┘
+                              │  /api   session cookie, read + write
                               ▼
-                    MongoDB Atlas Cluster
-                       (`Portfolio_db`)
+                 ┌──────────────────────────┐
+                 │  API server (server/)    │   Express, one process
+                 │   /api  dashboard API    │
+                 │   /v1   public API       │
+                 └──────┬───────────┬───────┘
+                        │           ▲
+                        ▼           │  /v1   App token, read-only, published only
+                 ┌────────────┐     │
+                 │  MongoDB   │   your sites and servers
+                 └────────────┘
 ```
 
-1. **`cms_rw` (Read/Write):** Scoped exclusively to the CMS backend server (`server/`). Authorized to execute admin CRUD operations, index creation, and token-validated state modifications.
-2. **External consumers:** Read through app-scoped `/v1` tokens. They receive no MongoDB credentials and cannot write through the public API.
-3. **Zero Browser Exposure:** Neither database credential ever reaches the client browser or frontend bundle. All client dashboard interactions are conducted over authenticated Express HTTP routes.
+Consumers never get database credentials and cannot write.
 
----
-
-## 5. Shared Boundary: Data Model & API Contract
-
-The architecture treats the **Data Model & API Contract** as the only integration boundary between the CMS and downstream consumers:
+## Repository layout
 
 ```
-              CMS PROJECT
-                   │
-                   ▼
-            ┌─────────────┐
-            │ Data Model  │
-            │ + API       │
-            └──────┬──────┘
-                   │
-             Shared Contract
-             (REST / JSON)
-                   │
-                   ▼
-          PORTFOLIO PROJECT
-         (External Consumer)
+server/
+  server.js            entry: load env, validate, connect, listen
+  app.js               Express app (exported separately so tests can use it)
+  config/              loadEnv.js (MODE switch), db.js, limits.js
+  routes/              one router per resource, plus v1.js
+  controllers/         request handlers
+  middleware/          sessions, tokens, rate limits, CORS, sanitising, errors
+  models/              Mongoose schemas
+  plugins/ownerGuard.js   tenant-isolation guard
+  lib/                 shared logic (see below)
+  scripts/             operational commands (npm run ...)
+  tests/               Vitest + Supertest + in-memory MongoDB
+client/
+  src/api/client.js    Axios instance (API base URL is resolved in vite.config.js)
+  src/context/         AuthContext, ThemeContext
+  src/pages/admin/     dashboard screens
+  src/pages/auth/      signup, verification, password reset
+  src/components/admin/ shared pieces (toasts, states, route guard)
+docs/
 ```
 
-By decoupling the consumer layer behind an explicit schema and API contract:
-- The CMS implementation can be refactored, upgraded, or migrated (e.g. from Express to Next.js or MongoDB to PostgreSQL) without requiring changes in the consuming client application.
-- The downstream consumer relies solely on documented endpoint contracts, schemas, and payload shapes.
+## Request pipeline
 
----
+Order matters and is set in `server/app.js`:
 
-## 6. Authentication & Security Model
+1. `trust proxy` from `TRUST_PROXY_HOPS`, then `helmet` security headers.
+2. `/v1` router, mounted before the dashboard CORS so its own CORS rules apply.
+3. Dashboard CORS: only `CLIENT_ORIGIN`, with credentials.
+4. JSON body parser, 256 KB.
+5. `/api` rate limit: 600 requests per 15 minutes per IP.
+6. `sanitizeMongoInput`: strips `$`-prefixed, dotted and prototype keys from bodies and queries.
+7. Resource routers.
+8. JSON 404, then the error handler.
 
-```
-┌─────────────────┐       POST /api/auth/login       ┌─────────────────┐
-│                 ├─────────────────────────────────►│                 │
-│  Admin Client   │  Payload: { email, password }    │  Express Server │
-│                 │◄─────────────────────────────────┤                 │
-│                 │  Response: { token, admin }      └────────▲────────┘
-└────────┬────────┘                                           │
-         │ Save token in localStorage                         │
-         ▼                                                    │
-┌─────────────────┐   GET /api/projects (with Bearer)         │
-│ Axios Instance  ├───────────────────────────────────────────┘
-│ Interceptor     │ Header: "Authorization: Bearer <token>"
-└─────────────────┘
-```
+## Tenant isolation
 
-1. **Password Hashing:** Passwords are never stored in plaintext. `server/models/User.js` stores `passwordHash`; setup scripts hash passwords with bcrypt before persistence.
-2. **Session Verification:** `server/middleware/requireSession.js` validates JWT `{ sub, tv }` claims, loads the active user, and rejects stale token versions.
-3. **Automated Session Hydration:** On initial load, `client/src/context/AuthContext.jsx` issues a `GET /api/auth/verify` request. If valid, the session is preserved; if expired or manipulated, the token is purged and the user is redirected to `/admin/login`.
-4. **CORS Whitelisting:** `server/server.js` validates `Origin` headers against dynamic localhost expressions in development and `process.env.CLIENT_ORIGIN` in production.
+Every account's data shares the same collections, separated by an `owner` field. Three layers keep them apart:
 
----
+1. **Derivation.** The owner is never taken from request input. Dashboard handlers use the id from the verified session; `/v1` handlers use the owner of the App that the token belongs to.
+2. **`ownerGuard`.** A Mongoose plugin on every owned schema throws if any query runs without a concrete owner id in its filter. A forgotten filter fails loudly instead of returning someone else's data.
+3. **Checks.** `npm run lint:security` rejects raw collection access and unscoped bulk writes in source; `tests/isolation.test.js` exercises cross-account reads and writes for every resource.
 
-## 7. UI/UX Design System (PowerShell Pitch-Black)
+The guard proves a query is scoped to *an* owner; it relies on layer 1 to make that the *right* owner.
 
-The client interface is custom-styled with TailwindCSS and strict color tokens to evoke an executive engineering command station:
+Writes pass through an allowlist (`pickWritable` / `pickFields` with `WRITABLE_FIELDS`), so a request cannot set `owner`, `role` or any unlisted field.
 
-- **Surface Black (`#000000`):** Pure pitch black background eliminates distraction and highlights text contrast.
-- **Console Blue (`#0078d4` / `#1e90ff`):** Standard PowerShell electric blue for active navigation items, buttons, and focused borders.
-- **Terminal Green (`#10b981`):** Console emerald green denoting live telemetry, success alerts, and online server status.
-- **Subtle Structure (`#1e293b`):** Deep slate borders separate panels cleanly without visual noise.
-- **Dual-Pane Markdown Preview:** `ProjectForm.jsx` and `ProfileEditor.jsx` implement live tabbed/split Markdown rendering using `react-markdown` and `remark-gfm`.
+Most collection resources share one implementation, `lib/scopedCrud.js`, which is why several controllers are a few lines long.
+
+## Sessions (dashboard)
+
+- Sign-in issues a JWT (`{ sub, tv }`, 7 days) in an httpOnly cookie named `session`. JavaScript cannot read it.
+- `requireSession` verifies it on every request, loads the user, and compares `tv` with the user's `tokenVersion`. Logout, password change, password reset and account deletion increment `tokenVersion`, which ends every outstanding session at once.
+- **CSRF:** cookie-authenticated writes must carry `X-Requested-With: XMLHttpRequest`. A custom header forces a CORS preflight, which only `CLIENT_ORIGIN` passes.
+- `requireVerifiedSession` additionally requires a verified email and guards all writes. `requireSuperAdmin` additionally requires the `superadmin` role.
+- Passwords are bcrypt hashes. Login compares against a dummy hash for unknown emails so timing does not reveal which accounts exist; signup and password recovery always return the same response.
+
+## Tokens and the public API
+
+`/v1` middleware order: CORS preflight, per-IP limit, body parser, sanitiser, `requireToken`, per-token limit, per-account limit, global limit.
+
+`requireToken`:
+
+1. Rejects tokens in the query string and anything not shaped like a token.
+2. Looks the token up by SHA-256 hash, then loads its App and checks the owner is active. Results are cached in memory for 60 seconds; unknown tokens are negatively cached.
+3. For publishable tokens, checks the `Origin` header against the App's allowed origins and sets the CORS response headers.
+
+A section handler then:
+
+1. Returns `403 section_disabled` if the App has not enabled it.
+2. Serves from the response cache if present.
+3. Otherwise loads the owner's published documents for that section (`lib/loadOwnerData.js`), projects them through the App's settings (`lib/applyInclude.js`), computes an ETag, caches and responds.
+
+`applyInclude` is the core of the product: it filters to published items, applies the section mode (`all`, `featured`, `selected`), and copies only fields that are both selected by the App and on the public allowlist. `/v1/fs` runs the same projection and reshapes the result into a file tree (`lib/buildFsTree.js`). The dashboard's App preview calls the same functions, so it shows exactly what `/v1` serves.
+
+### Cache invalidation
+
+Every content or App write calls `onContentChanged(ownerId)`, which bumps that owner's version number and evicts their cached responses. The version is part of each cache key, so stale entries can never be served after an edit. Token revocation and App deletion evict the token cache directly.
+
+## State that lives in memory
+
+| State | Where |
+| :--- | :--- |
+| Rate-limit counters (`/api`, auth routes, `/v1`) | `express-rate-limit` default store; `middleware/v1Limiters.js` |
+| Token, bad-token and response caches | `lib/cache.js` |
+| Per-owner cache versions | `lib/cache.js` |
+| Invite-guess guard | `lib/inviteGuard.js` |
+| Content-quota lock | `lib/contentQuota.js` |
+
+All of it resets on restart and none is shared between processes. The service is therefore designed to run as **a single instance**. The App and token quotas are the exception: they are enforced by unique database indexes and are safe across processes.
+
+## Accounts and signup
+
+Signup is governed by a mode: `invite`, `open` or closed. The default comes from `SIGNUP_MODE`; a superadmin can override it in the dashboard, stored in the `settings` collection. In production signup is additionally blocked until `LEGAL_POLICIES_APPROVED=true`.
+
+New accounts can sign in immediately but are read-only until they follow the emailed verification link. Email is sent through Resend (`lib/mailer.js`); verification and reset tokens are random 256-bit values stored only as hashes and usable once.
+
+## Configuration
+
+A single `MODE` variable selects development or production values and sets `NODE_ENV`. `lib/validateEnv.js` stops the server on unsafe settings. See [ENVIRONMENT.md](ENVIRONMENT.md).
+
+## Dashboard client
+
+A Vite-built React single-page app using React Router, Tailwind CSS and Axios.
+
+- `AuthContext` asks `/api/auth/verify` on load to learn whether a session exists; `ProtectedRoute` guards `/admin/*`.
+- `api/client.js` sends credentials and the CSRF header on every request and redirects to the login page on `401`.
+- `ThemeContext` applies one of 20 colour themes through CSS variables and remembers the choice in `localStorage`.
+- The client has no automated tests; `npm run lint` (oxlint) and `npm run build` are its checks.
+
+## Testing
+
+`server/tests/` runs against `mongodb-memory-server` bound to `127.0.0.1`; the setup refuses to run against any non-local host. Suites cover authentication and sessions, cross-tenant isolation, the owner guard and its lint, Apps and tokens, the `/v1` API (limits, CORS, ETags, caching), signup and invites, the account lifecycle, mail, URL validation, input sanitising and startup configuration.

@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('../config/loadEnv');
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');

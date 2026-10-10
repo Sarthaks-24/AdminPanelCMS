@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('../config/loadEnv');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -23,7 +23,8 @@ async function main() {
   const backupDir = path.resolve(process.env.BACKUP_DIR || path.join(os.homedir(), 'cms-backups'));
   fs.mkdirSync(backupDir, { recursive: true, mode: 0o700 });
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const destination = path.join(backupDir, `backup_${timestamp}.gz.gpg`);
+  const archivePrefix = `backup_${dbName.replace(/[^A-Za-z0-9_-]/g, '_')}_`;
+  const destination = path.join(backupDir, `${archivePrefix}${timestamp}.gz.gpg`);
   const partial = `${destination}.partial`;
   const candidates = ['mongodump', path.join(process.env.ProgramFiles || 'C:\\Program Files', 'MongoDB', 'Tools', '100', 'bin', 'mongodump.exe')];
   let dump;
@@ -46,7 +47,7 @@ async function main() {
   const gpgArgs = ['--batch', '--yes', '--pinentry-mode', 'loopback', '--passphrase-file', passphraseFile, '--symmetric', '--cipher-algo', 'AES256', '--output', partial];
   let gpg;
   try {
-    gpg = spawn('gpg', gpgArgs, { stdio: ['pipe', 'ignore', 'ignore'], windowsHide: true });
+    gpg = spawn(process.env.GPG_BINARY || 'gpg', gpgArgs, { stdio: ['pipe', 'ignore', 'ignore'], windowsHide: true });
     const gpgExit = new Promise((resolve) => gpg.once('close', resolve));
     await new Promise((resolve, reject) => {
       gpg.once('spawn', resolve);
@@ -68,7 +69,9 @@ async function main() {
       if (remoteCode !== 0) throw new Error('Off-host encrypted backup upload failed.');
     }
     const backups = fs.readdirSync(backupDir)
-      .filter((name) => /^backup_.*\.gz\.gpg$/.test(name))
+      // Rotation is per database, so development runs never evict production archives.
+      // The timestamp must follow the prefix directly, so `Portfolio` never matches `Portfolio_dev` archives.
+      .filter((name) => name.startsWith(archivePrefix) && /^\d{4}-\d{2}-\d{2}T[\d-]+Z\.gz\.gpg$/.test(name.slice(archivePrefix.length)))
       .map((name) => ({ name, mtime: fs.statSync(path.join(backupDir, name)).mtimeMs }))
       .sort((a, b) => b.mtime - a.mtime);
     for (const old of backups.slice(14)) fs.unlinkSync(path.join(backupDir, old.name));

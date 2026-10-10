@@ -1,186 +1,141 @@
-# Developer Setup & Deployment Guide
+# Local setup
 
-This guide walks through configuring, running, and deploying the **Admin Panel CMS** and its accompanying Express backend.
+Get the API and the dashboard running on your machine. For production, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
----
+## Prerequisites
 
-## 1. Prerequisites
+- Node.js 20.19 or newer (required by Vite 8), with npm
+- A MongoDB database you can write to: a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster, or a local MongoDB 6+
+- Optional: a [Resend](https://resend.com) API key if you want real verification and reset emails locally
 
-Ensure your environment satisfies the following minimum requirements:
-- **Node.js:** v18.0.0 or higher ([Download Node.js](https://nodejs.org/))
-- **npm:** v9.0.0 or higher
-- **MongoDB:** A free tier [MongoDB Atlas](https://www.mongodb.com/atlas) cluster or local MongoDB instance (v6.0+)
-- **Git:** Installed and initialized in your repository
+## 1. Database
 
----
+**Atlas:** create a database user with read/write access, allow your IP under Network Access, and copy the Node.js connection string. Add a database name to the path:
 
-## 2. MongoDB Atlas Configuration
+```
+mongodb+srv://<user>:<password>@cluster0.abcde.mongodb.net/Portfolio_dev?retryWrites=true&w=majority
+```
 
-1. Log in to [MongoDB Atlas](https://cloud.mongodb.com).
-2. Create a new project or select an existing cluster.
-3. Under **Security > Database Access**:
-   - **CMS Backend User (`cms_rw`):**
-     - Click **Add New Database User** and select **Password Authentication**.
-     - Create a username (e.g., `cms_rw`) and a secure password.
-     - Under **Database User Privileges**, assign **readWrite** permissions specifically scoped to your database (`Portfolio_db`).
-   - **External Consumers:** Do not create or share a MongoDB user for a portfolio site. Create a scoped App and use its `pk_` token in a browser or `sk_` token on a server through `/v1`.
-   - **Security Guarantee:** The MongoDB credential stays on the CMS backend and never reaches a browser or consumer application.
-4. Under **Security > Network Access**:
-   - Click **Add IP Address**.
-   - For local development, add your current IP address or add `0.0.0.0/0` (allow access from anywhere) with caution.
-5. Under **Deployment > Database**:
-   - Click **Connect** on your cluster.
-   - Choose **Drivers** (Node.js).
-   - Copy your connection string. It will look like:
-     ```
-     mongodb+srv://<username>:<password>@cluster0.abcde.mongodb.net/?retryWrites=true&w=majority
-     ```
-   - Replace `<username>` and `<password>` with your credentials, and append your database name before query parameters (e.g., `/Portfolio_db?retryWrites=true&w=majority`).
+**Local MongoDB:** `mongodb://127.0.0.1:27017/Portfolio_dev`
 
----
+Use a development database here. Keep production data in a separate database with separate credentials.
 
-## 3. Backend Setup (`server/`)
+## 2. API (`server/`)
 
-### 3.1. Install Dependencies
 ```bash
 cd server
 npm install
-```
-
-### 3.2. Environment Configuration
-Create your local environment file:
-```bash
 cp .env.example .env
 ```
 
-Generate a secure 32+ character JWT secret:
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
+Open `server/.env`. Leave `MODE=dev` and fill in the development block and the account details:
 
-Configure `server/.env`:
 ```env
-PORT=5000
-NODE_ENV=development
-MONGODB_URI=mongodb+srv://cms_rw:YourSecurePassword@cluster0.abcde.mongodb.net/Portfolio_db?retryWrites=true&w=majority
-JWT_SECRET=paste_your_generated_64_character_hex_string_here
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=your_strong_admin_password_123!
-CLIENT_ORIGIN=http://localhost:5173
+MODE=dev
+
+DEV_MONGODB_URI=<your connection string, with a database name>
+DEV_JWT_SECRET=<output of the command below>
+DEV_CLIENT_ORIGIN=http://localhost:5173
+DEV_ADMIN_PASSWORD=<a password of 10+ characters>
+
+ADMIN_NAME=Your Name
+ADMIN_EMAIL=you@example.com
 ```
 
-### 3.3. Initialize the Database
-Build database collection indexes and upsert the admin credentials:
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+The server refuses to start if `DEV_JWT_SECRET` is still the example value. You can leave the whole `PROD_*` block empty for now. Every variable is described in [ENVIRONMENT.md](ENVIRONMENT.md).
+
+Create the indexes and your account:
+
 ```bash
 npm run setup
 ```
 
-*(Optional)* After reviewing the exact target database and taking a backup, a fresh setup requires its database name as explicit confirmation. It drops the legacy and content collections, including their old global unique indexes:
+This creates (or resets the password of) a verified account for `ADMIN_EMAIL`. To see the Superadmin panel, promote it:
+
 ```bash
-npm run setup:fresh -- --confirm Portfolio_db
+npm run superadmin:grant -- --email you@example.com --confirm-db Portfolio_dev
 ```
 
-*(Optional)* Seed sample structured content for initial review:
+Optionally load sample content. This **deletes that account's existing content** first and publishes everything it inserts:
+
 ```bash
 npm run seed
 ```
 
-### 3.4. Launch Development Server
+Start the API:
+
 ```bash
 npm run dev
 ```
-Verify the server responds:
-```bash
-curl http://localhost:5000/api/health
-# {"status":"OK","message":"Portfolio API is running smoothly."}
+
+Among the startup output you should see:
+
+```
+[Env] MODE=dev · database Portfolio_dev
+[MongoDB] Connected: ...
+[Server] Running on port 5000 in dev mode
 ```
 
----
+Check it: <http://localhost:5000/api/health>.
 
-## 4. Frontend Setup (`client/`)
+## 3. Dashboard (`client/`)
 
-### 4.1. Install Dependencies
-Open a second terminal window:
+In a second terminal:
+
 ```bash
 cd client
 npm install
-```
-
-### 4.2. Environment Configuration
-Create the client environment file:
-```bash
 cp .env.example .env
-```
-
-Configure `client/.env`:
-```env
-VITE_API_URL=http://localhost:5000/api
-```
-
-### 4.3. Launch Client Development Server
-```bash
 npm run dev
 ```
-Open your browser at `http://localhost:5173`. You will be automatically redirected to `/admin/login`.
 
----
+The defaults in `client/.env` (`VITE_MODE=dev`, `VITE_DEV_API_URL=http://localhost:5000/api`) match the API above.
 
-## 5. Production Deployment
+Open <http://localhost:5173/admin/login> and sign in with `ADMIN_EMAIL` and `DEV_ADMIN_PASSWORD`.
 
-### 5.0. Prepare the production database
+The dashboard must be opened at exactly the origin in `DEV_CLIENT_ORIGIN`. If Vite picks another port, or you use `127.0.0.1` instead of `localhost`, sign-in fails with a CORS error; change one to match the other.
 
-After configuring the production `MONGODB_URI` and setting `NODE_ENV=production`, run `npm run production:prepare` from `server/` in an interactive terminal. It prints the target host and database, requires you to type the database name, prepares indexes without dropping collections, then prompts you to promote an existing active verified account or create a new superadmin. The password prompt is hidden. The command refuses non-production mode and never runs automatically during app startup.
+## 4. Make your first API call
 
-### 5.1. Building the Frontend
-Compile the production bundle:
+1. In the dashboard, add some content and set it to **Published**. Drafts are never served.
+2. Go to **Apps** (labelled "Connected websites" in the sidebar), create an app of type *Static website*, open it, and enable the sections you want to expose.
+3. Open the app's tokens and create one. A static app gets a publishable `pk_live_...` token.
+4. Call the public API:
+
 ```bash
-cd client
+curl -H "Authorization: Bearer pk_live_your_token" http://localhost:5000/v1/app
+curl -H "Authorization: Bearer pk_live_your_token" http://localhost:5000/v1/projects
+```
+
+The full endpoint list is in [API_REFERENCE.md](API_REFERENCE.md).
+
+## 5. Tests and checks
+
+```bash
+cd server
+npm test                # 146 tests; uses an in-memory MongoDB, never your real database
+npm run lint:security   # static check that every content query is owner-scoped
+
+cd ../client
+npm run lint
 npm run build
 ```
-This produces optimized static assets in `client/dist/`.
 
-### 5.2. Running Backend with PM2
-For continuous production uptime, run the Node server with PM2:
-```bash
-npm install -g pm2
-cd server
-pm2 start server.js --name "admin-panel-api"
-pm2 save
-pm2 startup
-```
+The first `npm test` downloads a MongoDB binary for the in-memory server.
 
-### 5.3. Production CORS
-In production, update `CLIENT_ORIGIN` in `server/.env` to match your production domain:
-```env
-CLIENT_ORIGIN=https://admin.yourdomain.com
-```
+## Troubleshooting
 
-### 5.4. Backups, restore checks, and maintenance jobs
-
-Install MongoDB Database Tools, GPG, and rclone on the server. Store a strong backup passphrase in a protected file outside the repository and outside the backup destination. Configure an rclone remote for an off-host storage provider, then set `BACKUP_REMOTE_DESTINATION` (for example, `myremote:portfolio-backups`). In production, `npm run backup` refuses to report success without that remote destination; it encrypts before upload and retains the newest 14 local archives. Configure equivalent remote retention at the storage provider.
-
-Run a restore drill against a disposable local MongoDB instance before relying on a backup. The script requires an empty database whose name ends in `_restore_test`, checks that the restore URI is local, restores the encrypted archive, verifies collections, then drops the disposable database:
-
-```powershell
-cd server
-$env:BACKUP_RESTORE_URI = 'mongodb://127.0.0.1:27017'
-npm run backup:verify -- --file 'C:\path\to\backup.gz.gpg' --target-db 'portfolio_restore_test' --confirm-db 'portfolio_restore_test'
-```
-
-Use the production scheduler to run these commands daily: `npm run backup`, `npm run stats`, `npm run sweep:deleted`, and `npm run tokens:notify-expiring`. The expiry job sends one reminder per token within `TOKEN_EXPIRY_WARNING_DAYS` (default 7) and never includes a token secret. `npm run stats` exits with status 2 at 70% of `DB_STORAGE_CAP_BYTES`; the operator must review storage and keep registration invite-only. The app's current auth and content quota limiters use process-local memory, so run one API instance until shared enforcement is added. The token, response and revocation caches are also per-process (changes can take up to 60 seconds to reach other instances). The server refuses to start if `JWT_SECRET` is missing, shorter than 32 characters, or still the example value. In production, signup stays closed (503 `signup_unavailable`) until `LEGAL_POLICIES_APPROVED=true`. Behind a reverse proxy set `TRUST_PROXY_HOPS` (usually `1`); with the default `0` every visitor shares the proxy's IP and the login/signup rate limits apply to everyone at once.
-
----
-
-## 6. Common Troubleshooting
-
-### CORS Policy Errors
-- **Symptom:** Browser console outputs `Blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present`.
-- **Solution:** Set `CLIENT_ORIGIN` in `server/.env` to the exact origin the dashboard is served from (scheme, host and port, e.g. `http://localhost:5174`). Only that single origin is allowed; there is no localhost wildcard. In production `CLIENT_ORIGIN` must be `https` (the server refuses to start otherwise) because it is also used in emailed verification and reset links.
-
-### MongoDB Authentication Failure
-- **Symptom:** `MongoServerError: bad auth : authentication failed`.
-- **Solution:** Check your password in `MONGODB_URI`. If your password contains special characters (`@`, `:`, `/`), URL-encode them (e.g., `@` becomes `%40`).
-
-### Admin Login Rejected
-- **Symptom:** `Invalid email or password` on the login screen.
-- **Solution:** Run `npm run admin` inside the `server/` directory to re-hash and re-sync your admin account directly from your active `server/.env` file.
+| Symptom | Cause |
+| :--- | :--- |
+| `MODE is not set` | `server/.env` is missing or has no `MODE` line. |
+| `MODE=dev conflicts with NODE_ENV=production` | Remove `NODE_ENV` from `server/.env` or your shell; `MODE` sets it. |
+| `Invalid configuration: JWT_SECRET ...` | The secret is missing, under 32 characters, or still the example. |
+| Sign-in request blocked by CORS | The browser address does not match `DEV_CLIENT_ORIGIN` exactly. |
+| Signed in, but every save returns `email_unverified` | The account was created through the signup page and has not followed its verification link. `npm run setup` creates a verified account. |
+| `/v1/...` returns `403 section_disabled` | That section is not enabled in the app's settings. |
+| `/v1/...` returns an empty list | The items exist but are still drafts. |
+| `querySrv ENOTFOUND` on connect | Your network blocks SRV lookups. The server retries through DNS-over-HTTPS automatically (this needs outbound HTTPS). Multi-host standard connection strings are not supported by the scripts. |
