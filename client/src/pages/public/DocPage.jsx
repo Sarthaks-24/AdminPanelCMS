@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import PublicShell from '../../components/public/PublicShell';
 import Markdown, { outlineOf } from '../../components/public/Markdown';
 import { DOCS, EXTRA_PAGES, getDoc } from '../../content/docs';
@@ -7,20 +7,26 @@ import { REPO_URL } from '../../content/site';
 
 const ALL = [...DOCS, ...EXTRA_PAGES];
 
+// The readme has a route of its own; everything else is served under /docs.
+const routeFor = (page) => (page.slug === 'readme' ? '/readme' : `/docs/${page.slug}`);
+
 /** `slug` is passed directly for the pages that have their own route, such as /readme. */
 export default function DocPage({ slug: fixedSlug }) {
   const params = useParams();
+  const { hash } = useLocation();
   const slug = fixedSlug || params.slug;
   const doc = getDoc(slug);
 
-  // A link carrying a #fragment has to wait for the Markdown to mount before it can scroll.
+  // A link carrying a #fragment has to wait for the Markdown to mount before it can scroll. The hash
+  // is in the deps because a router Link to another section of the same page does not remount this.
   useEffect(() => {
     if (!doc) return;
-    const { hash } = window.location;
     if (!hash) { window.scrollTo(0, 0); return; }
-    const target = document.getElementById(decodeURIComponent(hash.slice(1)));
-    if (target) target.scrollIntoView({ block: 'start' });
-  }, [doc, slug]);
+    let id = hash.slice(1);
+    // A hand-edited or truncated escape sequence would otherwise throw and blank the page.
+    try { id = decodeURIComponent(id); } catch { /* use the raw fragment */ }
+    document.getElementById(id)?.scrollIntoView({ block: 'start' });
+  }, [doc, slug, hash]);
 
   if (!doc) {
     return (
@@ -53,19 +59,17 @@ export default function DocPage({ slug: fixedSlug }) {
               <span className="text-t-dim" aria-hidden="true">/</span>
               <span className="text-t-muted">{doc.title}</span>
             </div>
-            <Markdown>{doc.body}</Markdown>
+            <Markdown source={doc.source}>{doc.body}</Markdown>
 
-            <nav aria-label="Nearby documents" className="mt-14 grid gap-3 border-t border-t-border pt-6 sm:grid-cols-2">
+            <nav aria-label="Nearby documents" className="mt-14 flex flex-wrap items-baseline justify-between gap-x-8 gap-y-3 border-t border-t-border pt-5">
               {previous ? (
-                <Link to={previous.slug === 'readme' ? '/readme' : `/docs/${previous.slug}`} className="rounded-xl border border-t-border p-4 transition hover:border-t-border-hi">
-                  <p className="text-[0.75rem] text-t-dim">Previous</p>
-                  <p className="mt-1 text-[0.9375rem] font-medium text-t-text">{previous.title}</p>
+                <Link to={routeFor(previous)} className="text-[0.9375rem] text-t-muted transition hover:text-t-text">
+                  <span className="text-t-dim">Previous</span> &nbsp;{previous.title}
                 </Link>
               ) : <span />}
               {next && (
-                <Link to={next.slug === 'readme' ? '/readme' : `/docs/${next.slug}`} className="rounded-xl border border-t-border p-4 text-right transition hover:border-t-border-hi sm:col-start-2">
-                  <p className="text-[0.75rem] text-t-dim">Next</p>
-                  <p className="mt-1 text-[0.9375rem] font-medium text-t-text">{next.title}</p>
+                <Link to={routeFor(next)} className="ml-auto text-[0.9375rem] text-t-muted transition hover:text-t-text">
+                  <span className="text-t-dim">Next</span> &nbsp;{next.title}
                 </Link>
               )}
             </nav>

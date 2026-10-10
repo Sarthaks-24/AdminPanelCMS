@@ -7,6 +7,9 @@ const baseURL = import.meta.env.VITE_RESOLVED_API_URL;
 export const api = axios.create({
   baseURL,
   withCredentials: true,
+  // A blackholed host would otherwise hang until the browser gives up, which on the public pages
+  // means the signup-mode probe never settles and the nav never finishes deciding what to show.
+  timeout: 8000,
   headers: {
     'Content-Type': 'application/json',
     // Required by the server for cookie-authenticated writes (CSRF defence).

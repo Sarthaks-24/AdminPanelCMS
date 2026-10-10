@@ -36,25 +36,46 @@ export const LICENSE = { name: 'MIT License', body: licenseText, source: 'LICENS
 
 export const getDoc = (slug) => DOCS.find((doc) => doc.slug === slug) || EXTRA_PAGES.find((page) => page.slug === slug) || null;
 
-// Maps a repo path from a markdown link to the route that renders that same file.
-const ROUTE_FOR_FILE = new Map([
-  ...DOCS.map((doc) => [doc.file, `/docs/${doc.slug}`]),
+// Maps a full repo path to the route that renders that same file. Keyed on the whole path, not the
+// basename, so a hypothetical server/README.md cannot be mistaken for the root one.
+const ROUTE_FOR_PATH = new Map([
+  ...DOCS.map((doc) => [`docs/${doc.file}`, `/docs/${doc.slug}`]),
   ['README.md', '/readme'],
+  ['client/README.md', '/docs/client'],
   ['LICENSE', '/license'],
 ]);
 
+/** Resolves `./x`, `../x` and bare `x` against the directory holding the file that linked to it. */
+function repoPath(href, sourceDir) {
+  const segments = href.startsWith('/') ? href.slice(1).split('/') : [...sourceDir.split('/').filter(Boolean), ...href.split('/')];
+  const out = [];
+  for (const segment of segments) {
+    if (!segment || segment === '.') continue;
+    if (segment === '..') out.pop();
+    else out.push(segment);
+  }
+  return out.join('/');
+}
+
 /**
  * Rewrites the repo-relative links inside a markdown file to the routes that serve them here.
- * `docs/DEPLOYMENT.md#known-limits` and `../docs/DEPLOYMENT.md` both become `/docs/deployment#known-limits`.
- * Anything with no page of its own falls through to the file on GitHub.
+ * `docs/DEPLOYMENT.md#known-limits` in the README and a bare `DEPLOYMENT.md#known-limits` inside
+ * docs/ both become `/docs/deployment#known-limits`. Anything with no page here goes to GitHub,
+ * at the path the link actually points to.
+ *
+ * @param {string} href the link as written in the markdown
+ * @param {string} repoUrl the repository's web URL
+ * @param {string} source the repo path of the file that contains the link, e.g. `docs/SETUP_GUIDE.md`
  */
-export function resolveDocLink(href, repoUrl) {
+export function resolveDocLink(href, repoUrl, source = '') {
   if (!href || /^([a-z]+:|#|\/\/)/i.test(href)) return href;
-  const [path, hash] = href.split('#');
-  const file = basename(path);
-  if (path.startsWith('client/README.md') || path.endsWith('client/README.md')) return `/docs/client${hash ? `#${hash}` : ''}`;
-  const route = ROUTE_FOR_FILE.get(file);
-  if (route) return `${route}${hash ? `#${hash}` : ''}`;
-  // Not a page here: send it to the file in the repository.
-  return `${repoUrl}/blob/main/${path.replace(/^(\.\.\/|\.\/)+/, '')}${hash ? `#${hash}` : ''}`;
+  const [rawPath, hash] = href.split('#');
+  const suffix = hash ? `#${hash}` : '';
+  if (!rawPath) return href;
+  const sourceDir = source.includes('/') ? source.slice(0, source.lastIndexOf('/')) : '';
+  const path = repoPath(rawPath, sourceDir);
+  const route = ROUTE_FOR_PATH.get(path);
+  if (route) return `${route}${suffix}`;
+  // Not a page here: send it to the file in the repository, resolved to its real location.
+  return `${repoUrl}/blob/main/${path}${suffix}`;
 }

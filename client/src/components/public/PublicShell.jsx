@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Check, Menu, Palette, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -29,7 +29,12 @@ function ThemePicker() {
   useEffect(() => {
     if (!open) return undefined;
     const onPointer = (event) => { if (!container.current?.contains(event.target)) setOpen(false); };
-    const onKey = (event) => { if (event.key === 'Escape') setOpen(false); };
+    const onKey = (event) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      // Escape must land focus somewhere predictable, not nowhere.
+      container.current?.querySelector('button')?.focus();
+    };
     document.addEventListener('mousedown', onPointer);
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onPointer); document.removeEventListener('keydown', onKey); };
@@ -50,33 +55,33 @@ function ThemePicker() {
         <span className="hidden sm:inline">Theme</span>
       </button>
       {open && (
-        <div
-          role="menu"
-          aria-label="Choose a theme"
-          className="absolute right-0 top-full z-50 mt-2 max-h-[70vh] w-64 overflow-y-auto rounded-xl border border-t-border bg-t-surface p-2 shadow-card"
-        >
+        /* A plain group of toggle buttons. role="menu" would promise arrow-key navigation and focus
+           management that this does not implement; Tab already reaches every option. */
+        <div aria-label="Choose a theme" className="absolute right-0 top-full z-50 mt-2 max-h-[70vh] w-64 overflow-y-auto rounded-xl border border-t-border bg-t-surface p-2 shadow-card">
           <p className="px-2 py-1.5 text-xs leading-5 text-t-dim">Switches this page and the dashboard you sign into.</p>
           {byGroup.map(([group, list]) => (
             <div key={group} className="mt-1">
-              <p className="px-2 py-1 text-[0.6875rem] font-medium text-t-dim">{group}</p>
-              {list.map((theme) => (
-                <button
-                  key={theme.id}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={theme.id === themeId}
-                  onClick={() => { changeTheme(theme.id); setOpen(false); }}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[0.8125rem] text-t-muted transition hover:bg-t-surface-hi hover:text-t-text"
-                >
-                  <span className="flex shrink-0 gap-0.5" aria-hidden="true">
-                    {theme.preview.map((color) => (
-                      <span key={color} className="h-3.5 w-2 rounded-sm" style={{ background: color }} />
-                    ))}
-                  </span>
-                  <span className="flex-1 truncate">{theme.label}</span>
-                  {theme.id === themeId && <Check size={14} className="shrink-0 text-t-accent" aria-hidden="true" />}
-                </button>
-              ))}
+              <p id={`theme-group-${group}`} className="px-2 py-1 text-[0.6875rem] font-medium text-t-dim">{group}</p>
+              <ul aria-labelledby={`theme-group-${group}`}>
+                {list.map((theme) => (
+                  <li key={theme.id}>
+                    <button
+                      type="button"
+                      aria-pressed={theme.id === themeId}
+                      onClick={() => { changeTheme(theme.id); setOpen(false); container.current?.querySelector('button')?.focus(); }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[0.8125rem] text-t-muted transition hover:bg-t-surface-hi hover:text-t-text"
+                    >
+                      <span className="flex shrink-0 gap-0.5" aria-hidden="true">
+                        {theme.preview.map((color) => (
+                          <span key={color} className="h-3.5 w-2 rounded-sm" style={{ background: color }} />
+                        ))}
+                      </span>
+                      <span className="flex-1 truncate">{theme.label}</span>
+                      {theme.id === themeId && <Check size={14} className="shrink-0 text-t-accent" aria-hidden="true" />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
         </div>
@@ -94,7 +99,20 @@ const NAV = [
 export default function PublicShell({ children, wide = false }) {
   const { isAuthenticated } = useAuth();
   const { isOpen, isInviteOnly } = useSignupMode();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const { pathname } = useLocation();
+  // The route the menu was opened on travels with the state, so navigating anywhere — including by
+  // browser back — closes it without an effect. The header persists across routes, so otherwise an
+  // open menu would stay open on top of the new page.
+  const [menu, setMenu] = useState({ open: false, at: pathname });
+  const menuOpen = menu.open && menu.at === pathname;
+  const setMenuOpen = (open) => setMenu({ open: typeof open === 'function' ? open(menuOpen) : open, at: pathname });
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onKey = (event) => { if (event.key === 'Escape') setMenu((current) => ({ ...current, open: false })); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
 
   const linkClass = ({ isActive }) =>
     `rounded-md px-1 py-1 text-[0.875rem] transition ${isActive ? 'text-t-text' : 'text-t-muted hover:text-t-text'}`;
@@ -118,9 +136,10 @@ export default function PublicShell({ children, wide = false }) {
               <Link to="/admin/dashboard" className="rounded-lg bg-t-accent px-3.5 py-1.5 text-[0.8125rem] font-semibold text-t-on-accent transition hover:bg-t-accent-br">Dashboard</Link>
             ) : (
               <>
+                {/* Below sm these live in the menu instead: four controls in one row overflows a 375px screen. */}
                 <Link to="/admin/login" className="hidden rounded-lg px-2 py-1.5 text-[0.875rem] text-t-muted transition hover:text-t-text sm:block">Sign in</Link>
-                {isOpen && <Link to="/admin/signup" className="rounded-lg bg-t-accent px-3.5 py-1.5 text-[0.8125rem] font-semibold text-t-on-accent transition hover:bg-t-accent-br">Create account</Link>}
-                {isInviteOnly && <Link to="/admin/signup" className="rounded-lg border border-t-border-hi px-3.5 py-1.5 text-[0.8125rem] font-medium text-t-text transition hover:border-t-accent">Redeem an invite</Link>}
+                {isOpen && <Link to="/admin/signup" className="hidden rounded-lg bg-t-accent px-3.5 py-1.5 text-[0.8125rem] font-semibold text-t-on-accent transition hover:bg-t-accent-br sm:block">Create account</Link>}
+                {isInviteOnly && <Link to="/admin/signup" className="hidden rounded-lg border border-t-border-hi px-3.5 py-1.5 text-[0.8125rem] font-medium text-t-text transition hover:border-t-accent sm:block">Redeem an invite</Link>}
               </>
             )}
             <button
@@ -140,11 +159,13 @@ export default function PublicShell({ children, wide = false }) {
             <ul className="space-y-1">
               {NAV.map((item) => (
                 <li key={item.to}>
-                  <NavLink to={item.to} onClick={() => setMenuOpen(false)} className="block rounded-lg px-2 py-2 text-sm text-t-muted hover:bg-t-surface-hi hover:text-t-text">{item.label}</NavLink>
+                  <NavLink to={item.to} className="block rounded-lg px-2 py-2 text-sm text-t-muted hover:bg-t-surface-hi hover:text-t-text">{item.label}</NavLink>
                 </li>
               ))}
               <li><a href={REPO_URL} target="_blank" rel="noreferrer noopener" className="block rounded-lg px-2 py-2 text-sm text-t-muted hover:bg-t-surface-hi hover:text-t-text">GitHub</a></li>
-              {!isAuthenticated && <li><Link to="/admin/login" onClick={() => setMenuOpen(false)} className="block rounded-lg px-2 py-2 text-sm text-t-muted hover:bg-t-surface-hi hover:text-t-text">Sign in</Link></li>}
+              {!isAuthenticated && <li><Link to="/admin/login" className="block rounded-lg px-2 py-2 text-sm text-t-muted hover:bg-t-surface-hi hover:text-t-text">Sign in</Link></li>}
+              {!isAuthenticated && isOpen && <li><Link to="/admin/signup" className="block rounded-lg px-2 py-2 text-sm font-medium text-t-accent hover:bg-t-surface-hi">Create account</Link></li>}
+              {!isAuthenticated && isInviteOnly && <li><Link to="/admin/signup" className="block rounded-lg px-2 py-2 text-sm font-medium text-t-accent hover:bg-t-surface-hi">Redeem an invite</Link></li>}
             </ul>
           </nav>
         )}
