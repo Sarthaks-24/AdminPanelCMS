@@ -1,7 +1,8 @@
-require('dotenv').config();
+const { mode } = require('./config/loadEnv');
 
 const validateEnv = require('./lib/validateEnv');
-validateEnv();
+const { warnings } = validateEnv();
+for (const warning of warnings) console.warn(`[Config] ${warning}`);
 
 const connectDB = require('./config/db');
 const app = require('./app');
@@ -12,7 +13,7 @@ const PORT = process.env.PORT || 5000;
 connectDB()
   .then(() => {
     app.listen(PORT, () => {
-      console.log(`[Server] Running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
+      console.log(`[Server] Running on port ${PORT} in ${mode} mode`);
       startDeletedSweep();
     });
   })

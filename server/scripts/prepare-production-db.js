@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('../config/loadEnv');
 const readline = require('node:readline/promises');
 const mongoose = require('mongoose');
 const { connectMongo } = require('../lib/mongoConnect');
@@ -61,7 +61,7 @@ async function confirm(prompt, expected) {
 }
 
 async function main() {
-  if (process.env.NODE_ENV !== 'production') throw new Error('Set NODE_ENV=production before running this production database preparation command.');
+  if (process.env.NODE_ENV !== 'production') throw new Error('Set MODE=prod in server/.env before running this production database preparation command.');
   if (!process.env.MONGODB_URI) throw new Error('Configure MONGODB_URI for the production database first.');
   const target = targetFromUri(process.env.MONGODB_URI);
   if (!target.database) throw new Error('MONGODB_URI must include a database name.');

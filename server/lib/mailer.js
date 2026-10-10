@@ -9,7 +9,9 @@ function setMailTransport(next) {
   transport = next;
 }
 
-function isConfigured() { return Boolean(transport || process.env.RESEND_MAIL_KEY); }
+// The example placeholder (re_xxxxxxxxx) is not a key; treating it as one would accept signups whose emails can never send.
+const isRealMailKey = (key) => { const value = String(key || '').trim(); return value.length > 3 && !/^re_x+$/i.test(value); };
+function isConfigured() { return Boolean(transport || isRealMailKey(process.env.RESEND_MAIL_KEY)); }
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
@@ -43,7 +45,7 @@ async function sendMail(message) {
     return { delivered: true };
   }
   const apiKey = process.env.RESEND_MAIL_KEY;
-  if (!apiKey) throw new Error('Resend email delivery is not configured');
+  if (!isRealMailKey(apiKey)) throw new Error('Resend email delivery is not configured');
   if (!resendClient) resendClient = new Resend(apiKey);
   const content = template(message);
   const { data, error } = await resendClient.emails.send({
@@ -87,4 +89,4 @@ async function sendTokenExpiryWarning(user, tokens) {
   });
 }
 
-module.exports = { setMailTransport, isConfigured, sendVerification, sendPasswordReset, sendAccountExistsNotice, sendTokenExpiryWarning };
+module.exports = { setMailTransport, isConfigured, isRealMailKey, sendVerification, sendPasswordReset, sendAccountExistsNotice, sendTokenExpiryWarning };

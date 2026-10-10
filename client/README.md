@@ -1,16 +1,64 @@
-# React + Vite
+# Dashboard (`client/`)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The React single-page app for managing content, Apps and API tokens. It talks to the dashboard API in `server/`.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+cp .env.example .env
+npm run dev          # http://localhost:5173/admin/login
+```
 
-## React Compiler
+The API must be running, and the dashboard must be opened at the exact origin set in the server's `DEV_CLIENT_ORIGIN`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Configuration
 
-## Expanding the Oxlint configuration
+`client/.env`:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+| Variable | Meaning |
+| :--- | :--- |
+| `VITE_MODE` | `dev` or `prod`. Selects which URL below is used. |
+| `VITE_DEV_API_URL` | Dashboard API base URL in development. Default `http://localhost:5000/api`. |
+| `VITE_PROD_API_URL` | Dashboard API base URL in production: a full `https://.../api` URL, or `/api` when served from the same origin. |
+
+Values are compiled into the bundle, so rebuild after changing them, and never put secrets here. Details: [../docs/ENVIRONMENT.md](../docs/ENVIRONMENT.md).
+
+## Commands
+
+| Command | Purpose |
+| :--- | :--- |
+| `npm run dev` | Vite dev server with hot reload |
+| `npm run build` | Production bundle in `dist/`. Use `VITE_MODE=prod`; the build warns if it would call a development API. |
+| `npm run preview` | Serve the built bundle locally |
+| `npm run lint` | oxlint |
+
+## Layout
+
+```
+src/
+  main.jsx, App.jsx        entry and routes
+  api/client.js            Axios instance: credentials, CSRF header, 401 handling (base URL comes from vite.config.js)
+  context/AuthContext.jsx  session state
+  context/ThemeContext.jsx 20 colour themes via CSS variables
+  pages/admin/             dashboard screens (content managers, Apps, account, superadmin)
+  pages/auth/              signup, email verification, password reset
+  components/admin/        route guard, toasts, loading/empty states, visibility toggle
+  index.css                theme tokens and shared component classes
+```
+
+## Routes
+
+| Path | Screen |
+| :--- | :--- |
+| `/admin/login`, `/admin/signup`, `/admin/forgot-password`, `/admin/reset-password`, `/admin/verify-email`, `/admin/check-email` | Authentication |
+| `/admin/dashboard` | Overview |
+| `/admin/profile`, `/admin/resume`, `/admin/socials` | Singletons and links |
+| `/admin/projects`, `/admin/projects/new`, `/admin/projects/edit/:id` | Projects |
+| `/admin/skills`, `/admin/experience`, `/admin/education`, `/admin/certifications` | Collections |
+| `/admin/apps`, `/admin/apps/:id` | Apps and their tokens |
+| `/admin/account` | Password, export, delete account |
+| `/admin/superadmin` | Platform settings and invites (superadmin only) |
+| `/legal/terms`, `/legal/privacy` | Placeholder policy pages |
+
+When deploying, the static host must serve `index.html` for all of these paths.

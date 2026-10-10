@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Chosen at build time by vite.config.js from VITE_MODE and the VITE_*_API_URL settings.
+const baseURL = import.meta.env.VITE_RESOLVED_API_URL;
 
 // The session lives in an httpOnly cookie the server sets; scripts (and XSS) can never read it.
 export const api = axios.create({
