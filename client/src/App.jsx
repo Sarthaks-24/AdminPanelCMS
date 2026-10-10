@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -31,15 +31,32 @@ import LegalPreview from './pages/auth/LegalPreview';
 import NotFound from './pages/NotFound';
 import { ToastProvider } from './components/admin/Toast';
 
+// Public pages. Split out so a visitor who only reads the landing page or the docs never
+// downloads the dashboard, and so the bundled markdown stays out of the admin chunk.
+const Landing = lazy(() => import('./pages/public/Landing'));
+const DocsIndex = lazy(() => import('./pages/public/DocsIndex'));
+const DocPage = lazy(() => import('./pages/public/DocPage'));
+const LicensePage = lazy(() => import('./pages/public/LicensePage'));
+
+// Shown only for the moment a split chunk is in flight; deliberately quiet rather than a spinner.
+function PublicFallback() {
+  return <div className="min-h-dvh bg-t-bg" />;
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
         <ToastProvider>
         <BrowserRouter>
+          <Suspense fallback={<PublicFallback />}>
           <Routes>
-            {/* Root Redirect to Admin Dashboard */}
-            <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+            {/* Public pages */}
+            <Route path="/" element={<Landing />} />
+            <Route path="/docs" element={<DocsIndex />} />
+            <Route path="/docs/:slug" element={<DocPage />} />
+            <Route path="/readme" element={<DocPage slug="readme" />} />
+            <Route path="/license" element={<LicensePage />} />
 
             {/* Admin Authentication */}
             <Route path="/admin/login" element={<AdminLogin />} />
@@ -81,6 +98,7 @@ export default function App() {
             {/* Fallback */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </BrowserRouter>
         </ToastProvider>
       </AuthProvider>

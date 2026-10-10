@@ -26,5 +26,8 @@ export default defineConfig(({ command, mode }) => {
     plugins: [react()],
     // Resolved here so only the chosen URL is compiled into the bundle.
     define: { 'import.meta.env.VITE_RESOLVED_API_URL': JSON.stringify(apiUrl) },
+    // The public pages render the repo's own README, LICENSE and docs/*.md, which sit above this
+    // package. Vite inlines them at build time; the dev server needs permission to read them.
+    server: { fs: { allow: ['..'] } },
   }
 })
