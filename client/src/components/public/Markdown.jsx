@@ -26,29 +26,58 @@ function heading(level) {
     return (
       <Tag id={id} className="group scroll-mt-20">
         {children}
-        <a href={`#${id}`} aria-label={`Link to this section`} className="ml-2 align-middle text-t-dim opacity-0 transition group-hover:opacity-100 focus:opacity-100">#</a>
+        {/* The glyph is decoration; the accessible name carries the meaning, so it is not read as
+            part of the heading text. */}
+        <a href={`#${id}`} aria-label="Permalink to this section" className="ml-2 align-middle text-t-dim no-underline opacity-0 transition group-hover:opacity-100 focus:opacity-100">
+          <span aria-hidden="true">#</span>
+        </a>
       </Tag>
     );
   };
 }
 
-/** Extracts the `##` and `###` headings so a page can build its own table of contents. */
+/** Strips the inline markdown that would otherwise end up in a heading's text and its id. */
+const plainHeading = (text) => text
+  .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1') // links and images keep their label
+  .replace(/[`*_~]/g, '')
+  .trim();
+
+/**
+ * Extracts the `##` and `###` headings so a page can build its own table of contents.
+ * Lines inside fenced code blocks are skipped: a shell comment like `## install` is not a heading,
+ * and the rendered document has no anchor for it.
+ */
 export function outlineOf(markdown) {
-  return [...markdown.matchAll(/^(#{2,3})\s+(.+?)\s*$/gm)].map(([, hashes, text]) => ({
-    depth: hashes.length,
-    text: text.replace(/`/g, ''),
-    id: slugifyHeading(text.replace(/`/g, '')),
-  }));
+  const outline = [];
+  let fence = null;
+  for (const line of markdown.split('\n')) {
+    const fenceMatch = /^\s*(```+|~~~+)/.exec(line);
+    if (fenceMatch) {
+      if (!fence) fence = fenceMatch[1][0];
+      else if (fenceMatch[1][0] === fence) fence = null;
+      continue;
+    }
+    if (fence) continue;
+    const heading = /^(#{2,3})\s+(.+?)\s*$/.exec(line);
+    if (!heading) continue;
+    const text = plainHeading(heading[2]);
+    if (!text) continue;
+    // Deliberately not de-duplicated: the id has to be the one the rendered heading carries, and
+    // that is derived from its text alone. Two identical headings share an anchor and the link
+    // lands on the first, which beats a suffixed id that matches no element at all.
+    outline.push({ depth: heading[1].length, text, id: slugifyHeading(text) });
+  }
+  return outline;
 }
 
-export default function Markdown({ children }) {
+export default function Markdown({ children, source = '' }) {
   const components = useMemo(() => ({
     h1: heading(1),
     h2: heading(2),
     h3: heading(3),
     h4: heading(4),
     a({ href, children: label, ...rest }) {
-      const target = resolveDocLink(href, REPO_URL);
+      const target = resolveDocLink(href, REPO_URL, source);
       if (target?.startsWith('/')) {
         const [path, hash] = target.split('#');
         return <Link to={{ pathname: path, hash: hash ? `#${hash}` : '' }} {...rest}>{label}</Link>;
@@ -60,7 +89,7 @@ export default function Markdown({ children }) {
     table({ children: rows }) {
       return <div className="doc-table-scroll"><table>{rows}</table></div>;
     },
-  }), []);
+  }), [source]);
 
   return (
     <div className="doc-prose">

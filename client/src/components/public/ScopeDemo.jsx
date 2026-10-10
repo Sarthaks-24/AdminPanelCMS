@@ -1,13 +1,19 @@
 import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { File, Folder, RotateCcw } from 'lucide-react';
 import JsonBlock from './JsonBlock';
-import { POOL, SECTIONS, buildDefaultScope, fakeEtag, responseHeaders, scopedResponse } from '../../content/scopeDemo';
+import { SECTIONS, buildDefaultScope, defaultFieldsFor, fakeEtag, responseHeaders, scopedResponse } from '../../content/scopeDemo';
 
 const ENDPOINTS = [
   { key: 'profile', path: '/v1/profile' },
   { key: 'projects', path: '/v1/projects' },
   { key: 'skills', path: '/v1/skills' },
   { key: 'fs', path: '/v1/fs' },
+];
+
+const TOKEN_KINDS = [
+  { value: 'pk', label: 'pk_live', title: 'A publishable key: safe to ship in a browser bundle, limited to origins you allow.' },
+  { value: 'sk', label: 'sk_live', title: 'A secret key: for your own server only, never shipped to a browser.' },
 ];
 
 function Checkbox({ checked, onChange, children, dim = false, id }) {
@@ -87,7 +93,14 @@ export default function ScopeDemo() {
     return { ...current, [key]: { ...current[key], fields: next } };
   });
 
-  const grantedCount = SECTIONS.reduce((total, section) => total + (scope[section.key].enabled ? (scope[section.key].fields?.length ?? 1) : 0), 0);
+  // Counts what each section will actually serve, so an empty field list reports its fallback set
+  // rather than zero while the response beside it is showing ten fields.
+  const grantedCount = SECTIONS.reduce((total, section) => {
+    if (!scope[section.key].enabled) return total;
+    const picked = scope[section.key].fields;
+    if (picked === null) return total + 1;
+    return total + (picked.length || (defaultFieldsFor(section) || []).length);
+  }, 0);
   const isDefault = JSON.stringify(scope) === JSON.stringify(buildDefaultScope());
 
   const fsTree = endpoint === 'fs' && response.status === 200 ? response.body : null;
@@ -111,19 +124,24 @@ export default function ScopeDemo() {
               <RotateCcw size={13} aria-hidden="true" />Reset
             </button>
           )}
-          <div role="radiogroup" aria-label="Token kind" className="flex rounded-lg border border-t-border p-0.5">
-            {[['pk', 'pk_live'], ['sk', 'sk_live']].map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={tokenType === value}
-                onClick={() => setTokenType(value)}
-                className={`rounded-md px-2.5 py-1 font-mono-code text-[0.75rem] transition ${tokenType === value ? 'bg-t-accent text-t-on-accent' : 'text-t-muted hover:text-t-text'}`}
-              >
-                {label}
-              </button>
-            ))}
+          {/* Plain toggle buttons: a radiogroup role would promise arrow-key navigation this does not implement. */}
+          <div className="flex items-center gap-2">
+            <span id="token-kind-label" className="text-[0.75rem] text-t-dim">Called with</span>
+            <div className="flex rounded-lg border border-t-border p-0.5">
+              {TOKEN_KINDS.map(({ value, label, title }) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={tokenType === value}
+                  aria-describedby="token-kind-label"
+                  title={title}
+                  onClick={() => setTokenType(value)}
+                  className={`rounded-md px-2.5 py-1 font-mono-code text-[0.75rem] transition ${tokenType === value ? 'bg-t-accent text-t-on-accent' : 'text-t-muted hover:text-t-text'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -131,8 +149,10 @@ export default function ScopeDemo() {
       <div className="grid lg:grid-cols-[17rem_1fr]">
         {/* ── The grant ─────────────────────────────────────────────── */}
         <div className="border-b border-t-border p-4 lg:border-b-0 lg:border-r">
-          <p className="mb-3 text-[0.8125rem] leading-5 text-t-muted">
-            Untick anything. The response beside it changes with you.
+          <h3 className="text-[0.8125rem] font-semibold text-t-text">What this app may read</h3>
+          <p className="mt-1.5 mb-3 text-[0.8125rem] leading-5 text-t-muted">
+            Untick a field and watch it vanish from the response on the right — that response is everything the
+            website holding this key can ever see.
           </p>
           <div className="space-y-3">
             {SECTIONS.map((section) => (
@@ -167,13 +187,13 @@ export default function ScopeDemo() {
 
         {/* ── What the app receives ─────────────────────────────────── */}
         <div className="min-w-0">
-          <div className="flex gap-1 overflow-x-auto border-b border-t-border px-2 pt-2">
+          <div role="group" aria-label="Endpoint to call" className="flex gap-1 overflow-x-auto border-b border-t-border px-2 pt-2">
             {ENDPOINTS.map((item) => (
               <button
                 key={item.key}
                 type="button"
                 onClick={() => setEndpoint(item.key)}
-                aria-current={endpoint === item.key ? 'page' : undefined}
+                aria-pressed={endpoint === item.key}
                 className={`shrink-0 rounded-t-lg border-b-2 px-3 py-2 font-mono-code text-[0.75rem] transition ${
                   endpoint === item.key ? 'border-t-accent text-t-text' : 'border-transparent text-t-dim hover:text-t-muted'
                 }`}
@@ -183,7 +203,8 @@ export default function ScopeDemo() {
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 font-mono-code text-[0.6875rem]">
+          {/* Announced, because the whole point of the panel is that this line and the body below it change. */}
+          <div aria-live="polite" className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 font-mono-code text-[0.6875rem]">
             <span className={response.status === 200 ? 'text-t-accent2' : 'text-t-danger'}>
               {response.status} {response.status === 200 ? 'OK' : 'Forbidden'}
             </span>
@@ -194,8 +215,9 @@ export default function ScopeDemo() {
 
           {response.usedDefaults && (
             <p className="mx-4 mb-3 rounded-lg border border-t-accent/25 bg-t-accent/8 px-3 py-2 text-[0.75rem] leading-5 text-t-muted">
-              No fields picked, so this section falls back to its default set. An App grants nothing by being
-              switched off, never by having an empty field list.
+              Every box is unticked, which is not the same as granting nothing: an empty field list means
+              &ldquo;use this section&rsquo;s defaults&rdquo;, so the defaults are what you see. To grant nothing, switch the
+              section itself off.
             </p>
           )}
 
@@ -238,8 +260,11 @@ export default function ScopeDemo() {
       </div>
 
       <p className="border-t border-t-border px-4 py-2.5 text-[0.75rem] leading-5 text-t-dim">
-        Sample content, real rules: field scoping, the filesystem layout and the cache headers above all come from
-        the same logic the server runs. The pool behind it holds {POOL.projects.length} projects and {POOL.skills.length} skills.
+        A demo, not a live API: the content is invented, and the scoping and file tree are a faithful
+        reimplementation of the server&rsquo;s rules rather than the server itself. Field names, the 403 body and the
+        cache headers are the real ones; the ETag is a stand-in. The{' '}
+        <Link to="/docs/api" className="text-t-muted underline decoration-t-dim underline-offset-2 hover:text-t-text">API reference</Link>{' '}
+        documents what a real call returns.
       </p>
     </section>
   );

@@ -17,21 +17,22 @@ const CONTENT = [
   { key: 'resume', shape: 'one record', detail: 'A link, a version and a summary line.' },
 ];
 
-// Two apps drawn from the same pool. The contrast is the whole point of the product.
-const APPS = [
-  {
-    name: 'portfolio-site',
-    token: 'pk_live_…',
-    tokenNote: 'publishable, locked to one origin, called from the browser',
-    grants: ['profile — everything but email', 'projects — all published, with case studies', 'skills, experience, education, certifications', 'fs — the file tree'],
-  },
-  {
-    name: 'resume-page',
-    token: 'sk_live_…',
-    tokenNote: 'secret, server-side only, never shipped to a browser',
-    grants: ['profile — name and headline only', 'projects — three featured, no case studies', 'resume — the PDF link'],
-    withheld: ['no email address', 'no socials', 'no fs'],
-  },
+// Two apps drawn from the same pool, compared row by row. The column of dashes is the point.
+const COMPARED = [
+  { section: 'profile', portfolio: 'everything but the email address', resume: 'name and headline' },
+  { section: 'projects', portfolio: 'all published, with case studies', resume: 'the featured ones, no case studies' },
+  { section: 'skills', portfolio: 'all, grouped by category', resume: null },
+  { section: 'experience', portfolio: 'all', resume: null },
+  { section: 'education', portfolio: 'all', resume: null },
+  { section: 'certifications', portfolio: 'all', resume: null },
+  { section: 'socials', portfolio: 'all', resume: null },
+  { section: 'resume', portfolio: 'the link', resume: 'the link' },
+  { section: 'fs', portfolio: 'enabled', resume: null },
+];
+
+const COLUMNS = [
+  { key: 'portfolio', name: 'portfolio-site', token: 'pk_live_…', note: 'Publishable. Read from the browser, and only from the origins you allow.' },
+  { key: 'resume', name: 'resume-page', token: 'sk_live_…', note: 'Secret. Read from your server, never shipped to a browser.' },
 ];
 
 const STEPS = [
@@ -41,32 +42,29 @@ const STEPS = [
   { command: 'cd ../client && npm install && npm run dev', note: 'The dashboard comes up on :5173. Sign in and start writing.' },
 ];
 
-function Eyebrow({ children }) {
-  return <p className="text-[0.8125rem] font-medium text-t-accent">{children}</p>;
-}
-
 export default function Landing() {
-  const { isOpen, isInviteOnly, isClosed } = useSignupMode();
+  const { isOpen, isInviteOnly, isClosed, resolved } = useSignupMode();
 
   return (
     <PublicShell wide>
       {/* ── Hero: the claim, then immediately the evidence ─────────────── */}
       <section className="mx-auto max-w-[90rem] px-4 pb-10 pt-14 sm:px-6 sm:pt-20">
         <div className="page-enter max-w-3xl">
-          <h1 className="font-display text-[2.5rem] leading-[1.03] tracking-[-0.03em] text-t-text sm:text-[3.5rem]">
+          <p className="text-[0.9375rem] text-t-muted">{SITE.category}</p>
+          <h1 className="mt-3 font-display text-[2.25rem] leading-[1.03] tracking-[-0.03em] text-t-text sm:text-[3.25rem]">
             {SITE.claim}
             <span className="block text-t-muted">{SITE.mechanism}</span>
           </h1>
-          <p className="mt-6 max-w-xl text-[1.0625rem] leading-7 text-t-muted">
-            Write your profile, projects, skills and the rest once. Then give each website you build a read-only
-            key that can see only the sections, items and fields you picked for it.
+          <p className="mt-5 max-w-xl text-[1.0625rem] leading-7 text-t-muted">
+            Write your profile, projects and skills once. Each site you build then gets its own read-only key,
+            and a key can only ever read the fields you granted it.
           </p>
-          <p className="mt-5 text-[0.8125rem] text-t-dim">{SITE.status}</p>
+          <p className="mt-4 text-[0.875rem] text-t-dim">{SITE.status}</p>
 
-          <div className="mt-8 flex flex-wrap items-center gap-3">
+          <div className="mt-7 flex flex-wrap items-center gap-3">
             <Link
               to="/docs/setup"
-              className="rounded-xl bg-t-accent px-5 py-2.5 text-[0.875rem] font-semibold text-t-on-accent shadow-glow-accent transition hover:bg-t-accent-br"
+              className="rounded-lg bg-t-accent px-5 py-2.5 text-[0.875rem] font-semibold text-t-on-accent transition hover:bg-t-accent-br"
             >
               Run it yourself
             </Link>
@@ -74,17 +72,24 @@ export default function Landing() {
               href={REPO_URL}
               target="_blank"
               rel="noreferrer noopener"
-              className="rounded-xl border border-t-border-hi px-5 py-2.5 text-[0.875rem] font-medium text-t-text transition hover:border-t-accent"
+              className="rounded-lg border border-t-border-hi px-5 py-2.5 text-[0.875rem] font-medium text-t-text transition hover:border-t-accent"
             >
               View the source
             </a>
-            <Link to="/docs/api" className="px-2 py-2.5 text-[0.875rem] text-t-muted transition hover:text-t-text hover:underline">
-              Read the API reference
-            </Link>
           </div>
         </div>
 
-        <div className="mt-12">
+        {/* Why scoping is worth having at all. The demo below is the answer in motion. */}
+        <div className="mt-10 max-w-3xl border-l-2 border-t-accent pl-5">
+          <p className="text-[0.9375rem] leading-7 text-t-muted">
+            A key that your website reads content with ships inside that website, where anyone can read it back
+            out. So whatever a key may fetch is, in practice, public. That is the problem this solves: your
+            portfolio's key can hold your whole history, while the key on a client microsite reaches three
+            projects and never your email address.
+          </p>
+        </div>
+
+        <div className="mt-10">
           <ScopeDemo />
         </div>
       </section>
@@ -92,47 +97,55 @@ export default function Landing() {
       {/* ── The mechanism, shown as two real grants ────────────────────── */}
       <section aria-labelledby="apps-title" className="mx-auto max-w-[90rem] px-4 py-16 sm:px-6">
         <div className="max-w-2xl">
-          <Eyebrow>The same pool, read two ways</Eyebrow>
-          <h2 id="apps-title" className="mt-2 font-display text-[1.75rem] leading-tight tracking-[-0.02em] sm:text-[2.125rem]">
+          <h2 id="apps-title" className="font-display text-[1.75rem] leading-tight tracking-[-0.02em] sm:text-[2.125rem]">
             An App is a view, not a copy
           </h2>
           <p className="mt-4 text-[0.9375rem] leading-7 text-t-muted">
             Nothing is duplicated and nothing is synced. Each App holds a grant, and the API applies it on the way
-            out. Change your bio once and every site that may read it is already current.
+            out. Edit your bio once and every site allowed to read it picks the change up within the minute its
+            response is cached for.
           </p>
         </div>
 
-        <div className="mt-8 grid gap-4 lg:grid-cols-2">
-          {APPS.map((app) => (
-            <article key={app.name} className="rounded-xl border border-t-border bg-t-surface p-5">
-              <h3 className="font-mono-code text-[0.9375rem] font-medium text-t-text">{app.name}</h3>
-              <p className="mt-2 text-[0.8125rem] leading-5 text-t-muted">
-                <span className="font-mono-code text-t-accent">{app.token}</span> — {app.tokenNote}
-              </p>
-              <ul className="mt-4 space-y-1.5">
-                {app.grants.map((grant) => (
-                  <li key={grant} className="flex gap-2.5 text-[0.8125rem] leading-6 text-t-muted">
-                    <span aria-hidden="true" className="mt-[0.5625rem] h-1 w-1 shrink-0 rounded-full bg-t-accent2" />
-                    {grant}
-                  </li>
+        <div className="mt-8 overflow-x-auto">
+          <table className="w-full min-w-[34rem] border-collapse text-left">
+            <caption className="sr-only">What each of two apps may read from the same content pool</caption>
+            <thead>
+              <tr>
+                <th scope="col" className="w-40 pb-3 pr-6 align-bottom text-[0.875rem] font-medium text-t-dim">Section</th>
+                {COLUMNS.map((column) => (
+                  <th key={column.key} scope="col" className="pb-3 pr-6 align-bottom">
+                    <span className="block font-mono-code text-[0.9375rem] font-medium text-t-text">{column.name}</span>
+                    <span className="mt-1 block font-mono-code text-[0.75rem] text-t-accent">{column.token}</span>
+                    <span className="mt-1.5 block max-w-[15rem] text-[0.75rem] font-normal leading-5 text-t-muted">{column.note}</span>
+                  </th>
                 ))}
-                {app.withheld?.map((item) => (
-                  <li key={item} className="flex gap-2.5 text-[0.8125rem] leading-6 text-t-dim">
-                    <span aria-hidden="true" className="mt-[0.5625rem] h-1 w-1 shrink-0 rounded-full bg-t-dim" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
+              </tr>
+            </thead>
+            <tbody>
+              {COMPARED.map((row) => (
+                <tr key={row.section}>
+                  <th scope="row" className="border-t border-t-border py-2.5 pr-6 font-mono-code text-[0.875rem] font-normal text-t-muted">
+                    {row.section}
+                  </th>
+                  {COLUMNS.map((column) => (
+                    <td key={column.key} className="border-t border-t-border py-2.5 pr-6 text-[0.875rem] leading-6">
+                      {row[column.key]
+                        ? <span className="text-t-text">{row[column.key]}</span>
+                        : <span className="text-t-dim" title="not granted">not granted</span>}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
       {/* ── What the pool holds ────────────────────────────────────────── */}
       <section aria-labelledby="content-title" className="mx-auto max-w-[90rem] px-4 py-16 sm:px-6">
         <div className="max-w-2xl">
-          <Eyebrow>What you write once</Eyebrow>
-          <h2 id="content-title" className="mt-2 font-display text-[1.75rem] leading-tight tracking-[-0.02em] sm:text-[2.125rem]">
+          <h2 id="content-title" className="font-display text-[1.75rem] leading-tight tracking-[-0.02em] sm:text-[2.125rem]">
             Eight sections, each item a draft or published
           </h2>
           <p className="mt-4 text-[0.9375rem] leading-7 text-t-muted">
@@ -157,8 +170,7 @@ export default function Landing() {
       {/* ── Running it: a genuine sequence, so numbering earns its place ── */}
       <section aria-labelledby="run-title" className="mx-auto max-w-[90rem] px-4 py-16 sm:px-6">
         <div className="max-w-2xl">
-          <Eyebrow>Four commands</Eyebrow>
-          <h2 id="run-title" className="mt-2 font-display text-[1.75rem] leading-tight tracking-[-0.02em] sm:text-[2.125rem]">
+          <h2 id="run-title" className="font-display text-[1.75rem] leading-tight tracking-[-0.02em] sm:text-[2.125rem]">
             You host it, so you keep the database
           </h2>
           <p className="mt-4 text-[0.9375rem] leading-7 text-t-muted">
@@ -170,12 +182,12 @@ export default function Landing() {
         <ol className="mt-8 max-w-3xl">
           {STEPS.map((step, index) => (
             <li key={step.command} className="flex gap-4 border-t border-t-border py-4">
-              <span aria-hidden="true" className="mt-0.5 w-4 shrink-0 font-mono-code text-[0.8125rem] text-t-dim">{index + 1}</span>
+              <span aria-hidden="true" className="mt-0.5 w-4 shrink-0 font-mono-code text-[0.875rem] text-t-dim">{index + 1}</span>
               <div className="min-w-0">
-                <code className="block overflow-x-auto whitespace-pre rounded-lg bg-t-code px-3 py-2 font-mono-code text-[0.8125rem] text-t-accent2">
+                <code className="block overflow-x-auto whitespace-pre rounded-lg bg-t-code px-3 py-2 font-mono-code text-[0.875rem] text-t-accent2">
                   {step.command}
                 </code>
-                <p className="mt-2 text-[0.8125rem] leading-6 text-t-muted">{step.note}</p>
+                <p className="mt-2 text-[0.875rem] leading-6 text-t-muted">{step.note}</p>
               </div>
             </li>
           ))}
@@ -190,9 +202,8 @@ export default function Landing() {
 
       {/* ── Honest state of the project ────────────────────────────────── */}
       <section aria-labelledby="status-title" className="mx-auto max-w-[90rem] px-4 py-16 sm:px-6">
-        <div className="max-w-3xl rounded-xl border border-t-border bg-t-surface p-6 sm:p-8">
-          <Eyebrow>Where this actually is</Eyebrow>
-          <h2 id="status-title" className="mt-2 font-display text-[1.5rem] leading-tight tracking-[-0.02em]">
+        <div className="max-w-3xl border-t border-t-border pt-8">
+          <h2 id="status-title" className="font-display text-[1.5rem] leading-tight tracking-[-0.02em]">
             Built and tested, not yet deployed
           </h2>
           <div className="mt-5 space-y-3.5 text-[0.9375rem] leading-7 text-t-muted">
@@ -201,10 +212,12 @@ export default function Landing() {
               check of its own. Nobody is running this in production yet, including the person who wrote it.
             </p>
             <p>
-              {isClosed && 'Registration here is closed, so the dashboard is reachable only by accounts that already exist.'}
-              {isInviteOnly && 'Registration here is invite-only: you need a code from whoever runs this instance.'}
-              {isOpen && 'Registration here is open, with email verification.'}
-              {' '}Either way, the usual answer is to run your own copy.
+              {/* Only stated once the server has actually answered: an unreachable API is not a closed one. */}
+              {isClosed && 'Registration on this instance is closed, so the dashboard is reachable only by accounts that already exist. '}
+              {isInviteOnly && 'Registration on this instance is invite-only: you need a code from whoever runs it. '}
+              {isOpen && 'Registration on this instance is open, with email verification. '}
+              {!resolved && 'Whether this instance accepts registrations is something only its own server can answer. '}
+              The usual answer is to run your own copy.
             </p>
             <p>
               Read{' '}
@@ -215,10 +228,10 @@ export default function Landing() {
             </p>
           </div>
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Link to="/docs" className="rounded-xl bg-t-accent px-5 py-2.5 text-[0.875rem] font-semibold text-t-on-accent transition hover:bg-t-accent-br">
+            <Link to="/docs" className="rounded-lg bg-t-accent px-5 py-2.5 text-[0.875rem] font-semibold text-t-on-accent transition hover:bg-t-accent-br">
               Read the docs
             </Link>
-            <Link to="/admin/login" className="rounded-xl border border-t-border-hi px-5 py-2.5 text-[0.875rem] font-medium text-t-text transition hover:border-t-accent">
+            <Link to="/admin/login" className="rounded-lg border border-t-border-hi px-5 py-2.5 text-[0.875rem] font-medium text-t-text transition hover:border-t-accent">
               Sign in to this instance
             </Link>
             {isInviteOnly && (
