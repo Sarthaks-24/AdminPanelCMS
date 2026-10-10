@@ -1,3 +1,17 @@
+/**
+ * A theme token that still works with an opacity modifier.
+ *
+ * Tailwind can only apply `/50` to a colour whose value it can take apart, so a plain
+ * `var(--theme-accent)` makes utilities like `bg-t-accent/10` compile to nothing at all —
+ * silently, with no build error. Returning color-mix for the modifier case keeps the token
+ * tied to the active theme and makes the whole `/<alpha>` range usable.
+ */
+const themeColor = (variable) => ({ opacityValue }) => (
+  opacityValue === undefined
+    ? `var(${variable})`
+    : `color-mix(in srgb, var(${variable}) calc(${opacityValue} * 100%), transparent)`
+);
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -26,23 +40,23 @@ export default {
         // ── Theme-aware CSS-variable tokens (t- prefix) ────────────────────
         // Use these everywhere instead of hardcoded hex values.
         // They update automatically when the user switches themes.
-        't-bg':           'var(--theme-bg)',
-        't-surface':      'var(--theme-surface)',
-        't-surface-hi':   'var(--theme-surface-hi)',
-        't-border':       'var(--theme-border)',
-        't-border-hi':    'var(--theme-border-hi)',
-        't-accent':       'var(--theme-accent)',
-        't-accent-br':    'var(--theme-accent-bright)',
-        't-on-accent':    'var(--theme-on-accent)',
-        't-accent2':      'var(--theme-accent2)',
-        't-accent2-dim':  'var(--theme-accent2-dim)',
-        't-on-accent2':   'var(--theme-on-accent2)',
-        't-text':         'var(--theme-text)',
-        't-muted':        'var(--theme-text-muted)',
-        't-dim':          'var(--theme-text-dim)',
-        't-danger':       'var(--theme-danger)',
-        't-danger-dim':   'var(--theme-danger-dim)',
-        't-code':         'var(--theme-code-bg)',
+        't-bg':           themeColor('--theme-bg'),
+        't-surface':      themeColor('--theme-surface'),
+        't-surface-hi':   themeColor('--theme-surface-hi'),
+        't-border':       themeColor('--theme-border'),
+        't-border-hi':    themeColor('--theme-border-hi'),
+        't-accent':       themeColor('--theme-accent'),
+        't-accent-br':    themeColor('--theme-accent-bright'),
+        't-on-accent':    themeColor('--theme-on-accent'),
+        't-accent2':      themeColor('--theme-accent2'),
+        't-accent2-dim':  themeColor('--theme-accent2-dim'),
+        't-on-accent2':   themeColor('--theme-on-accent2'),
+        't-text':         themeColor('--theme-text'),
+        't-muted':        themeColor('--theme-text-muted'),
+        't-dim':          themeColor('--theme-text-dim'),
+        't-danger':       themeColor('--theme-danger'),
+        't-danger-dim':   themeColor('--theme-danger-dim'),
+        't-code':         themeColor('--theme-code-bg'),
       },
       boxShadow: {
         // Shadows take their tint from the active theme instead of pure black.
