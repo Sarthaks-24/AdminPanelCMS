@@ -20,8 +20,10 @@ Arguments go after `--`, for example `npm run invite -- --count 5`.
 
 | Job | Steps | Must stay green |
 | :--- | :--- | :--- |
-| `server` | Node 20, `npm ci`, `npm test` (Vitest + Supertest against `mongodb-memory-server`; the MongoDB binary is cached under `~/.cache/mongodb-binaries`), `npm run lint:security` | before any deploy |
-| `client` | Node 20, `npm ci`, `npm run lint` (oxlint), `npm run build` with `VITE_MODE=prod` | before any deploy |
+| `server` | Node 22, `npm ci`, `npm test` (Vitest + Supertest against `mongodb-memory-server`; the MongoDB binary is cached under `~/.cache/mongodb-binaries`), `npm run lint:security` | before any deploy |
+| `client` | Node 22, `npm ci`, `npm run lint` (oxlint), `npm run build` with `VITE_MODE=prod` | before any deploy |
+
+Every action in both workflows is pinned to a full commit SHA (the tag is in the trailing comment). `.github/dependabot.yml` opens weekly grouped PRs for the actions, the server and client npm packages, and the `node:22-alpine` image digest in `server/Dockerfile`; review and merge them like any other change.
 
 Nothing in CI touches a real database or needs a secret. A red `server` job means a test or the owner-scope lint failed; a red `client` job means a lint error or a broken build.
 
@@ -53,7 +55,7 @@ Passwords passed on the command line end up in shell history; prefer the `.env` 
 | Command | What it does | Writes |
 | :--- | :--- | :--- |
 | `npm run sweep:deleted` | Finishes removing data for accounts marked deleted, and purges accounts that never verified their email within **48 hours** (email-first signup leaves them with no password, so they have nothing to lose). The running server also does this every `SWEEP_DELETED_INTERVAL_HOURS`. | Yes |
-| `npm run tokens:notify-expiring` | Emails each owner once about API tokens expiring within `TOKEN_EXPIRY_WARNING_DAYS`. Needs a mail key and counts against the mail budget. Intended for a daily schedule. | Yes |
+| `npm run tokens:notify-expiring` | Emails each owner once about API tokens expiring within `TOKEN_EXPIRY_WARNING_DAYS`. Needs a mail key and counts against the mail budget. The running server already does this every `TOKEN_EXPIRY_NOTICE_INTERVAL_HOURS` (default 24, first run 5 minutes after boot); the script is for a one-off catch-up. It walks owners one at a time so every token query is owner-scoped. When the mail budget is spent the rest wait for the next run (`token_expiry_deferred` alert). | Yes |
 | `npm run db:migrate-legacy -- --confirm <database>` | One-time migration from the old single-admin layout: assigns existing content to the `ADMIN_EMAIL` account. Not needed for a new database. | Yes |
 
 ## Backups
@@ -72,7 +74,7 @@ Keep a copy of the passphrase somewhere that is not GitHub and not the backup bu
 
 | Step | Detail |
 | :--- | :--- |
-| Dump | `mongodump --archive --gzip` of the one database named in `MONGODB_URI`; the plaintext never touches disk |
+| Dump | `mongodump --archive --gzip` of the one database named in `MONGODB_URI`; the plaintext never touches disk. The URI reaches `mongodump` through a 0600 `--config` file in a private temp directory, never through argv, so `ps` cannot show the password |
 | Encrypt | `gpg --symmetric --cipher-algo AES256` with `BACKUP_PASSPHRASE_FILE`, into `BACKUP_DIR/backup_<db>_<timestamp>.gz.gpg` |
 | Upload | `rclone copyto` to `BACKUP_REMOTE_DESTINATION/<same name>` (required when `MODE=prod`) |
 | Prune local | Deletes archives of the same database in `BACKUP_DIR` older than `BACKUP_RETENTION_DAYS` (default **30**); the newest is always kept |
@@ -117,15 +119,107 @@ RESTORE DRILL OK <YYYY-MM-DD> <archive name> (<n> collections, <n> documents, 0 
 | :--- | :--- | :--- |
 | _none yet_ | | |
 
+### Production restore
+
+The drill proves an archive is readable. This is what to do when production itself needs data back. Read it through once before you need it.
+
+A nightly archive is up to 24 hours old. Restoring it brings back everything that existed at backup time `T`, including things people removed on purpose after `T`. Three of those must be removed again before the service reopens:
+
+- **accounts deleted after `T`** (self-service, superadmin force delete, or the 48-hour unverified purge): erasure is a legal promise, so it is re-applied;
+- **API keys revoked after `T`**: a revoked key is often a leaked key, so it must not come back to life;
+- **sessions**: every `tokenVersion` goes back to its value at `T`, so cookies that were revoked by a logout or password change would work again. Everyone is signed out instead.
+
+Content, Apps and keys created after `T` are lost; tell the affected tenants.
+
+#### Whole-database restore
+
+Run from a machine with MongoDB Database Tools, `mongosh` and `gpg`. Keep the production URI in a 0600 file, not on the command line:
+
+```bash
+umask 077
+printf 'uri: "%s"\n' 'mongodb+srv://api_user:<password>@<cluster>.mongodb.net/Portfolio_prod' > ~/prod-restore.yaml
+```
+
+1. **Freeze writes.** Set signup to `closed` in the panel, then stop the API (scale it to zero). With one replica there is nothing else writing.
+2. **Pick the archive**: the newest one taken before the damage. Its name carries `T`. Run the restore drill on it first; do not restore an archive that fails the drill.
+3. **Record what changed after `T`, from the live database, before touching it.** Restore the archive into a local scratch database and compare it with production:
+
+   ```bash
+   gpg --batch --pinentry-mode loopback --passphrase-file ~/backup.passphrase -d backup_Portfolio_prod_<T>.gz.gpg \
+     | mongorestore --uri mongodb://127.0.0.1:27017 --archive --gzip --nsFrom 'Portfolio_prod.*' --nsTo 'Portfolio_snapshot.*'
+   ```
+
+   Then open `mongosh mongodb://127.0.0.1:27017/Portfolio_snapshot` and keep that session open until step 5. Type the production URI at the prompt, not on the command line (mongosh removes lines with credentials from its history by default):
+
+   ```js
+   const prod = connect('mongodb+srv://api_user:<password>@<cluster>.mongodb.net/Portfolio_prod');   // only read here
+   const liveUsers = new Set(prod.users.distinct('_id', { status: { $ne: 'deleted' } }).map(String));
+   const goneUsers = db.users.distinct('_id').filter((id) => !liveUsers.has(String(id)));
+   const snapLiveTokens = db.apitokens.distinct('_id', { revokedAt: null });
+   const revokedSince = prod.apitokens.distinct('_id', { _id: { $in: snapLiveTokens }, revokedAt: { $ne: null } });
+   printjson({ goneUsers: goneUsers.length, revokedSince: revokedSince.length });
+   ```
+
+   `goneUsers` are accounts present at `T` and deleted (or pending deletion) since; `revokedSince` are keys live at `T` and revoked since. Keys whose whole App was deleted are covered too: their rows are revoked, not removed. Cross-check `goneUsers` against the `account_deleted`, `user_force_deleted` and `unverified_purged` log events after `T` if the log sink still has them.
+4. **Restore over production.** On Atlas M0 two copies of the database may not fit in 512 MB, so restore in place with `--drop` (it replaces each collection in the archive):
+
+   ```bash
+   gpg --batch --pinentry-mode loopback --passphrase-file ~/backup.passphrase -d backup_Portfolio_prod_<T>.gz.gpg \
+     | mongorestore --config ~/prod-restore.yaml --archive --gzip --drop --nsInclude 'Portfolio_prod.*'
+   ```
+
+   On a paid tier with room, restore into `Portfolio_prod_<date>` with `--nsFrom/--nsTo` instead, then repoint `MONGODB_URI`; the old database stays as evidence.
+5. **Re-apply the removals**, in the same mongosh session:
+
+   ```js
+   prod.users.updateMany({ _id: { $in: goneUsers } }, { $set: { status: 'deleted' }, $inc: { tokenVersion: 1 } });
+   prod.apitokens.updateMany({ _id: { $in: revokedSince } }, { $set: { revokedAt: new Date() } });
+   prod.users.updateMany({}, { $inc: { tokenVersion: 1 } });   // every session ends
+   ```
+
+   Marking an account `deleted` is enough: the running server's sweep (one minute after boot, then every `SWEEP_DELETED_INTERVAL_HOURS`) cascades its content, Apps, keys and email tokens, or run `npm run sweep:deleted` now.
+6. **Start the API**, run `npm run db:audit` and the smoke test from [DEPLOYMENT.md](DEPLOYMENT.md#6-smoke-test). The active-token set and the response cache start empty, so nothing stale is served.
+7. **Reopen signup**, drop `Portfolio_snapshot`, delete `~/prod-restore.yaml`, and write down what happened (date, archive, counts from step 3).
+
+#### Rolling back one tenant
+
+When one account's content is damaged (a bad bulk edit, a script run against the wrong owner) and everyone else's is fine, restore only that owner's content rows. Users, Apps and API tokens are never rolled back this way: their hashes and versions must stay current.
+
+1. Restore the archive into the local scratch database as in step 3 above (`Portfolio_snapshot`).
+2. Dump that owner's rows from each content collection:
+
+   ```bash
+   for c in profiles resumes socials skills projects experiences educations certifications; do
+     mongodump --uri mongodb://127.0.0.1:27017/Portfolio_snapshot --collection "$c" \
+       --query '{"owner":{"$oid":"<ownerId>"}}' --out rollback/
+   done
+   ```
+
+3. In production, remove the owner's current rows from the same collections (mongosh, API user):
+
+   ```js
+   const owner = ObjectId('<ownerId>');
+   for (const c of ['profiles', 'resumes', 'socials', 'skills', 'projects', 'experiences', 'educations', 'certifications']) db[c].deleteMany({ owner });
+   ```
+
+4. Load the snapshot rows:
+
+   ```bash
+   mongorestore --config ~/prod-restore.yaml --dir rollback/ \
+     --nsInclude 'Portfolio_snapshot.*' --nsFrom 'Portfolio_snapshot.*' --nsTo 'Portfolio_prod.*'
+   ```
+
+5. Restart the API so that owner's cached `/v1` responses are dropped (direct database writes do not bump the cache version). App selections that point at items which no longer exist are pruned the next time the App is saved.
+
 ## Superadmin
 
-A superadmin sees an extra dashboard page (`/admin/superadmin`) and the `/api/admin/*` endpoints behind it. The role is granted only by `production:prepare` or `superadmin:grant`; there is no API to grant it. A superadmin cannot suspend or delete themselves or the last remaining superadmin.
+A superadmin sees an extra dashboard page (`/dashboard/superadmin`, labelled "Platform admin") and the `/api/admin/*` endpoints behind it. The role is granted only by `production:prepare` or `superadmin:grant`; there is no API to grant it. A superadmin cannot suspend or delete themselves or the last remaining superadmin.
 
 | Endpoint | What it does |
 | :--- | :--- |
 | `GET /api/admin/overview` | Totals, process memory, uptime |
-| `GET /api/admin/signup-mode`, `PUT` | Signup mode `closed` / `invite` / `open`; `closed` is the kill switch and the default |
-| `GET /api/admin/invites`, `POST`, `DELETE /:id` | Invite codes: 12 characters, `maxUses` 1 to 50, expiry up to 90 days. Old 6-digit codes keep working until they expire; no new ones are made |
+| `GET /api/admin/settings`, `PUT` (needs a recent re-auth) | Signup mode `closed` / `invite` / `open`; `closed` is the kill switch and the default |
+| `GET /api/admin/invites`, `POST` (needs a recent re-auth), `DELETE /:id` | Invite codes: 12 characters, `maxUses` 1 to 50, expiry up to 90 days. 6-digit codes are no longer accepted |
 | `GET /api/admin/users?q=&status=&cursor=` | User list, 50 per page: email, created, verified, status, role, App count, last token use |
 | `POST /api/admin/users/:id/suspend` | Status `suspended`: every session and every API token of that account stops at once (`/v1` answers `401 account_unavailable`); content is kept |
 | `POST /api/admin/users/:id/unsuspend` | Back to `active`; tokens work again without being re-issued |
@@ -136,7 +230,7 @@ A superadmin sees an extra dashboard page (`/admin/superadmin`) and the `/api/ad
 
 1. Suspend first, ask later. Suspension is reversible and instant; deletion is neither.
 2. If signups are being abused, set the signup mode to `closed` from the panel. Existing accounts are unaffected.
-3. If one IP is hammering invites it is already locked for an hour (`INVITE_IP_FAILURE_LIMIT`); if the global guard trips, check the log for `invite_failed` events before raising `INVITE_FAILURE_LIMIT`.
+3. If one source is hammering invites it is already locked for an hour (`INVITE_IP_FAILURE_LIMIT`, per IPv4 address or IPv6 /48; `invite_locked` alert). There is no global lock any more: many sources failing raises `invite_failures_high`. Codes have 60 bits, so guessing is not the risk; the alert usually means a code leaked or a bot found the form. Turn on Turnstile (`TURNSTILE_SECRET_KEY`) and, if needed, set signup to `closed`.
 4. If `mail-budget` shows `sent` near `cap` before noon, something is minting signups: close signup and look at the `signup` log events.
 5. Keep a note of what you did and why; there is no audit collection yet, so the structured log (`LOG_LEVEL=info`) is the record.
 
@@ -147,17 +241,63 @@ A superadmin sees an extra dashboard page (`/admin/superadmin`) and the `/api/ad
 | Every push | CI runs. Do not deploy from a red run. |
 | Before a production deploy | Trigger "Nightly backup" by hand and wait for it to finish |
 | Nightly (automatic) | `backup.yml`: `npm run backup` + prune + `npm run stats` |
-| Daily (to schedule) | `npm run tokens:notify-expiring` |
+| Daily (automatic, in the server) | Token expiry notices (`TOKEN_EXPIRY_NOTICE_INTERVAL_HOURS`) |
+| Every 10 minutes (automatic, in the server) | Storage guard (`STORAGE_CHECK_INTERVAL_MINUTES`); see [Storage guard](#storage-guard) |
 | Weekly | Glance at `/api/admin/mail-budget` and the user list; check Atlas storage and ops/s |
 | Monthly | Restore drill; add the line to the log above |
 | After restoring or moving a database | `npm run db:audit` |
 | Storage at 60% of the M0 cap, or ops sustained above 50/s | Plan the Atlas Flex/M10 move (the `stats` step goes red at 70%) |
 
+## Alerts
+
+The server logs JSON to stdout only; it has no sink of its own. Attach the host's log drain to a service with retention (Better Stack, Axiom, Grafana Cloud, Papertrail; this is an owner choice, and the privacy text must name it), then alert on the lines below. Every alert-worthy line is level `warn` (40) and carries a stable **`alert`** field, so one rule ("`alert` is present") catches them all; route by its value.
+
+Bursty sources are deduplicated in process: one line per key per window, with the `count` seen so far, never one line per request.
+
+| `alert` | Means | Fires | Do |
+| :--- | :--- | :--- | :--- |
+| `busy_503` | Load shedding: `503 busy` on `/v1` (global miss bucket, pre-DB bucket) or on login (bcrypt gate full) | first one per minute per surface (`v1` / `api`) | Look for a flood in the access log (`path`, `owner`, `app`). Sustained: the instance is too small or a key is being scraped |
+| `rate_limited_429` | 429s across all routes | `ALERT_429_PER_MINUTE` (default 100) per minute per surface | Find the source in the access log; one tenant's site misbehaving, or a scraper |
+| `token_invalid_burst` | `/v1` 401s for one key prefix (`pk_live_XXXX`) | `ALERT_TOKEN_INVALID_PER_MINUTE` (default 30) per minute per prefix | A tenant's site is using a revoked or mistyped key, or valid keys are being refused (an active-set bug). `key` is the public prefix, never the token |
+| `mail_budget_half` | Half of `MAIL_DAILY_CAP` is spent today | once per day | Before noon UTC: something is minting signups. Check `signup` events |
+| `mail_reset_reserve_half` | Half of the password-reset reserve is spent | once per day | Someone is requesting resets in bulk |
+| `mail_budget_exhausted` | A send was refused by the budget | once per 10 minutes per kind (`general` / `reset`) | Signup and resend answer `503 mail_budget` until UTC midnight |
+| `invite_locked` | One source hit `INVITE_IP_FAILURE_LIMIT` wrong invite codes | once per hour per source (IP truncated) | Usually nothing; see the abuse playbook |
+| `invite_failures_high` | `INVITE_FAILURE_LIMIT` wrong codes in an hour across all sources | once per hour | See the abuse playbook, step 3 |
+| `signup_domain_capped` | One email domain hit `SIGNUP_DOMAIN_DAILY_CAP` new signups today | once per hour per domain | A real company onboarding (raise the cap) or a bot (leave it) |
+| `account_cap_reached` | `MAX_ACCOUNTS` reached; signup refused | every refused signup | Raise the cap or keep signup closed |
+| `storage_high` | Storage at `STORAGE_WARN_PERCENT` (70%) of `DB_STORAGE_CAP_BYTES` | every check (10 min) while above | Plan the Atlas upgrade or a cleanup |
+| `storage_full` | Storage at `STORAGE_BLOCK_PERCENT` (90%): signup closed, content writes refused | once on entering the state (`storage_recovered` event on leaving) | Act now: upgrade the cluster or free space |
+| `token_expiry_deferred` | Expiry notices postponed by the mail budget | per run | They retry the next day |
+
+Minimum wiring before the first invite: page on `busy_503`, `storage_full` and `mail_budget_exhausted`; email on the rest. Add an external uptime check on `/readyz` (it is not an alert line; the monitor sees the 503).
+
+Logged client IPs are truncated (IPv4 `/24`, IPv6 `/48`); request ids are server-generated unless the client sends a well-formed `X-Request-Id` (`[A-Za-z0-9._-]{1,64}`), which is echoed so a tenant's error report matches a log line.
+
+## Storage guard
+
+Atlas M0 refuses every write for every tenant at 512 MB. The server runs `dbStats` every `STORAGE_CHECK_INTERVAL_MINUTES` (default 10) and compares storage plus index size with `DB_STORAGE_CAP_BYTES`:
+
+- at `STORAGE_WARN_PERCENT` (70%): `storage_high` alert, nothing else changes;
+- at `STORAGE_BLOCK_PERCENT` (90%): signup closes for everyone (`/api/auth/config` reports `closed`) and content and App writes answer `503 storage_full`. Reads, `/v1` and deletes keep working, so tenants can free space themselves.
+
+The state clears on the next check below the threshold. `MAX_ACCOUNTS` (optional) caps accounts the same way: at the cap, signup answers `503 signup_unavailable` for every address.
+
+## Single replica: what lives in memory
+
+The API runs as **exactly one instance**. These are kept in process memory and start empty on every restart or deploy:
+
+- every rate limiter (`/api`, login, signup, recovery, `/v1` pre-auth, per-key, per-owner and global buckets);
+- the invite guard, the per-recipient mail cooldowns, the per-domain signup counts and the bcrypt gate;
+- the burst-alert windows, the storage-guard state (re-checked 5 seconds after boot), the active-token set and the response cache.
+
+Only the daily mail counter (`Setting` `mail:YYYY-MM-DD`) persists. This is a deliberate tradeoff for one small instance: no Redis or Mongo TTL store to run, at the price that a restart forgives everyone's limits. An attacker cannot force a restart through the API, and deploys are rare. Revisit it before running a second replica or if deploys become frequent; the limiters accept an `express-rate-limit` store, so the change is local to `middleware/authRateLimiters.js` and `middleware/v1Limiters.js`.
+
 ## Secrets rotation
 
 Do this once now (council 2026-10-11, §6) and then whenever a secret may have been exposed:
 
-1. **Rotate the dev Atlas database user's password** and every other dev secret: `DEV_JWT_SECRET`, the dev Resend key, `INVITE_CODE_PEPPER` if set. The dev Atlas password sat in a plaintext `.env.backup-*` file that was printed into a reviewer's tool output during the council run.
+1. **Rotate the dev Atlas database user's password** and every other dev secret: `DEV_JWT_SECRET`, the dev Resend key, `DEV_INVITE_CODE_PEPPER` if set. The dev Atlas password sat in a plaintext `.env.backup-*` file that was printed into a reviewer's tool output during the council run.
 2. **Delete `server/.env.backup-*` and `client/.env.backup-*`.** They are git-ignored but they are still files on disk with secrets in them. Do not create new ones; if you need a copy of a `.env`, put it in a password manager.
 3. Production secrets are never on a laptop: they live in the host's environment settings and in GitHub Actions secrets. The production Atlas users (API and backup) exist only in the production Atlas project; the sibling Portfolio never receives either credential.
-4. After rotating `JWT_SECRET`, every session ends (users sign in again); API tokens are unaffected. After rotating the Atlas password, update the host environment and the `PROD_MONGODB_URI` secret, then run the backup workflow by hand to confirm.
+4. After rotating `JWT_SECRET`, every session ends (users sign in again); API tokens and outstanding invites are unaffected (invites are hashed with `INVITE_CODE_PEPPER`, required in production). Rotating `INVITE_CODE_PEPPER` kills every outstanding invite, so only rotate it if it leaked. After rotating the Atlas password, update the host environment and the `PROD_MONGODB_URI` secret, then run the backup workflow by hand to confirm.

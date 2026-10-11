@@ -6,7 +6,7 @@ const ApiToken = require('../models/ApiToken');
 const { generateToken, hashToken } = require('../lib/tokens');
 const cache = require('../lib/cache');
 const { tokenCache, badTokenCache, responseCache, getOwnerVersion } = cache;
-const { preAuthLimiter, resetV1Limiters, globalMissBucket } = require('../middleware/v1Limiters');
+const { preAuthLimiter, resetV1Limiters, globalMissBucket, preDbBucket } = require('../middleware/v1Limiters');
 const { createUser, createApp, createToken, loginAs, seedContent } = require('./helpers/factory');
 
 const models = {
@@ -50,7 +50,8 @@ describe('versioned public API and dashboard token lifecycle', () => {
     const wrongOrigin = await request(appServer).get('/v1/profile')
       .set({ Authorization: `Bearer ${token}`, Origin: 'http://localhost:5173' }).expect(403);
     expect(wrongOrigin.body).toMatchObject({ ...v1ErrorShape, error: 'origin_not_allowed' });
-    expect(wrongOrigin.headers['access-control-allow-origin']).toBeUndefined();
+    // Errors are readable by the calling page so it can show the code, not an opaque "Failed to fetch".
+    expect(wrongOrigin.headers['access-control-allow-origin']).toBe('http://localhost:5173');
   });
 
   it('serves app metadata with ETag caching, private Cache-Control and origin CORS headers', async () => {
@@ -75,9 +76,13 @@ describe('versioned public API and dashboard token lifecycle', () => {
     const cmsApp = await createApp(App, user);
     const { rawToken } = await createToken(ApiToken, cmsApp, 'pk');
     const denied = await request(appServer).get('/v1/app').set('Authorization', `Bearer ${rawToken}`).set('Origin', 'https://attacker.test').expect(403);
-    expect(denied.headers['access-control-allow-origin']).toBeUndefined();
-    await request(appServer).options('/v1/projects').set('Origin', 'https://portfolio.test')
+    expect(denied.body).toMatchObject({ error: 'origin_not_allowed' });
+    expect(denied.body).not.toHaveProperty('data');
+    const preflight = await request(appServer).options('/v1/projects').set('Origin', 'https://portfolio.test')
+      .set('Access-Control-Request-Headers', 'authorization, x-request-id')
       .expect(204).expect('access-control-allow-methods', 'GET, OPTIONS');
+    expect(preflight.headers['access-control-allow-headers'].toLowerCase().split(', ')).toEqual(expect.arrayContaining(['authorization', 'x-request-id']));
+    expect(preflight.headers['access-control-expose-headers']).toContain('X-Request-Id');
   });
 
   it('allows wildcard-origin publishable calls only with a valid bearer token', async () => {
@@ -128,8 +133,9 @@ describe('versioned public API and dashboard token lifecycle', () => {
     await request(appServer).get('/v1/app').set('Origin', 'https://portfolio.test').expect(401).expect((res) => {
       expect(res.body).toMatchObject({ ...v1ErrorShape, error: 'token_missing' });
       expect(res.body).not.toHaveProperty('success');
-      expect(res.headers['access-control-allow-origin']).toBeUndefined();
+      expect(res.headers['access-control-allow-origin']).toBe('https://portfolio.test');
     });
+    await request(appServer).get('/v1/app').expect(401).expect((res) => expect(res.headers['access-control-allow-origin']).toBeUndefined());
     await request(appServer).get('/v1/app?token=pk_live_nope').expect(400).expect((res) => expect(res.body.error).toBe('token_in_query'));
   });
 
@@ -175,7 +181,9 @@ describe('versioned public API and dashboard token lifecycle', () => {
       }
       const limited = await request(appServer).get('/v1/app').set('Origin', 'https://portfolio.test').set('Authorization', 'Bearer malformed').expect(429);
       expect(limited.body).toMatchObject({ ...v1ErrorShape, error: 'rate_limited' });
-      expect(limited.headers['access-control-allow-origin']).toBeUndefined();
+      expect(limited.headers['access-control-allow-origin']).toBe('https://portfolio.test');
+      expect(limited.headers['retry-after']).toBeTruthy();
+      expect(limited.headers.ratelimit).toBeUndefined(); // only the per-key limiter advertises a limit
       expect(querySpy).not.toHaveBeenCalled();
     } finally {
       querySpy.mockRestore();
@@ -194,8 +202,57 @@ describe('versioned public API and dashboard token lifecycle', () => {
     const limited = await request(appServer).get('/v1/app').set(headers).expect(429);
     expect(limited.body).toMatchObject({ ...v1ErrorShape, error: 'rate_limited' });
     expect(limited.headers['retry-after']).toBeTruthy();
-    expect(limited.headers['ratelimit']).toBeTruthy();
+    expect(limited.headers.ratelimit).toMatch(/^limit=120, remaining=0,/);
     expect(limited.headers['access-control-allow-origin']).toBe('https://portfolio.test');
+  });
+
+  it('advertises each key kind its own per-key limit, not the pre-auth or ceiling limits', async () => {
+    const user = await createUser(User);
+    const staticApp = await createApp(App, user);
+    const pk = await createToken(ApiToken, staticApp, 'pk');
+    const pkResponse = await request(appServer).get('/v1/app').set({ Authorization: `Bearer ${pk.rawToken}`, Origin: 'https://portfolio.test' }).expect(200);
+    expect(pkResponse.headers.ratelimit).toMatch(/^limit=120,/);
+    expect(pkResponse.headers['ratelimit-policy']).toBe('120;w=60');
+    const protectedApp = await createApp(App, user, { type: 'protected', allowedOrigins: [] });
+    const sk = await createToken(ApiToken, protectedApp, 'sk');
+    const skResponse = await request(appServer).get('/v1/app').set('Authorization', `Bearer ${sk.rawToken}`).expect(200);
+    expect(skResponse.headers.ratelimit).toMatch(/^limit=600,/);
+    expect(skResponse.headers['ratelimit-policy']).toBe('600;w=60');
+  });
+
+  it('puts CORS headers on every /v1 error a browser can receive, and only on errors for a secret key', async () => {
+    const origin = 'https://portfolio.test';
+    const user = await createUser(User);
+    const cmsApp = await createApp(App, user, { include: { profile: { enabled: true, fields: [] } } });
+    const { rawToken } = await createToken(ApiToken, cmsApp, 'pk');
+    const expectCors = (res, code) => {
+      expect(res.body.error).toBe(code);
+      expect(res.headers['access-control-allow-origin']).toBe(origin);
+      expect(res.headers['access-control-expose-headers']).toBe('ETag, Retry-After, RateLimit, RateLimit-Policy, X-Request-Id');
+      expect(res.headers.vary).toContain('Origin');
+    };
+    expectCors(await request(appServer).get('/v1/app').set('Origin', origin).expect(401), 'token_missing');
+    expectCors(await request(appServer).get('/v1/app').set({ Origin: origin, Authorization: `Bearer ${generateToken('pk').token}` }).expect(401), 'token_invalid');
+    expectCors(await request(appServer).get('/v1/app').set({ Origin: origin, Authorization: 'Bearer malformed' }).expect(401), 'token_invalid');
+    expectCors(await request(appServer).get('/v1/app?token=x').set('Origin', origin).expect(400), 'token_in_query');
+    expectCors(await request(appServer).get('/v1/projects').set({ Origin: origin, Authorization: `Bearer ${rawToken}` }).expect(403), 'section_disabled');
+
+    const cold = await createToken(ApiToken, await createApp(App, user), 'pk');
+    preDbBucket.hold();
+    try {
+      expectCors(await request(appServer).get('/v1/app').set({ Origin: origin, Authorization: `Bearer ${cold.rawToken}` }).expect(503), 'busy');
+    } finally { preDbBucket.refill(); }
+
+    // An sk used from a browser: its 200 stays unreadable (no CORS), its errors are readable.
+    const protectedApp = await createApp(App, user, { type: 'protected', allowedOrigins: [], include: { profile: { enabled: true, fields: [] } } });
+    const sk = await createToken(ApiToken, protectedApp, 'sk');
+    const skOk = await request(appServer).get('/v1/app').set({ Origin: origin, Authorization: `Bearer ${sk.rawToken}` }).expect(200);
+    expect(skOk.headers['access-control-allow-origin']).toBeUndefined();
+    expectCors(await request(appServer).get('/v1/projects').set({ Origin: origin, Authorization: `Bearer ${sk.rawToken}` }).expect(403), 'section_disabled');
+
+    user.status = 'suspended';
+    await user.save();
+    expectCors(await request(appServer).get('/v1/app').set({ Origin: origin, Authorization: `Bearer ${rawToken}` }).expect(401), 'account_unavailable');
   });
 
   it('signals a drained global miss budget with 503 busy and CORS headers while cache hits keep flowing', async () => {
@@ -241,6 +298,17 @@ describe('versioned public API and dashboard token lifecycle', () => {
     const listed = await request(appServer).get(`/api/apps/${cmsApp._id}/tokens`).set('Authorization', loginAs(user)).expect(200);
     expect(listed.body[0].value).toBeUndefined();
     expect(listed.body[0].prefix).toBe(rawToken.slice(0, 12));
+  });
+
+  it('drops expired keys from the active set when the expiry sweep retires them', async () => {
+    const user = await createUser(User);
+    const cmsApp = await createApp(App, user);
+    const { tokenDoc } = await createToken(ApiToken, cmsApp, 'pk', { expiresAt: new Date(Date.now() - 1000) });
+    expect(cache.isActiveToken(tokenDoc.hash)).toBe(true);
+    await request(appServer).post(`/api/apps/${cmsApp._id}/tokens`).set('Authorization', loginAs(user)).send({}).expect(201);
+    expect(cache.isActiveToken(tokenDoc.hash)).toBe(false);
+    const stored = await ApiToken.findOne({ _id: tokenDoc._id, owner: user._id }).lean();
+    expect(stored.revokedAt).toBeInstanceOf(Date);
   });
 
   it('requires a verified dashboard account before issuing tokens', async () => {

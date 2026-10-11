@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../../api/client';
-import { useApiBase } from '../../lib/apiBase';
+import { PENDING_BASE, useApiBase } from '../../lib/apiBase';
 import { apiErrorMessage } from '../../lib/apiErrors';
+import { chosenVisibility, submitKeepingVisibility } from '../../lib/visibilitySubmit';
 import { useToast } from '../../components/admin/Toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -54,7 +55,9 @@ export default function ProjectForm() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
-  const { v1Base } = useApiBase();
+  const { v1Base: resolvedBase, resolved: baseResolved } = useApiBase();
+  // Show `…` until the server has said what the public base is, so nobody copies a guess.
+  const v1Base = baseResolved ? resolvedBase : PENDING_BASE;
 
   const [formData, setFormData] = useState(EMPTY);
   const [visibility, setVisibility] = useState('published');
@@ -99,7 +102,7 @@ export default function ProjectForm() {
         })
         .catch((err) => {
           notify(apiErrorMessage(err, 'Could not load this project.'));
-          navigate('/admin/projects');
+          navigate('/dashboard/projects');
         })
         .finally(() => setFetching(false));
     }
@@ -130,7 +133,9 @@ export default function ProjectForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const chosen = e.nativeEvent?.submitter?.value === 'draft' ? 'draft' : 'published';
+    // A click on either button is a choice. Enter (no submitter) keeps what the project already is,
+    // so editing a published project and pressing Enter never unpublishes it (FX-38).
+    const chosen = chosenVisibility(e, isEdit ? visibility : 'published');
     setLoading(true);
 
     const isTeam = formData.mode === 'team';
@@ -176,7 +181,7 @@ export default function ProjectForm() {
         await api.post('/projects', payload);
       }
       notify(chosen === 'published' ? 'Project saved and published.' : 'Project saved as a draft. Apps won’t see it until you publish.', 'success');
-      navigate('/admin/projects');
+      navigate('/dashboard/projects');
     } catch (err) {
       notify(apiErrorMessage(err, 'Could not save the project. Try again.'));
     } finally {
@@ -215,12 +220,12 @@ export default function ProjectForm() {
   const publicUrl = `${v1Base}/projects/${formData.slug || 'slug'}`;
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-6xl mx-auto space-y-6">
+    <form onSubmit={handleSubmit} onKeyDown={submitKeepingVisibility} className="max-w-6xl mx-auto space-y-6">
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-t-border">
         <div className="flex items-center gap-3">
           <Link
-            to="/admin/projects"
+            to="/dashboard/projects"
             className="p-2 rounded bg-t-surface text-t-muted hover:text-t-text border border-t-border transition-all"
             aria-label="Back to projects"
           >
@@ -238,7 +243,7 @@ export default function ProjectForm() {
 
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            to="/admin/projects"
+            to="/dashboard/projects"
             className="px-3 py-1.5 rounded text-sm font-semibold text-t-muted hover:text-t-text hover:bg-t-surface-hi"
           >
             Cancel
@@ -406,14 +411,14 @@ export default function ProjectForm() {
             <div>
               <div className="flex justify-between items-center mb-1">
                 <label htmlFor="project-summary" className="text-sm font-medium text-t-text">Short summary</label>
-                <span aria-live="polite" className={`text-xs ${formData.shortDescription.length > 260 ? 'text-t-danger' : 'text-t-dim'}`}>
-                  {formData.shortDescription.length}/260
+                <span aria-live="polite" className={`text-xs ${formData.shortDescription.length > 500 ? 'text-t-danger' : 'text-t-dim'}`}>
+                  {formData.shortDescription.length}/500
                 </span>
               </div>
               <textarea
                 id="project-summary"
                 required
-                maxLength={260}
+                maxLength={500}
                 rows={3}
                 value={formData.shortDescription}
                 onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })}

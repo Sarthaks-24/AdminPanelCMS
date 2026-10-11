@@ -235,9 +235,8 @@ export default function ScopeDemo() {
       </div>
 
       <p className="border-t border-t-border px-4 py-2.5 text-[0.75rem] leading-5 text-t-dim">
-        A demo, not a live call: the content is invented, and the scoping and file tree are a faithful
-        reimplementation of the server&rsquo;s rules rather than the server itself. Field names, the response
-        envelope, the 403 body and the cache headers are the real ones; the ETag and request id are stand-ins. The{' '}
+        A demo with invented content, not a live call. The field names, the response envelope, the 403 body
+        and the cache headers match the live API; the ETag and request id are stand-ins. The{' '}
         <Link to="/docs/api" className="text-t-muted underline decoration-t-dim underline-offset-2 hover:text-t-text">API reference</Link>{' '}
         documents what a real call returns.
       </p>

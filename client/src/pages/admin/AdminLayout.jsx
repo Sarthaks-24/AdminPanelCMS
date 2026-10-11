@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, THEME_GROUPS } from '../../context/ThemeContext';
-import { api } from '../../api/client';
 import { SITE } from '../../content/site';
+import { DASHBOARD } from '../../lib/routes';
+import Wordmark from '../../components/Wordmark';
+import ResendVerification from '../../components/admin/ResendVerification';
 import {
   LayoutDashboard,
   User,
@@ -20,9 +22,20 @@ import {
   Palette,
   Check,
   Boxes,
+  BookOpen,
   Settings,
   ShieldCheck,
 } from 'lucide-react';
+
+/** Two letters for the avatar, from the email's local part: "jane.doe@…" → "JD", "sam@…" → "SA". */
+function initialsFor(email) {
+  const local = String(email || '').split('@')[0];
+  const words = local.split(/[._\-+\s]+/).filter(Boolean);
+  const letters = words.length > 1 ? words[0][0] + words[1][0] : local.slice(0, 2);
+  return letters.toUpperCase() || '?';
+}
+
+const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-t-accent';
 
 export default function AdminLayout() {
   const { user, logout } = useAuth();
@@ -31,48 +44,57 @@ export default function AdminLayout() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [topThemePickerOpen, setTopThemePickerOpen] = useState(false);
-  const [verificationMessage, setVerificationMessage] = useState('');
-  const [resendingVerification, setResendingVerification] = useState(false);
-
-  const resendVerification = async () => {
-    setResendingVerification(true);
-    setVerificationMessage('');
-    try {
-      await api.post('/auth/resend-verification', { email: user?.email });
-      setVerificationMessage('If verification is needed, a message will be sent.');
-    } catch {
-      setVerificationMessage('Could not request a verification email. Please try again later.');
-    } finally { setResendingVerification(false); }
-  };
+  const drawerRef = useRef(null);
+  const menuButtonRef = useRef(null);
+  const themeButtonRef = useRef(null);
 
   const handleLogout = () => {
+    navigate('/login');
     logout();
-    navigate('/admin/login');
   };
 
-  const navLinks = [
-    { to: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
-    { to: '/admin/profile', label: 'Your profile', icon: User },
-    { to: '/admin/socials', label: 'Links', icon: Share2 },
-    { to: '/admin/skills', label: 'Skills', icon: Cpu },
-    { to: '/admin/projects', label: 'Projects', icon: FolderGit2 },
-    { to: '/admin/experience', label: 'Work experience', icon: Briefcase },
-    { to: '/admin/education', label: 'Education', icon: GraduationCap },
-    { to: '/admin/certifications', label: 'Certifications', icon: Award },
-    { to: '/admin/resume', label: 'Resume', icon: FileText },
-    { to: '/admin/apps', label: 'Apps', icon: Boxes },
-    { to: '/admin/account', label: 'Account', icon: Settings },
-    ...(user?.role === 'superadmin' ? [{ to: '/admin/superadmin', label: 'Platform admin', icon: ShieldCheck }] : []),
+  // Content (what Apps serve) · API (how sites read it) · Account (you).
+  const navGroups = [
+    { label: null, links: [{ to: DASHBOARD, label: 'Overview', icon: LayoutDashboard, exact: true }] },
+    {
+      label: 'Content',
+      links: [
+        { to: `${DASHBOARD}/profile`, label: 'Your profile', icon: User },
+        { to: `${DASHBOARD}/socials`, label: 'Links', icon: Share2 },
+        { to: `${DASHBOARD}/skills`, label: 'Skills', icon: Cpu },
+        { to: `${DASHBOARD}/projects`, label: 'Projects', icon: FolderGit2 },
+        { to: `${DASHBOARD}/experience`, label: 'Work experience', icon: Briefcase },
+        { to: `${DASHBOARD}/education`, label: 'Education', icon: GraduationCap },
+        { to: `${DASHBOARD}/certifications`, label: 'Certifications', icon: Award },
+        { to: `${DASHBOARD}/resume`, label: 'Résumé', icon: FileText },
+      ],
+    },
+    {
+      label: 'API',
+      links: [
+        { to: `${DASHBOARD}/apps`, label: 'Apps', icon: Boxes },
+        { to: '/docs/quickstart', label: 'Docs', icon: BookOpen, external: true },
+      ],
+    },
+    {
+      label: 'Account',
+      links: [
+        { to: `${DASHBOARD}/account`, label: 'Account', icon: Settings },
+        ...(user?.role === 'superadmin' ? [{ to: `${DASHBOARD}/superadmin`, label: 'Platform admin', icon: ShieldCheck }] : []),
+      ],
+    },
   ];
+  const navLinks = navGroups.flatMap((group) => group.links);
+  const isActive = (link) => !link.external && (link.exact ? location.pathname === link.to || location.pathname === `${link.to}/` : location.pathname.startsWith(link.to));
 
   // Where you are, in plain words: the section, and the item inside it when there is one.
   const getBreadcrumb = () => {
     const path = location.pathname;
-    if (path === '/admin/dashboard' || path === '/admin') return ['Overview'];
-    if (path.includes('/admin/projects/new')) return ['Projects', 'New project'];
-    if (path.includes('/admin/projects/edit')) return ['Projects', 'Edit project'];
-    if (path.includes('/admin/apps/')) return ['Apps', 'App settings'];
-    const match = navLinks.find((link) => !link.exact && path.startsWith(link.to));
+    if (path === DASHBOARD || path === `${DASHBOARD}/`) return ['Overview'];
+    if (path.startsWith(`${DASHBOARD}/projects/new`)) return ['Projects', 'New project'];
+    if (path.startsWith(`${DASHBOARD}/projects/edit`)) return ['Projects', 'Edit project'];
+    if (path.startsWith(`${DASHBOARD}/apps/`)) return ['Apps', 'App settings'];
+    const match = navLinks.find((link) => !link.exact && !link.external && path.startsWith(link.to));
     return [match?.label || SITE.name];
   };
 
@@ -83,324 +105,185 @@ export default function AdminLayout() {
   useEffect(() => {
     const onKey = (event) => {
       if (event.key !== 'Escape') return;
-      setMobileMenuOpen(false);
-      setTopThemePickerOpen(false);
+      setMobileMenuOpen((open) => { if (open) menuButtonRef.current?.focus(); return false; });
+      setTopThemePickerOpen((open) => { if (open) themeButtonRef.current?.focus(); return false; });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // The mobile drawer takes focus when it opens, so keyboard and screen-reader users land in it.
+  useEffect(() => {
+    if (mobileMenuOpen) drawerRef.current?.querySelector('a, button')?.focus();
+  }, [mobileMenuOpen]);
+
+  const closeDrawer = () => setMobileMenuOpen(false);
   const currentTheme = themes[themeId];
 
   return (
-    <div
-      className="min-h-screen text-t-text flex flex-col md:flex-row antialiased font-sans"
-      style={{ backgroundColor: 'var(--theme-bg)' }}
-    >
+    <div className="flex min-h-screen flex-col bg-t-bg font-sans text-t-text antialiased md:flex-row">
       <a href="#main-content" className="skip-link">Skip to content</a>
 
-      {/* Mobile Drawer Overlay */}
+      {/* Mobile drawer overlay */}
       {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-t-bg/80 backdrop-blur-sm z-40 md:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
+        <div aria-hidden="true" className="fixed inset-0 z-40 bg-t-bg/80 backdrop-blur-sm md:hidden" onClick={closeDrawer} />
       )}
 
-      {/* Sidebar Navigation */}
+      {/* Sidebar navigation */}
       <aside
+        ref={drawerRef}
         aria-label="Sidebar"
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 flex flex-col justify-between shadow-xl transition-transform duration-200 ease-in-out md:translate-x-0 ${
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full invisible md:visible'
+        className={`fixed bottom-0 left-0 top-0 z-50 flex w-64 flex-col justify-between border-r border-t-border bg-t-surface shadow-xl transition-transform duration-200 ease-in-out md:translate-x-0 ${
+          mobileMenuOpen ? 'translate-x-0' : 'invisible -translate-x-full md:visible'
         }`}
-        style={{
-          backgroundColor: 'var(--theme-surface)',
-          borderRight: '1px solid var(--theme-border)',
-        }}
       >
-        <div className="flex flex-col flex-1 min-h-0">
-          {/* Brand Header */}
-          <div
-            className="p-4 flex items-center justify-between"
-            style={{
-              backgroundColor: 'var(--theme-bg)',
-              borderBottom: '1px solid var(--theme-border)',
-            }}
-          >
-            <Link to="/admin/dashboard" className="flex items-center gap-3">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shadow-md"
-                style={{
-                  backgroundColor: 'var(--theme-accent)',
-                  color: 'var(--theme-on-accent)',
-                  boxShadow: '0 0 12px var(--theme-brand-glow)',
-                  border: '1px solid var(--theme-accent-bright)',
-                }}
-              >
-                {SITE.name.split(' ').map((word) => word[0]).join('').slice(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <span className="font-bold text-sm tracking-tight block" style={{ color: 'var(--theme-text)' }}>
-                  {SITE.name}
-                </span>
-                <span className="text-xs" style={{ color: 'var(--theme-text-muted)' }}>Content manager</span>
-              </div>
-            </Link>
-
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex items-center justify-between border-b border-t-border bg-t-bg p-4">
+            <Wordmark to={DASHBOARD} subtitle="Dashboard" onClick={closeDrawer} label={`${SITE.name} dashboard, Overview`} />
             <button
+              type="button"
               aria-label="Close navigation"
-              onClick={() => setMobileMenuOpen(false)}
-              className="-m-1 rounded p-2.5 md:hidden"
-              style={{ color: 'var(--theme-text-muted)' }}
+              onClick={() => { closeDrawer(); menuButtonRef.current?.focus(); }}
+              className={`-m-1 rounded p-2.5 text-t-muted hover:text-t-text md:hidden ${focusRing}`}
             >
-              <X size={18} />
+              <X size={18} aria-hidden="true" />
             </button>
           </div>
 
-          {/* Navigation Links */}
-          <nav aria-label="Main" className="p-3 space-y-1 flex-1 overflow-y-auto">
-            <div className="px-3 py-1.5 text-xs font-medium" style={{ color: 'var(--theme-text-dim)' }}>
-              Your portfolio
-            </div>
-            {navLinks.map(({ to, label, icon: Icon, exact }) => {
-              const active = exact
-                ? location.pathname === to
-                : location.pathname.startsWith(to);
-
-              return (
-                <div key={to}>
-                {to === '/admin/apps' && <div className="px-3 pb-1 pt-4 text-xs font-medium" style={{ color: 'var(--theme-text-dim)' }}>Connections and account</div>}
-                <Link
-                  to={to}
-                  onClick={() => setMobileMenuOpen(false)}
-                  aria-current={active ? 'page' : undefined}
-                  className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all group"
-                  style={
-                    active
-                      ? {
-                          backgroundColor: 'color-mix(in srgb, var(--theme-accent) 14%, transparent)',
-                          boxShadow: 'inset 2px 0 0 var(--theme-accent)',
-                          color: 'var(--theme-text)',
-                          fontWeight: 600,
-                        }
-                      : {
-                          color: 'var(--theme-text-muted)',
-                        }
-                  }
-                  onMouseEnter={(e) => {
-                    if (!active) {
-                      e.currentTarget.style.backgroundColor = 'var(--theme-surface-hi)';
-                      e.currentTarget.style.color = 'var(--theme-text)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!active) {
-                      e.currentTarget.style.backgroundColor = '';
-                      e.currentTarget.style.color = 'var(--theme-text-muted)';
-                    }
-                  }}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Icon
-                      size={16}
-                      style={{ color: active ? 'var(--theme-accent)' : 'var(--theme-text-dim)' }}
-                    />
-                    <span>{label}</span>
-                  </div>
-                </Link>
-                </div>
-              );
-            })}
+          <nav aria-label="Main" className="flex-1 space-y-1 overflow-y-auto p-3">
+            {navGroups.map((group) => (
+              <div key={group.label || 'top'} className={group.label ? 'pt-3' : ''}>
+                {group.label && <p className="px-3 pb-1 text-xs font-medium text-t-dim">{group.label}</p>}
+                <ul className="space-y-1">
+                  {group.links.map((link) => {
+                    const active = isActive(link);
+                    const Icon = link.icon;
+                    const className = `${focusRing} flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
+                      active ? 'bg-t-accent/15 font-semibold text-t-text shadow-[inset_2px_0_0_var(--theme-accent)]' : 'text-t-muted hover:bg-t-surface-hi hover:text-t-text'
+                    }`;
+                    const icon = <Icon size={16} aria-hidden="true" className={active ? 'text-t-accent' : 'text-t-dim'} />;
+                    return (
+                      <li key={link.to}>
+                        {link.external ? (
+                          <a href={link.to} target="_blank" rel="noopener noreferrer" onClick={closeDrawer} className={className}>
+                            {icon}<span>{link.label} <span aria-hidden="true">↗</span></span><span className="sr-only"> (opens in a new tab)</span>
+                          </a>
+                        ) : (
+                          <Link to={link.to} onClick={closeDrawer} aria-current={active ? 'page' : undefined} className={className}>
+                            {icon}<span>{link.label}</span>
+                          </Link>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
           </nav>
         </div>
 
-        {/* Sidebar Footer */}
-        <div className="p-3" style={{ borderTop: '1px solid var(--theme-border)', backgroundColor: 'var(--theme-bg)' }}>
-          <div
-            className="p-3 rounded space-y-2.5"
-            style={{ backgroundColor: 'var(--theme-surface)', border: '1px solid var(--theme-border)' }}
-          >
-            {/* Admin User Info */}
-            <div className="flex items-center gap-2 pt-1" style={{ borderTop: '1px solid var(--theme-border)' }}>
-              <div
-                className="w-7 h-7 rounded flex items-center justify-center font-bold text-xs uppercase"
-                style={{
-                  backgroundColor: 'var(--theme-surface-hi)',
-                  color: 'var(--theme-accent)',
-                  border: '1px solid var(--theme-border-hi)',
-                }}
-              >
-                {user?.email ? user.email.substring(0, 2) : 'AD'}
-              </div>
-              <div className="truncate flex-1">
-                <div className="text-xs font-semibold truncate" style={{ color: 'var(--theme-text)' }}>
-                  {user?.email}
-                </div>
-                <div className="text-xs" style={{ color: 'var(--theme-text-muted)' }}>
-                  {user?.role === 'superadmin' ? 'Platform admin' : 'Signed in'}
-                </div>
+        {/* Signed-in account */}
+        <div className="border-t border-t-border bg-t-bg p-3">
+          <div className="space-y-2.5 rounded border border-t-border bg-t-surface p-3">
+            <div className="flex items-center gap-2">
+              <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-t-border-hi bg-t-surface-hi text-xs font-bold text-t-accent">
+                {initialsFor(user?.email)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold text-t-text" title={user?.email}>{user?.email}</p>
+                <p className="text-xs text-t-muted">{user?.role === 'superadmin' ? 'Platform admin' : 'Signed in'}</p>
               </div>
             </div>
-
             <button
+              type="button"
               onClick={handleLogout}
-              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded text-xs font-semibold transition-all cursor-pointer"
-              style={{
-                backgroundColor: 'var(--theme-danger-dim)',
-                color: 'var(--theme-danger)',
-                border: '1px solid color-mix(in srgb, var(--theme-danger) 30%, transparent)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--theme-danger) 20%, transparent)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--theme-danger-dim)';
-              }}
+              className={`flex w-full items-center justify-center gap-1.5 rounded border border-t-danger/30 bg-t-danger-dim py-1.5 text-xs font-semibold text-t-danger transition-colors hover:bg-t-danger/20 ${focusRing}`}
             >
-              <LogOut size={12} />
+              <LogOut size={12} aria-hidden="true" />
               <span>Sign out</span>
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <div className="flex-1 md:pl-64 flex flex-col min-h-screen" style={{ backgroundColor: 'var(--theme-bg)' }}>
-        {/* Top Header */}
-        <header
-          className="sticky top-0 z-30 backdrop-blur-md px-4 sm:px-8 py-3 flex items-center justify-between"
-          style={{
-            backgroundColor: 'color-mix(in srgb, var(--theme-bg) 95%, transparent)',
-            borderBottom: '1px solid var(--theme-border)',
-          }}
-        >
+      {/* Main content area */}
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col bg-t-bg md:pl-64">
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-t-border bg-t-bg/95 px-4 py-3 backdrop-blur-md sm:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
+              ref={menuButtonRef}
+              type="button"
               aria-label="Open navigation"
               aria-expanded={mobileMenuOpen}
               onClick={() => setMobileMenuOpen(true)}
-              className="-m-1 rounded p-2.5 md:hidden"
-              style={{
-                backgroundColor: 'var(--theme-surface-hi)',
-                color: 'var(--theme-text-muted)',
-                border: '1px solid var(--theme-border)',
-              }}
+              className={`-m-1 rounded border border-t-border bg-t-surface-hi p-2.5 text-t-muted md:hidden ${focusRing}`}
             >
-              <Menu size={16} />
+              <Menu size={16} aria-hidden="true" />
             </button>
-            <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-sm" style={{ color: 'var(--theme-text-muted)' }}>
+            <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-sm text-t-muted">
               {crumbs.map((part, index, parts) => (
                 <React.Fragment key={part}>
                   {index > 0 && <span aria-hidden="true">/</span>}
-                  <span className={`truncate ${index === parts.length - 1 ? 'font-medium' : ''}`} style={index === parts.length - 1 ? { color: 'var(--theme-text)' } : undefined} aria-current={index === parts.length - 1 ? 'page' : undefined}>{part}</span>
+                  <span className={`truncate ${index === parts.length - 1 ? 'font-medium text-t-text' : ''}`} aria-current={index === parts.length - 1 ? 'page' : undefined}>{part}</span>
                 </React.Fragment>
               ))}
             </nav>
           </div>
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            {/* Top Bar Quick Theme Switcher */}
+            {/* Theme picker */}
             <div className="relative">
               <button
+                ref={themeButtonRef}
                 type="button"
-                onClick={() => setTopThemePickerOpen((p) => !p)}
+                onClick={() => setTopThemePickerOpen((open) => !open)}
                 aria-haspopup="true"
                 aria-expanded={topThemePickerOpen}
+                aria-controls="theme-picker"
                 aria-label={`Theme: ${currentTheme?.label || 'Theme'}. Change theme`}
-                className="inline-flex min-h-10 items-center gap-2 rounded px-3 py-2 text-xs font-medium transition-colors cursor-pointer"
-                style={{
-                  backgroundColor: 'var(--theme-surface)',
-                  border: '1px solid var(--theme-border)',
-                  color: 'var(--theme-text)',
-                }}
+                className={`inline-flex min-h-10 cursor-pointer items-center gap-2 rounded border border-t-border bg-t-surface px-3 py-2 text-xs font-medium text-t-text transition-colors hover:border-t-border-hi ${focusRing}`}
               >
-                <Palette size={14} style={{ color: 'var(--theme-accent)' }} />
+                <Palette size={14} aria-hidden="true" className="text-t-accent" />
                 <span className="hidden sm:inline">{currentTheme?.label || 'Theme'}</span>
-                <div className="flex items-center gap-1">
-                  {currentTheme?.preview?.map((c, i) => (
-                    <span
-                      key={i}
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: c, border: '1px solid rgba(128,128,128,0.3)' }}
-                    />
+                <span aria-hidden="true" className="flex items-center gap-1">
+                  {currentTheme?.preview?.map((colour, index) => (
+                    <span key={index} className="h-2.5 w-2.5 rounded-full border border-t-border-hi" style={{ backgroundColor: colour }} />
                   ))}
-                </div>
+                </span>
               </button>
 
               {topThemePickerOpen && (
                 <>
+                  <div aria-hidden="true" className="fixed inset-0 z-40" onClick={() => setTopThemePickerOpen(false)} />
                   <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setTopThemePickerOpen(false)}
-                  />
-                  <div
-                    className="absolute right-0 mt-2 w-64 rounded shadow-2xl z-50 overflow-hidden"
-                    style={{
-                      border: '1px solid var(--theme-border-hi)',
-                      backgroundColor: 'var(--theme-surface)',
-                      maxHeight: '380px',
-                      overflowY: 'auto',
-                      overscrollBehavior: 'contain',
-                    }}
+                    id="theme-picker"
+                    role="group"
+                    aria-label="Themes"
+                    className="absolute right-0 z-50 mt-2 max-h-[380px] w-64 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded border border-t-border-hi bg-t-surface shadow-2xl"
                   >
                     {(groups || THEME_GROUPS).map((group) => {
-                      const groupThemes = Object.values(themes).filter((t) => t.group === group && !t.hidden);
+                      const groupThemes = Object.values(themes).filter((theme) => theme.group === group && !theme.hidden);
                       if (groupThemes.length === 0) return null;
                       return (
                         <div key={group}>
-                          <div
-                            className="px-3 py-2 text-xs font-semibold sticky top-0"
-                            style={{
-                              backgroundColor: 'var(--theme-surface-hi)',
-                              color: 'var(--theme-accent)',
-                              borderBottom: '1px solid var(--theme-border)',
-                            }}
-                          >
-                            {group} themes
-                          </div>
-                          {groupThemes.map((t) => {
-                            const isActive = t.id === themeId;
+                          <p className="sticky top-0 border-b border-t-border bg-t-surface-hi px-3 py-2 text-xs font-semibold text-t-accent">{group} themes</p>
+                          {groupThemes.map((theme) => {
+                            const selected = theme.id === themeId;
                             return (
                               <button
-                                key={t.id}
+                                key={theme.id}
                                 type="button"
-                                aria-current={isActive ? 'true' : undefined}
-                                onClick={() => {
-                                  changeTheme(t.id);
-                                  setTopThemePickerOpen(false);
-                                }}
-                                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs transition-all cursor-pointer"
-                                style={{
-                                  backgroundColor: isActive ? 'var(--theme-surface-hi)' : 'transparent',
-                                  borderBottom: '1px solid var(--theme-border)',
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (!isActive) e.currentTarget.style.backgroundColor = 'var(--theme-surface-hi)';
-                                }}
-                                onMouseLeave={(e) => {
-                                  if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
-                                }}
+                                aria-pressed={selected}
+                                onClick={() => { changeTheme(theme.id); setTopThemePickerOpen(false); themeButtonRef.current?.focus(); }}
+                                className={`flex w-full cursor-pointer items-center gap-2.5 border-b border-t-border px-3 py-2 text-left text-xs transition-colors hover:bg-t-surface-hi focus-visible:bg-t-surface-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-t-accent ${selected ? 'bg-t-surface-hi' : ''}`}
                               >
-                                <div className="flex -space-x-1 shrink-0">
-                                  {t.preview.map((c, i) => (
-                                    <span
-                                      key={i}
-                                      className="w-3.5 h-3.5 rounded-full"
-                                      style={{
-                                        backgroundColor: c,
-                                        border: '1px solid rgba(128,128,128,0.4)',
-                                      }}
-                                    />
+                                <span aria-hidden="true" className="flex shrink-0 -space-x-1">
+                                  {theme.preview.map((colour, index) => (
+                                    <span key={index} className="h-3.5 w-3.5 rounded-full border border-t-border-hi" style={{ backgroundColor: colour }} />
                                   ))}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium truncate" style={{ color: 'var(--theme-text)' }}>
-                                    {t.label}
-                                  </div>
-                                </div>
-                                {isActive && (
-                                  <Check size={13} style={{ color: 'var(--theme-accent)', flexShrink: 0 }} />
-                                )}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate font-medium text-t-text">{theme.label}</span>
+                                {selected && <Check size={13} aria-hidden="true" className="shrink-0 text-t-accent" />}
                               </button>
                             );
                           })}
@@ -411,16 +294,21 @@ export default function AdminLayout() {
                 </>
               )}
             </div>
-
           </div>
         </header>
 
-        {/* Main Body */}
-        <main id="main-content" tabIndex={-1} className="admin-content flex-1 outline-none p-4 sm:p-6 lg:p-8 overflow-y-auto" style={{ backgroundColor: 'var(--theme-bg)', backgroundImage: 'radial-gradient(ellipse at 52% -20%, color-mix(in srgb, var(--theme-accent) 7%, transparent), transparent 52%)' }}>
-          {user && !user.emailVerified && <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-t-warn/40 bg-t-warn/10 p-4 text-sm">
-            <span className="text-t-text">Verify your email to edit content and create keys.{verificationMessage && <span role="status" className="ml-2 text-t-muted">{verificationMessage}</span>}</span>
-            <button type="button" onClick={resendVerification} disabled={resendingVerification} className="font-semibold text-t-accent hover:underline disabled:opacity-60">{resendingVerification ? 'Sending…' : 'Resend verification'}</button>
-          </div>}
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="admin-content flex-1 overflow-y-auto p-4 outline-none sm:p-6 lg:p-8"
+          style={{ backgroundImage: 'radial-gradient(ellipse at 52% -20%, color-mix(in srgb, var(--theme-accent) 7%, transparent), transparent 52%)' }}
+        >
+          {user && !user.emailVerified && (
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-3 rounded-xl border border-t-warn/40 bg-t-warn/10 p-4 text-sm">
+              <span className="text-t-text">Verify your email to edit content and create keys.</span>
+              <ResendVerification email={user.email} />
+            </div>
+          )}
           <Outlet />
         </main>
       </div>

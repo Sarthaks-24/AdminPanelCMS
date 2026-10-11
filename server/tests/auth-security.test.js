@@ -11,12 +11,9 @@ const validateEnv = require('../lib/validateEnv');
 const { issueEmailToken } = require('../lib/emailTokens');
 const { purgeUnverified, UNVERIFIED_TTL_MS } = require('../lib/sweepDeleted');
 const { resetRecipientCooldowns } = require('../lib/mailBudget');
-const { signupRateLimiters, resendVerificationRateLimiters, recoveryRateLimiters, verificationRateLimiter } = require('../middleware/authRateLimiters');
+const { resetAuthRateLimiters } = require('../middleware/authRateLimiters');
 const { createUser, createApp, createToken, seedContent } = require('./helpers/factory');
 
-const LOCAL_KEYS = ['127.0.0.1', '::ffff:127.0.0.1', '::1'];
-const resetLimiters = (limiters) => Promise.all(limiters.flatMap((limiter) => LOCAL_KEYS.map((key) => limiter.resetKey(key))));
-const PUBLIC_MAIL_LIMITERS = [...signupRateLimiters, ...resendVerificationRateLimiters, ...recoveryRateLimiters, verificationRateLimiter];
 const today = () => `mail:${new Date().toISOString().slice(0, 10)}`;
 
 describe('mail budget on the public mail paths', () => {
@@ -28,7 +25,7 @@ describe('mail budget on the public mail paths', () => {
     process.env.MAIL_DAILY_CAP = '80';
     process.env.MAIL_RESET_RESERVE = '10';
     resetRecipientCooldowns();
-    await resetLimiters(PUBLIC_MAIL_LIMITERS);
+    await resetAuthRateLimiters();
   });
   afterEach(() => { mailer.setMailTransport(null); delete process.env.SIGNUP_MODE; delete process.env.MAIL_DAILY_CAP; delete process.env.MAIL_RESET_RESERVE; });
 
@@ -92,7 +89,7 @@ describe('unverified signup purge', () => {
 
 describe('password reset and API tokens', () => {
   let messages;
-  beforeEach(async () => { messages = []; mailer.setMailTransport({ send: async (message) => { messages.push(message); } }); resetRecipientCooldowns(); await resetLimiters(PUBLIC_MAIL_LIMITERS); });
+  beforeEach(async () => { messages = []; mailer.setMailTransport({ send: async (message) => { messages.push(message); } }); resetRecipientCooldowns(); await resetAuthRateLimiters(); });
   afterEach(() => mailer.setMailTransport(null));
 
   it('keeps the tenant’s API tokens live across a password reset', async () => {
@@ -112,7 +109,7 @@ describe('password reset and API tokens', () => {
 });
 
 describe('production mail configuration', () => {
-  const goodEnv = { JWT_SECRET: 'x'.repeat(40) + 'randomSecretValue', NODE_ENV: 'production', CLIENT_ORIGIN: 'https://admin.example.com', MONGODB_URI: 'mongodb://127.0.0.1:27017/Test', TRUST_PROXY_HOPS: '1', RESEND_MAIL_KEY: 're_live_key', RESEND_FROM_EMAIL: 'CMS <no-reply@example.com>' };
+  const goodEnv = { JWT_SECRET: 'x'.repeat(40) + 'randomSecretValue', NODE_ENV: 'production', CLIENT_ORIGIN: 'https://admin.example.com', MONGODB_URI: 'mongodb://127.0.0.1:27017/Test', TRUST_PROXY_HOPS: '1', RESEND_MAIL_KEY: 're_live_key', RESEND_FROM_EMAIL: 'CMS <no-reply@example.com>', INVITE_CODE_PEPPER: 'k'.repeat(48), PUBLIC_API_URL: 'https://api.example.com' };
 
   it('is fatal when signup is enabled and only a warning when signup is closed', () => {
     expect(() => validateEnv({ ...goodEnv, SIGNUP_MODE: 'invite', RESEND_MAIL_KEY: 're_xxxxxxxxx' })).toThrow(/RESEND_MAIL_KEY/);

@@ -5,6 +5,7 @@ import { apiErrorMessage } from '../../lib/apiErrors';
 import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import { useToast } from '../../components/admin/Toast';
 import VisibilityToggle from '../../components/admin/VisibilityToggle';
+import useConfirm from '../../components/admin/ui/useConfirm';
 import {
   Plus,
   Edit2,
@@ -19,6 +20,7 @@ const plural = (n) => `${n} ${n === 1 ? 'project' : 'projects'} shown`;
 
 export default function ProjectList() {
   const { notify } = useToast();
+  const [confirm, confirmDialog] = useConfirm();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -43,7 +45,8 @@ export default function ProjectList() {
   }, []);
 
   const handleDelete = async (id, title) => {
-    if (!window.confirm(`Delete “${title}”? This can’t be undone.`)) return;
+    const ok = await confirm({ title: `Delete “${title}”?`, consequence: 'Every App that serves it stops returning it, and its /v1/projects/<slug> URL answers 404.', confirmLabel: 'Delete project' });
+    if (!ok) return;
     try {
       await api.delete(`/projects/${id}`);
       setProjects((prev) => prev.filter((p) => p._id !== id));
@@ -98,7 +101,7 @@ export default function ProjectList() {
         </div>
 
         <Link
-          to="/admin/projects/new"
+          to="/dashboard/projects/new"
           className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs transition-all shadow-sm cursor-pointer"
         >
           <Plus size={15} />
@@ -163,7 +166,7 @@ export default function ProjectList() {
                 )}
               </div>
               <div className="min-w-0">
-                <Link to={`/admin/projects/edit/${p._id}`} className="font-display text-xl font-semibold leading-tight text-t-text hover:underline hover:underline-offset-4">{p.title}</Link>
+                <Link to={`/dashboard/projects/edit/${p._id}`} className="font-display text-xl font-semibold leading-tight text-t-text hover:underline hover:underline-offset-4">{p.title}</Link>
                 <p className="mt-1 text-sm text-t-muted">
                   {p.mode === 'team' ? 'Team project' : 'Solo project'}{p.role ? `, ${p.role}` : ''}
                   <span className="font-mono-code ml-2 text-xs text-t-dim">/{p.slug}</span>
@@ -186,13 +189,14 @@ export default function ProjectList() {
                 </button>
                 {p.links?.live && <a href={p.links.live} target="_blank" rel="noreferrer" aria-label={`Open ${p.title} live (opens in a new tab)`} className="rounded p-2.5 text-t-dim hover:bg-t-surface hover:text-t-text"><Globe size={16} /></a>}
                 {p.links?.github && <a href={p.links.github} target="_blank" rel="noreferrer" aria-label={`Open ${p.title} on GitHub (opens in a new tab)`} className="rounded p-2.5 text-t-dim hover:bg-t-surface hover:text-t-text"><GitBranch size={16} /></a>}
-                <Link to={`/admin/projects/edit/${p._id}`} aria-label={`Edit ${p.title}`} className="rounded p-2.5 text-t-muted hover:bg-t-surface hover:text-t-text"><Edit2 size={16} /></Link>
+                <Link to={`/dashboard/projects/edit/${p._id}`} aria-label={`Edit ${p.title}`} className="rounded p-2.5 text-t-muted hover:bg-t-surface hover:text-t-text"><Edit2 size={16} /></Link>
                 <button type="button" onClick={() => handleDelete(p._id, p.title)} aria-label={`Delete ${p.title}`} className="rounded p-2.5 text-t-danger hover:bg-t-danger-dim"><Trash2 size={16} /></button>
               </div>
             </li>
           ))}
         </ol>
       )}
+      {confirmDialog}
     </div>
   );
 }

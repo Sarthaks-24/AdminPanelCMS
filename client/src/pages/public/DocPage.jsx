@@ -1,14 +1,32 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import PublicShell from '../../components/public/PublicShell';
 import Markdown, { outlineOf } from '../../components/public/Markdown';
-import { API_BASE_PLACEHOLDER, DOCS, EXTRA_PAGES, getDoc } from '../../content/docs';
-import { REPO_URL } from '../../content/site';
-import { useApiBase } from '../../lib/apiBase';
+import { API_BASE_PLACEHOLDER, DOCS, EXTRA_PAGES, SUPPORT_EMAIL_PLACEHOLDER, getDoc } from '../../content/docs';
+import { SITE, supportMailto } from '../../content/site';
+import { PENDING_BASE, useApiBase } from '../../lib/apiBase';
 
 const ALL = [...DOCS, ...EXTRA_PAGES];
 
 const routeFor = (page) => `/docs/${page.slug}`;
+
+/** Copies the base URL. Disabled until the server has said what the base URL is. */
+function CopyBase({ value, disabled }) {
+  const [state, setState] = useState('idle');
+  async function copy() {
+    try { await navigator.clipboard.writeText(value); setState('done'); }
+    catch { setState('failed'); }
+    window.setTimeout(() => setState('idle'), 1800);
+  }
+  return (
+    <>
+      <button type="button" onClick={copy} disabled={disabled} className="ml-2 rounded border border-t-border px-1.5 py-0.5 text-[0.6875rem] text-t-muted transition hover:border-t-accent hover:text-t-text disabled:cursor-not-allowed disabled:opacity-50">
+        {state === 'done' ? 'Copied' : 'Copy'}
+      </button>
+      <span aria-live="polite" className="sr-only">{state === 'done' ? 'Copied.' : state === 'failed' ? 'Copy failed; select the text and copy it yourself.' : ''}</span>
+    </>
+  );
+}
 
 /** `slug` is passed directly for pages that have their own route; otherwise it comes from the URL. */
 export default function DocPage({ slug: fixedSlug }) {
@@ -16,10 +34,14 @@ export default function DocPage({ slug: fixedSlug }) {
   const { hash } = useLocation();
   const slug = fixedSlug || params.slug;
   const doc = getDoc(slug);
-  // The docs are written against `{{API_BASE}}`; the real base URL of this deployment replaces it
-  // before rendering, so every snippet on the page is copy-ready.
-  const { v1Base } = useApiBase();
-  const body = useMemo(() => (doc ? doc.body.split(API_BASE_PLACEHOLDER).join(v1Base) : ''), [doc, v1Base]);
+  // The docs are written against `{{API_BASE}}` (the bare origin; every path in them starts with
+  // /v1). The public base URL replaces it before rendering, so every snippet is copy-ready. Until the
+  // server has answered, the snippets show `…` rather than a guess someone could copy.
+  const { apiOrigin, resolved, configured } = useApiBase();
+  const shownBase = resolved ? apiOrigin : PENDING_BASE;
+  const body = useMemo(() => (doc
+    ? doc.body.split(API_BASE_PLACEHOLDER).join(shownBase).split(SUPPORT_EMAIL_PLACEHOLDER).join(SITE.support.email)
+    : ''), [doc, shownBase]);
 
   // A link carrying a #fragment has to wait for the Markdown to mount before it can scroll. The hash
   // is in the deps because a router Link to another section of the same page does not remount this.
@@ -82,15 +104,20 @@ export default function DocPage({ slug: fixedSlug }) {
           <aside className="order-first lg:order-none">
             <div className="lg:sticky lg:top-20">
               <p className="text-[0.75rem] text-t-dim">
-                Base URL <code className="font-mono-code text-t-muted" translate="no">{v1Base}</code>
+                Base URL <code className="font-mono-code text-t-muted" translate="no">{shownBase}</code>
+                <CopyBase value={apiOrigin} disabled={!resolved} />
               </p>
+              {resolved && !configured && (
+                <p className="mt-1.5 text-[0.75rem] leading-5 text-t-warn">
+                  The service has not published its API address, so this one is a guess. If it answers with a web page instead of JSON, email{' '}
+                  <a href={supportMailto('API base URL')} className="underline">{SITE.support.email}</a>.
+                </p>
+              )}
               <a
-                href={`${REPO_URL}/blob/main/${doc.source}`}
-                target="_blank"
-                rel="noreferrer noopener"
+                href={supportMailto(`Docs: ${doc.title}`)}
                 className="mt-1.5 inline-block text-[0.8125rem] text-t-accent hover:underline"
               >
-                Suggest an edit
+                Something wrong on this page? Tell us
               </a>
               {outline.length > 1 && (
                 <nav aria-label="On this page" className="mt-6 border-t border-t-border pt-4">

@@ -27,6 +27,12 @@ describe('Apps dashboard API', () => {
     expect(wildcard.body.allowedOrigins).toEqual(['*']);
     const mixedWildcard = await request(app).post('/api/apps').set('Authorization', auth).send({ name: 'Bad wildcard', type: 'static', allowedOrigins: ['*', 'https://example.test'] });
     expect(mixedWildcard.status).toBe(400);
+    // No silent default to '*': a static App with no origins (missing or empty) is refused at creation.
+    for (const allowedOrigins of [undefined, []]) {
+      const implicit = await request(app).post('/api/apps').set('Authorization', auth).send({ name: 'Implicit', type: 'static', allowedOrigins });
+      expect(implicit.status).toBe(400);
+      expect(implicit.body.details[0]).toMatch(/at least one allowed origin/);
+    }
     const badField = await request(app).post('/api/apps').set('Authorization', auth).send({ name: 'Bad field', type: 'protected', include: { profile: { fields: ['phone'] } } });
     expect(badField.status).toBe(400);
   });

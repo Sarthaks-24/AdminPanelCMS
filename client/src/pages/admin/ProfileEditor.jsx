@@ -122,7 +122,7 @@ export default function ProfileEditor() {
       const res = await api.put('/profile', form);
       setForm(fromServer(res.data));
       setConfigured(true);
-      setSuccessMsg('Profile saved. Apps that serve it pick it up within about a minute.');
+      setSuccessMsg('Profile saved. Apps serve it on the next request; sites that fetch in the browser show it within a minute.');
       setTimeout(() => setSuccessMsg(null), 5000);
     } catch (err) {
       setErrorMsg(apiErrorMessage(err, 'Could not save your profile.'));
@@ -181,38 +181,6 @@ export default function ProfileEditor() {
       )}
 
       <form id="profile-form" onSubmit={handleSubmit} className="space-y-6">
-        <Section title="Availability" aside={<span aria-live="polite" className="text-xs text-t-accent2">{form.isAvailableForHire ? 'Open to new roles' : 'Not looking right now'}</span>}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="isAvailableForHire"
-                checked={form.isAvailableForHire}
-                onChange={(e) => handleChange('isAvailableForHire', e.target.checked)}
-                className="w-4 h-4 rounded accent-[var(--theme-accent)]"
-              />
-              <label htmlFor="isAvailableForHire" className="text-sm text-t-text cursor-pointer">
-                I’m open to new roles
-              </label>
-            </div>
-            <div>
-              <label htmlFor="statusText" className={labelClass}>Status line</label>
-              <input
-                id="statusText"
-                type="text"
-                maxLength={200}
-                value={form.statusText}
-                onChange={(e) => handleChange('statusText', e.target.value)}
-                placeholder="e.g. Taking on freelance work from November"
-                aria-describedby="statusText-hint"
-                autoComplete="off"
-                className={input}
-              />
-              <p id="statusText-hint" className={hintClass}>Shown on your site in your own words. The switch on the Overview page never rewrites it.</p>
-            </div>
-          </div>
-        </Section>
-
         <Section title="About you and how to reach you">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
@@ -269,10 +237,10 @@ export default function ProfileEditor() {
           <div>
             <div className="flex justify-between items-center mb-1">
               <label htmlFor="shortBio" className="text-sm font-medium text-t-text">Short bio</label>
-              <span aria-live="polite" className={`text-xs ${form.shortBio.length > 300 ? 'text-t-danger' : 'text-t-dim'}`}>{form.shortBio.length} / 300</span>
+              <span aria-live="polite" className={`text-xs ${form.shortBio.length > 500 ? 'text-t-danger' : 'text-t-dim'}`}>{form.shortBio.length} / 500</span>
             </div>
-            <textarea id="shortBio" required maxLength={300} rows={2} value={form.shortBio} onChange={(e) => handleChange('shortBio', e.target.value)} placeholder="One or two sentences on what you do and care about…" aria-describedby="shortBio-hint" className={`${input} resize-none`} />
-            <p id="shortBio-hint" className={hintClass}>Up to 300 characters. The first thing most sites show under your name.</p>
+            <textarea id="shortBio" required maxLength={500} rows={3} value={form.shortBio} onChange={(e) => handleChange('shortBio', e.target.value)} placeholder="One or two sentences on what you do and care about…" aria-describedby="shortBio-hint" className={`${input} resize-none`} />
+            <p id="shortBio-hint" className={hintClass}>Up to 500 characters. The first thing most sites show under your name.</p>
           </div>
 
           <div>
@@ -294,6 +262,38 @@ export default function ProfileEditor() {
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{form.aboutMarkdown || '*Nothing written yet.*'}</ReactMarkdown>
               </div>
             )}
+          </div>
+        </Section>
+
+        <Section title="Availability (optional)" aside={<span aria-live="polite" className="text-xs text-t-accent2">{form.isAvailableForHire ? 'Open to new roles' : 'Not looking right now'}</span>}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="isAvailableForHire"
+                checked={form.isAvailableForHire}
+                onChange={(e) => handleChange('isAvailableForHire', e.target.checked)}
+                className="w-4 h-4 rounded accent-[var(--theme-accent)]"
+              />
+              <label htmlFor="isAvailableForHire" className="text-sm text-t-text cursor-pointer">
+                I’m open to new roles
+              </label>
+            </div>
+            <div>
+              <label htmlFor="statusText" className={labelClass}>Status line</label>
+              <input
+                id="statusText"
+                type="text"
+                maxLength={200}
+                value={form.statusText}
+                onChange={(e) => handleChange('statusText', e.target.value)}
+                placeholder="e.g. Taking on freelance work from November"
+                aria-describedby="statusText-hint"
+                autoComplete="off"
+                className={input}
+              />
+              <p id="statusText-hint" className={hintClass}>Served to Apps as <code>statusText</code>, in your own words, next to the open-to-roles flag. Leave both off if your sites don’t show availability.</p>
+            </div>
           </div>
         </Section>
 

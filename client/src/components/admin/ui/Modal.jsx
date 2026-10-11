@@ -105,7 +105,7 @@ export default function Modal({ title, description, onClose, closeBlocked = fals
 }
 
 /** A yes/no dialog that names the consequence. Replaces window.confirm. */
-export function ConfirmDialog({ title, consequence, confirmLabel = 'Delete', cancelLabel = 'Cancel', onConfirm, onCancel, busy = false, danger = true }) {
+export function ConfirmDialog({ title, consequence, confirmLabel = 'Delete', cancelLabel = 'Cancel', onConfirm, onCancel, busy = false, danger = true, note = 'This can’t be undone.' }) {
   const cancelRef = useRef(null);
   return (
     <Modal title={title} description={consequence} onClose={onCancel} initialFocusRef={cancelRef} size="sm" footer={
@@ -114,7 +114,7 @@ export function ConfirmDialog({ title, consequence, confirmLabel = 'Delete', can
         <button type="button" onClick={onConfirm} disabled={busy} className={`rounded px-4 py-2 text-sm font-semibold disabled:opacity-60 ${danger ? 'bg-t-danger text-t-bg hover:opacity-90' : 'bg-t-accent text-t-on-accent hover:bg-t-accent-br'}`}>{busy ? 'Working…' : confirmLabel}</button>
       </div>
     }>
-      <p className="text-sm text-t-muted">This can’t be undone.</p>
+      {note && <p className="text-sm text-t-muted">{note}</p>}
     </Modal>
   );
 }

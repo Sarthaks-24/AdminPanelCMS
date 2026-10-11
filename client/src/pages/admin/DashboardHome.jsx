@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
-import { useToast } from '../../components/admin/Toast';
 import { describeApiError } from '../../lib/apiErrors';
+import { DASHBOARD } from '../../lib/routes';
 
 const asList = (value) => (Array.isArray(value) ? value : value?.skills || []);
 const isPublished = (item) => item?.visibility === 'published';
@@ -36,7 +36,7 @@ function StateMark({ kind }) {
 
 function Skeleton() {
   return (
-    <div role="status" aria-label="Loading your portfolio" className="mx-auto max-w-6xl space-y-6">
+    <div role="status" aria-label="Loading your dashboard" className="mx-auto max-w-6xl space-y-6">
       <div className="skeleton h-14 w-80 max-w-full" />
       <div className="skeleton h-5 w-96 max-w-full" />
       <div className="grid gap-12 pt-8 lg:grid-cols-[1.35fr_1fr]">
@@ -53,12 +53,10 @@ const SOURCES = [
 ];
 
 export default function DashboardHome() {
-  const { notify } = useToast();
   const [data, setData] = useState(null);
   const [apps, setApps] = useState([]);
   const [failed, setFailed] = useState([]);
   const [fatal, setFatal] = useState(null);
-  const [savingStatus, setSavingStatus] = useState(false);
 
   const load = useCallback(async () => {
     setFatal(null);
@@ -76,6 +74,7 @@ export default function DashboardHome() {
       education: asList(value(4, [])), certifications: asList(value(5, [])), socials: asList(value(6, [])), resume: value(7, null),
     });
     // Each App's keys carry the evidence: how many are active, and when one last reached us.
+    // One request per App (at most 10): the server has no batched token summary yet.
     const withActivity = await Promise.all(asList(value(8, [])).map(async (app) => {
       try {
         const { data: tokens } = await api.get(`/apps/${app._id}/tokens`);
@@ -89,19 +88,6 @@ export default function DashboardHome() {
 
   useEffect(() => { load(); }, [load]);
 
-  const toggleAvailability = async () => {
-    if (!data?.profile) return;
-    setSavingStatus(true);
-    try {
-      const open = !data.profile.isAvailableForHire;
-      // Only the flag flips; the status line is the owner's own words and stays as typed.
-      const { data: profile } = await api.patch('/profile/availability', { isAvailableForHire: open, statusText: data.profile.statusText || '' });
-      setData((current) => ({ ...current, profile }));
-    } catch (err) {
-      notify(`Could not update your status. ${describeApiError(err).message}`);
-    } finally { setSavingStatus(false); }
-  };
-
   const outline = useMemo(() => {
     if (!data) return [];
     const { profile, resume } = data;
@@ -113,14 +99,14 @@ export default function DashboardHome() {
       return { key, to, label, detail, state: t.total === 0 ? 'empty' : t.drafts ? 'drafts' : 'ready', stateText: t.total === 0 ? 'Empty' : t.drafts ? 'Has drafts' : 'Ready', ...t, noun, nounPlural };
     };
     return [
-      { key: 'profile', to: '/admin/profile', label: 'Your profile', detail: !configured ? 'Not saved yet' : missing.length ? `Still needed: ${missing.join(', ')}` : 'Name, headline, bio and email are set', state: !configured || missing.length ? 'empty' : 'ready', stateText: !configured ? 'Not saved' : missing.length ? 'Incomplete' : 'Ready', configured },
-      collection('projects', '/admin/projects', 'Projects', 'project', 'projects'),
-      collection('skills', '/admin/skills', 'Skills', 'skill', 'skills'),
-      collection('experience', '/admin/experience', 'Work experience', 'role', 'roles'),
-      collection('education', '/admin/education', 'Education', 'entry', 'entries'),
-      collection('certifications', '/admin/certifications', 'Certifications', 'certification', 'certifications'),
-      collection('socials', '/admin/socials', 'Links', 'link', 'links'),
-      { key: 'resume', to: '/admin/resume', label: 'Résumé', detail: resume?.resumeUrl ? 'A résumé link is set' : 'No résumé link yet', state: resume?.resumeUrl ? 'ready' : 'empty', stateText: resume?.resumeUrl ? 'Ready' : 'Empty' },
+      { key: 'profile', to: `${DASHBOARD}/profile`, label: 'Your profile', detail: !configured ? 'Not saved yet' : missing.length ? `Still needed: ${missing.join(', ')}` : 'Name, headline, bio and email are set', state: !configured || missing.length ? 'empty' : 'ready', stateText: !configured ? 'Not saved' : missing.length ? 'Incomplete' : 'Ready', configured },
+      collection('projects', `${DASHBOARD}/projects`, 'Projects', 'project', 'projects'),
+      collection('skills', `${DASHBOARD}/skills`, 'Skills', 'skill', 'skills'),
+      collection('experience', `${DASHBOARD}/experience`, 'Work experience', 'role', 'roles'),
+      collection('education', `${DASHBOARD}/education`, 'Education', 'entry', 'entries'),
+      collection('certifications', `${DASHBOARD}/certifications`, 'Certifications', 'certification', 'certifications'),
+      collection('socials', `${DASHBOARD}/socials`, 'Links', 'link', 'links'),
+      { key: 'resume', to: `${DASHBOARD}/resume`, label: 'Résumé', detail: resume?.resumeUrl ? 'A résumé link is set' : 'No résumé link yet', state: resume?.resumeUrl ? 'ready' : 'empty', stateText: resume?.resumeUrl ? 'Ready' : 'Empty' },
     ];
   }, [data]);
 
@@ -134,11 +120,11 @@ export default function DashboardHome() {
     const appReached = apps.find((entry) => entry.lastUsedAt);
     const firstApp = apps[0];
     return [
-      { key: 'profile', done: Boolean(profile?.configured), title: 'Save your profile', detail: profile?.configured ? 'Saved' : 'Name, headline and a short bio. Until it is saved, /v1/profile answers 404.', to: '/admin/profile' },
-      { key: 'published', done: publishedCount > 0, title: 'Publish at least one item', detail: publishedCount > 0 ? `${plural(publishedCount, 'item')} published` : 'A project is the usual first one. Drafts are never served.', to: '/admin/projects/new' },
-      { key: 'app', done: Boolean(appWithSections), title: 'Create an App that reads something', detail: appWithSections ? `${appWithSections.app.name} serves ${plural(appWithSections.enabledSections, 'section')}` : apps.length ? 'Your App has 0 sections enabled, so every request gets 403.' : 'The default preset returns everything you have published.', to: appWithSections ? `/admin/apps/${appWithSections.app._id}` : apps.length ? `/admin/apps/${firstApp.app._id}` : '/admin/apps' },
-      { key: 'key', done: Boolean(appWithKey), title: 'Create a key', detail: appWithKey ? `${appWithKey.app.name} has ${plural(appWithKey.activeKeys, 'active key')}` : 'A secret key for builds, or a publishable key for browsers.', to: (appWithSections || firstApp) ? `/admin/apps/${(appWithSections || firstApp).app._id}` : '/admin/apps' },
-      { key: 'reached', done: Boolean(appReached), title: 'Your key reached us', detail: appReached ? `${appReached.app.name} last reached us ${timeAgo(appReached.lastUsedAt)}` : 'Run the curl or build snippet from the App. The App page notices within about a minute.', to: (appReached || appWithKey || firstApp) ? `/admin/apps/${(appReached || appWithKey || firstApp).app._id}` : '/admin/apps' },
+      { key: 'profile', done: Boolean(profile?.configured), title: 'Save your profile', detail: profile?.configured ? 'Saved' : 'Name, headline and a short bio. Until it is saved, /v1/profile answers 404.', to: `${DASHBOARD}/profile` },
+      { key: 'published', done: publishedCount > 0, title: 'Publish at least one item', detail: publishedCount > 0 ? `${plural(publishedCount, 'item')} published` : 'A project is the usual first one. Drafts are never served.', to: `${DASHBOARD}/projects/new` },
+      { key: 'app', done: Boolean(appWithSections), title: 'Create an App that reads something', detail: appWithSections ? `${appWithSections.app.name} serves ${plural(appWithSections.enabledSections, 'section')}` : apps.length ? 'Your App has 0 sections enabled, so every request gets 403.' : 'The default preset returns everything you have published.', to: appWithSections ? `${DASHBOARD}/apps/${appWithSections.app._id}` : apps.length ? `${DASHBOARD}/apps/${firstApp.app._id}` : `${DASHBOARD}/apps` },
+      { key: 'key', done: Boolean(appWithKey), title: 'Create a key', detail: appWithKey ? `${appWithKey.app.name} has ${plural(appWithKey.activeKeys, 'active key')}` : 'A secret key for builds, or a publishable key for browsers.', to: (appWithSections || firstApp) ? `${DASHBOARD}/apps/${(appWithSections || firstApp).app._id}` : `${DASHBOARD}/apps` },
+      { key: 'reached', done: Boolean(appReached), title: 'Your key reached us', detail: appReached ? `${appReached.app.name} last reached us ${timeAgo(appReached.lastUsedAt)}` : 'Run the curl or build snippet from the App. The App page notices within about a minute.', to: (appReached || appWithKey || firstApp) ? `${DASHBOARD}/apps/${(appReached || appWithKey || firstApp).app._id}` : `${DASHBOARD}/apps` },
     ];
   }, [data, outline, apps]);
 
@@ -156,7 +142,6 @@ export default function DashboardHome() {
   if (!data) return <Skeleton />;
 
   const { profile } = data;
-  const open = Boolean(profile?.isAvailableForHire);
   const doneCount = checklist.filter((step) => step.done).length;
 
   return (
@@ -168,29 +153,11 @@ export default function DashboardHome() {
         </div>
       )}
 
-      <header className="flex flex-wrap items-end justify-between gap-x-10 gap-y-6 border-b border-t-border pb-8">
-        <div className="min-w-0">
-          <p className="text-sm text-t-muted">Your portfolio</p>
-          <h1 className="mt-1 text-5xl text-t-text sm:text-6xl">{profile?.name || 'Welcome'}</h1>
-          <p className="mt-4 max-w-xl text-base leading-7 text-t-muted">
-            {profile?.headline || 'Add a headline so visitors know who you are and what you do.'}
-          </p>
-        </div>
-        <div className="flex items-center gap-3 rounded-lg border border-t-border bg-t-surface px-4 py-3">
-          <button
-            type="button" role="switch" aria-checked={open} aria-label="Open to new roles" aria-disabled={savingStatus || !profile}
-            onClick={() => { if (!savingStatus) toggleAvailability(); }}
-            className="-m-2 shrink-0 rounded-full p-2 aria-disabled:opacity-60"
-          >
-            <span className={`relative block h-6 w-11 rounded-full border transition-colors ${open ? 'border-t-accent2 bg-t-accent2' : 'border-t-border-hi bg-t-bg'}`}>
-              <span className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full transition-transform ${open ? 'translate-x-5 bg-t-on-accent2' : 'translate-x-0 bg-t-muted'}`} />
-            </span>
-          </button>
-          <div>
-            <p aria-live="polite" className="text-sm font-medium text-t-text">{open ? 'Open to new roles' : 'Not looking right now'}</p>
-            <p className="text-xs text-t-muted">{profile?.statusText ? `Status line: “${profile.statusText}”` : 'Shown on your site'}</p>
-          </div>
-        </div>
+      <header className="border-b border-t-border pb-6">
+        <h1 className="text-3xl text-t-text">Overview</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-t-muted">
+          {profile?.name ? `Signed in as ${profile.name}. ` : ''}Your content, the Apps that read it, and what is left before your first request.
+        </p>
       </header>
 
       <div className="mt-10 grid gap-x-14 gap-y-12 lg:grid-cols-[1.35fr_1fr]">
@@ -218,7 +185,7 @@ export default function DashboardHome() {
           </section>
 
           <section aria-labelledby="outline-title">
-            <h2 id="outline-title" className="text-xl font-semibold text-t-text">What’s on your portfolio</h2>
+            <h2 id="outline-title" className="text-xl font-semibold text-t-text">Your content</h2>
             <p className="mt-1 text-sm text-t-muted">Apps only serve items you have published.</p>
             <ul className="mt-5 divide-y divide-t-border border-y border-t-border">
               {outline.map((item) => (
@@ -261,13 +228,13 @@ export default function DashboardHome() {
             <h2 id="apps-title" className="text-xl font-semibold text-t-text">Apps</h2>
             {apps.length === 0 ? (
               <p className="mt-3 text-sm leading-6 text-t-muted">
-                No Apps yet. <Link to="/admin/apps" className="font-medium text-t-accent underline underline-offset-4">Create one</Link> and it can start serving your published content.
+                No Apps yet. <Link to={`${DASHBOARD}/apps`} className="font-medium text-t-accent underline underline-offset-4">Create one</Link> and it can start serving your published content.
               </p>
             ) : (
               <ul className="mt-4 divide-y divide-t-border border-y border-t-border">
                 {apps.map(({ app, activeKeys, lastUsedAt, enabledSections }) => (
                   <li key={app._id}>
-                    <Link to={`/admin/apps/${app._id}`} className="group -mx-3 block rounded-md px-3 py-3.5 transition-colors hover:bg-t-surface">
+                    <Link to={`${DASHBOARD}/apps/${app._id}`} className="group -mx-3 block rounded-md px-3 py-3.5 transition-colors hover:bg-t-surface">
                       <span className="block font-medium text-t-text group-hover:underline group-hover:underline-offset-4">{app.name}</span>
                       <span className="mt-0.5 block text-sm text-t-muted">
                         {enabledSections === 0 ? '0 sections enabled: every request gets 403' : activeKeys === 0 ? 'No active key' : activeKeys === null ? 'Keys could not be checked' : lastUsedAt ? `Key last reached us ${timeAgo(lastUsedAt)}` : 'Key not used yet'}

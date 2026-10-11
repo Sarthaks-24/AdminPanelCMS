@@ -15,7 +15,7 @@
  *      test signs in directly. Simplest for a staging run.
  *   2. E2E_VERIFY_TOKEN_URL: a dev-only endpoint (NOT part of the product; the integrator wires it behind
  *      MODE=dev) that returns `{ token }` for `?email=`. The test calls it after signup and opens
- *      /admin/verify-email?token=… itself. Until it exists the signup branch is skipped with a clear message.
+ *      /verify-email?token=… itself. Until it exists the signup branch is skipped with a clear message.
  *
  * Runs once per theme in THEMES (council ruling A22/A26: powershell + clean-studio). No screenshots are
  * compared; the assertion is a 200 with `{ data: [...] }` from the public API using the key the UI minted.
@@ -38,7 +38,7 @@ async function signIn(page: Page, email: string) {
   await page.getByLabel(/email/i).fill(email);
   await page.getByLabel(/password/i).fill(PASSWORD);
   await page.getByRole('button', { name: /sign in/i }).click();
-  await expect(page).toHaveURL(/\/admin\/dashboard/);
+  await expect(page).toHaveURL(/\/dashboard$/);
 }
 
 async function signUpAndVerify(page: Page, email: string) {
@@ -56,14 +56,14 @@ async function signUpAndVerify(page: Page, email: string) {
   await page.getByRole('button', { name: /create account/i }).click();
 
   // 1:30 check-email echoes the address.
-  await expect(page).toHaveURL(/\/admin\/check-email/);
+  await expect(page).toHaveURL(/\/check-email/);
   await expect(page.getByText(email)).toBeVisible();
 
   // 2:30 verify (stub) → set password → signed in.
   const res = await page.request.get(`${VERIFY_TOKEN_URL}?email=${encodeURIComponent(email)}`);
   expect(res.ok(), 'verify-token stub answered').toBeTruthy();
   const { token } = await res.json();
-  await page.goto(`${BASE_URL}/admin/verify-email?token=${encodeURIComponent(token)}`);
+  await page.goto(`${BASE_URL}/verify-email?token=${encodeURIComponent(token)}`);
   await page.getByLabel(/password/i).fill(PASSWORD);
   await page.getByRole('button', { name: /set password|verify|continue/i }).click();
   await expect(page.getByText(/verified/i)).toBeVisible();
@@ -74,7 +74,7 @@ for (const theme of THEMES) {
   test.describe(`first call on ${theme}`, () => {
     test.beforeEach(async ({ page }) => {
       // The pre-paint script in index.html reads this key; storing it first means no flash of the default theme.
-      await page.addInitScript((id) => { try { localStorage.setItem('admin_dashboard_theme', id); } catch { /* blocked storage is fine */ } }, theme);
+      await page.addInitScript((id) => { try { localStorage.setItem('pc_theme', id); } catch { /* blocked storage is fine */ } }, theme);
     });
 
     test('landing → signup → profile → project → App preset → key → GET /v1/projects returns { data: [...] }', async ({ page }) => {
@@ -90,7 +90,7 @@ for (const theme of THEMES) {
       await expect(page.getByText(/verify your email/i)).toHaveCount(0);
 
       // 3:00 profile. Every field is reachable by its label.
-      await page.goto(`${BASE_URL}/admin/profile`);
+      await page.goto(`${BASE_URL}/dashboard/profile`);
       await page.getByLabel(/^name/i).fill('Ada Example');
       await page.getByLabel(/headline/i).fill('Engineer who ships');
       await page.getByLabel(/public email/i).fill(email);
@@ -99,21 +99,21 @@ for (const theme of THEMES) {
       await expect(page.getByRole('status')).toContainText(/saved/i);
 
       // One project, published on save.
-      await page.goto(`${BASE_URL}/admin/projects/new`);
+      await page.goto(`${BASE_URL}/dashboard/projects/new`);
       const title = `E2E project ${Date.now()}`;
       await page.getByLabel(/^title/i).fill(title);
       await page.getByLabel(/short summary/i).fill('A project created by the first-call test.');
       await page.getByRole('button', { name: /save and publish/i }).click();
-      await expect(page).toHaveURL(/\/admin\/projects$/);
+      await expect(page).toHaveURL(/\/dashboard\/projects$/);
       await expect(page.getByText(title)).toBeVisible();
 
       // 6:00 App with the default preset (Everything published) and the default type (Build or server).
-      await page.goto(`${BASE_URL}/admin/apps`);
+      await page.goto(`${BASE_URL}/dashboard/apps`);
       await page.getByLabel(/^name/i).fill(`e2e-${theme}`);
       await expect(page.getByRole('radio', { name: /everything published/i })).toBeChecked();
       await expect(page.getByRole('radio', { name: /build or server/i })).toBeChecked();
       await page.getByRole('button', { name: /create app/i }).click();
-      await expect(page).toHaveURL(/\/admin\/apps\/[0-9a-f]{24}/);
+      await expect(page).toHaveURL(/\/dashboard\/apps\/[0-9a-f]{24}/);
 
       // 6:45 Connect panel: the base URL is printed and ends in /v1; Check this App finds nothing in the way of projects.
       const region = page.getByRole('region', { name: /connect this app/i });

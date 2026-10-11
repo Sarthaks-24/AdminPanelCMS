@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import Modal from '../../components/admin/ui/Modal';
+import useConfirm from '../../components/admin/ui/useConfirm';
 
 function formatDate(value) { return value ? new Date(value).toLocaleString() : '—'; }
 const groupCode = (code) => String(code || '').replace(/(.{4})(?=.)/g, '$1-');
@@ -15,7 +17,12 @@ const ACTION_COPY = {
   suspend: { title: 'Suspend this account?', body: 'Sign-in and every API key stop working at once. Their apps will get 401 until you unsuspend.', button: 'Suspend' },
   unsuspend: { title: 'Restore this account?', body: 'Sign-in and API keys work again immediately.', button: 'Unsuspend' },
   delete: { title: 'Delete this account permanently?', body: 'All content, apps and keys are removed. This cannot be undone.', button: 'Delete account' },
+  signupMode: { title: 'Change who can register?', body: 'Applies to new signups straight away. Existing accounts are not affected.', button: 'Change registration' },
+  invite: { title: 'Create an invite?', body: 'A new code is shown once, right after you confirm.', button: 'Create invite' },
 };
+// Outside the component: a password confirmation lasts about ten minutes on the server.
+const reauthExpired = (until) => Date.now() > until;
+const MODE_LABEL = { closed: 'Closed', invite: 'Invite only', open: 'Open to everyone' };
 const ERROR_COPY = {
   cannot_target_self: 'You cannot suspend or delete your own account from here.',
   last_superadmin: 'The last superadmin cannot be suspended or deleted. Grant the role to another account first.',
@@ -28,6 +35,9 @@ const ERROR_COPY = {
 };
 
 export default function SuperadminPanel() {
+  const [confirm, confirmDialog] = useConfirm();
+  const actionFormId = useId();
+  const reauthRef = useRef(null);
   const { user: me } = useAuth();
   const [totals, setTotals] = useState(null);
   const [performance, setPerformance] = useState(null);
@@ -82,23 +92,38 @@ export default function SuperadminPanel() {
     return () => clearTimeout(timer);
   }, [loadUsers]);
 
+  // Settings and invites, like suspend/delete, need a password confirmation in the last ten minutes.
+  const doCreateInvite = async (maxUses) => {
+    const { data } = await api.post('/admin/invites', { expiresInDays: 30, maxUses });
+    setNewCode(data.invite.code);
+    await refresh(false);
+  };
+  const doSetSignupMode = async (mode) => {
+    const { data } = await api.put('/admin/settings', { signupMode: mode });
+    setSettings(data.settings);
+  };
+
   const createInvite = async () => {
     setError(''); setNewCode('');
-    try {
-      const { data } = await api.post('/admin/invites', { expiresInDays: 30, maxUses: Number(inviteMaxUses) });
-      setNewCode(data.invite.code);
-      await refresh(false);
-    } catch { setError('Could not create an invite.'); }
+    const maxUses = Number(inviteMaxUses);
+    if (reauthExpired(reauthUntil)) { openAction('invite', null, { maxUses }); return; }
+    try { await doCreateInvite(maxUses); }
+    catch (err) {
+      if (err.response?.data?.error === 'reauth_required') { setReauthUntil(0); openAction('invite', null, { maxUses }, true); }
+      else setError('Could not create an invite.');
+    }
   };
 
   const changeSignupMode = async (mode) => {
     if (!settings || mode === settings.signupMode) return;
-    if (mode === 'open' && !window.confirm('Open registration lets anyone with an email address create an account without an invite. Continue?')) return;
+    if (reauthExpired(reauthUntil)) { openAction('signupMode', null, { mode }, true); return; }
+    if (mode === 'open' && !(await confirm({ title: 'Open registration to everyone?', consequence: 'Anyone with an email address can create an account without an invite.', confirmLabel: 'Open registration', danger: false, note: 'You can switch back to invite-only at any time.' }))) return;
     setError(''); setSavingMode(true);
-    try {
-      const { data } = await api.put('/admin/settings', { signupMode: mode });
-      setSettings(data.settings);
-    } catch { setError('Could not update the registration setting.'); }
+    try { await doSetSignupMode(mode); }
+    catch (err) {
+      if (err.response?.data?.error === 'reauth_required') { setReauthUntil(0); openAction('signupMode', null, { mode }, true); }
+      else setError('Could not update the registration setting.');
+    }
     finally { setSavingMode(false); }
   };
 
@@ -114,7 +139,7 @@ export default function SuperadminPanel() {
   };
 
   const [needsReauth, setNeedsReauth] = useState(true);
-  const openAction = (action, user) => { setNeedsReauth(Date.now() > reauthUntil); setPending({ action, user }); setActionError(''); setReauthPassword(''); };
+  const openAction = (action, user, extra = {}, forceReauth = false) => { setNeedsReauth(forceReauth || Date.now() > reauthUntil); setPending({ action, user, ...extra }); setActionError(''); setReauthPassword(''); };
   const closeAction = () => { setPending(null); setActionError(''); setReauthPassword(''); };
 
   const runAction = async (event) => {
@@ -128,6 +153,8 @@ export default function SuperadminPanel() {
         setReauthUntil(Date.now() + 9 * 60 * 1000);
       }
       const { action, user } = pending;
+      if (action === 'invite') { await doCreateInvite(pending.maxUses); closeAction(); return; }
+      if (action === 'signupMode') { await doSetSignupMode(pending.mode); closeAction(); return; }
       if (action === 'delete') await api.delete(`/admin/users/${user._id}`);
       else await api.post(`/admin/users/${user._id}/${action}`);
       closeAction();
@@ -226,20 +253,29 @@ export default function SuperadminPanel() {
       </section>
 
       {pending && (
-        <div role="dialog" aria-modal="true" aria-labelledby="action-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onKeyDown={(event) => { if (event.key === 'Escape') closeAction(); }}>
-          <form onSubmit={runAction} className="w-full max-w-md rounded-2xl border border-t-border bg-t-surface p-6 shadow-card">
-            <h2 id="action-title" className="text-base font-semibold">{ACTION_COPY[pending.action].title}</h2>
-            <p className="mt-2 break-all text-sm text-t-muted"><strong className="text-t-text">{pending.user.email}</strong></p>
-            <p className="mt-2 text-sm text-t-muted">{ACTION_COPY[pending.action].body}</p>
-            {actionError && <p role="alert" className="mt-3 rounded-lg border border-t-danger/30 bg-t-danger-dim p-3 text-sm text-t-danger">{actionError}</p>}
-            {needsReauth && <label className="mt-4 block text-sm font-medium">Confirm with your password<input autoFocus type="password" autoComplete="current-password" value={reauthPassword} onChange={(event) => setReauthPassword(event.target.value)} className="mt-2 w-full rounded-lg border border-t-border-hi bg-t-bg px-3 py-2.5 text-sm text-t-text" /><span className="mt-1 block text-xs font-normal text-t-muted">Required once every ten minutes for destructive actions.</span></label>}
-            <div className="mt-5 flex justify-end gap-2">
+        <Modal
+          title={ACTION_COPY[pending.action].title}
+          description={ACTION_COPY[pending.action].body}
+          onClose={closeAction}
+          initialFocusRef={needsReauth ? reauthRef : undefined}
+          size="sm"
+          footer={(
+            <div className="flex justify-end gap-2">
               <button type="button" onClick={closeAction} className="rounded-lg border border-t-border-hi px-4 py-2 text-sm font-medium">Cancel</button>
-              <button type="submit" disabled={acting} className={`rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${pending.action === 'delete' ? 'bg-t-danger text-white' : 'bg-t-accent text-t-on-accent'}`}>{acting ? 'Working…' : ACTION_COPY[pending.action].button}</button>
+              <button type="submit" form={actionFormId} disabled={acting} className={`rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${pending.action === 'delete' ? 'bg-t-danger text-t-bg' : 'bg-t-accent text-t-on-accent'}`}>{acting ? 'Working…' : ACTION_COPY[pending.action].button}</button>
             </div>
+          )}
+        >
+          <form id={actionFormId} onSubmit={runAction}>
+            {pending.user && <p className="break-all text-sm text-t-muted"><strong className="text-t-text">{pending.user.email}</strong></p>}
+            {pending.action === 'signupMode' && <p className="text-sm text-t-muted">New setting: <strong className="text-t-text">{MODE_LABEL[pending.mode] || pending.mode}</strong>{pending.mode === 'open' ? '. Anyone with an email address can create an account without an invite.' : '.'}</p>}
+            {pending.action === 'invite' && <p className="text-sm text-t-muted">Allows <strong className="text-t-text">{pending.maxUses}</strong> {pending.maxUses === 1 ? 'signup' : 'signups'}, valid 30 days.</p>}
+            {actionError && <p role="alert" className="mt-3 rounded-lg border border-t-danger/30 bg-t-danger-dim p-3 text-sm text-t-danger">{actionError}</p>}
+            {needsReauth && <label className="mt-4 block text-sm font-medium">Confirm with your password<input ref={reauthRef} type="password" autoComplete="current-password" value={reauthPassword} onChange={(event) => setReauthPassword(event.target.value)} className="mt-2 w-full rounded-lg border border-t-border-hi bg-t-bg px-3 py-2.5 text-sm text-t-text" /><span className="mt-1 block text-xs font-normal text-t-muted">Required once every ten minutes for account, registration and invite changes.</span></label>}
           </form>
-        </div>
+        </Modal>
       )}
+      {confirmDialog}
 
       <section className="rounded-xl border border-t-border bg-t-surface p-5 sm:p-6">
         <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="font-semibold">Invitations</h2><p className="mt-1 text-sm text-t-muted">12-character codes, stored as keyed hashes and shown only once. Up to 50 signups each, valid 30 days.</p></div><div className="flex items-end gap-2"><label className="text-xs text-t-muted">Allowed signups<input type="number" min="1" max="50" step="1" value={inviteMaxUses} onChange={(event) => setInviteMaxUses(event.target.value)} className="mt-1 block w-28 rounded-lg border border-t-border-hi bg-t-bg px-3 py-2 text-sm text-t-text" /></label><button type="button" onClick={createInvite} disabled={!/^\d+$/.test(inviteMaxUses) || Number(inviteMaxUses) < 1 || Number(inviteMaxUses) > 50} className="rounded-lg bg-t-accent px-4 py-2.5 text-sm font-semibold text-t-on-accent disabled:opacity-50">Create 30-day invite</button></div></div>

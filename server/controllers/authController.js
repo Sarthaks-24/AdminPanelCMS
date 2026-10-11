@@ -12,6 +12,12 @@ const { evictOwner } = require('../lib/cache');
 const { setSessionCookie, clearSessionCookie, readSessionCookie } = require('../lib/sessionCookie');
 const { TERMS_VERSION, PRIVACY_VERSION } = require('../lib/legal');
 const { reserveMail, refundMail, recipientAllowed } = require('../lib/mailBudget');
+const { withBcryptSlot } = require('../lib/bcryptGate');
+const { takeSignupSlot, releaseSignupSlot } = require('../lib/signupDomainCap');
+const { isStorageFull } = require('../lib/storageGuard');
+const turnstile = require('../lib/turnstile');
+const { burstAlert, positiveInt } = require('../lib/alerts');
+const { ipKeyGenerator } = require('express-rate-limit');
 const logger = require('../lib/logger');
 const { cascadeDeletedOwner } = require('./accountController');
 
@@ -24,6 +30,26 @@ const GENERIC_SIGNUP = { success: true, message: 'Check your email to complete r
 const GENERIC_RECOVERY = { success: true, message: 'If the account exists, password reset instructions will be sent' };
 const GENERIC_RESEND = { success: true, message: 'If an unverified account exists for that address, a new link is on its way' };
 const LOGIN_FAILED = { success: false, error: 'credentials_invalid', message: 'Invalid credentials or unverified email' };
+const BUSY = { success: false, error: 'busy', message: 'The service is busy. Please try again in a few seconds.' };
+const SIGNUP_CLOSED = { success: false, error: 'signup_unavailable', message: 'Registration is closed right now' };
+
+// Distributed wrong invite codes no longer lock invites for everyone (SEC8): the 12-character codes have 60 bits,
+// so a global lock protects nothing and only hands an attacker a switch. Crossing INVITE_FAILURE_LIMIT per hour
+// raises an alert instead, and the per-/48 guard in lib/inviteGuard.js still stops any one source.
+const inviteFailures = burstAlert('invite_failures_high', {
+  threshold: () => positiveInt(process.env.INVITE_FAILURE_LIMIT, 2000),
+  windowMs: 60 * 60 * 1000,
+});
+const inviteSource = (req) => ipKeyGenerator(req.ip, 48);
+// One alert per locked invite source and per capped domain per hour, however many requests they refuse.
+const inviteLocked = burstAlert('invite_locked', { threshold: 1, windowMs: 60 * 60 * 1000 });
+const domainCapped = burstAlert('signup_domain_capped', { threshold: 1, windowMs: 60 * 60 * 1000 });
+
+// Optional account-count cap (MAX_ACCOUNTS, unset or 0 = no cap). Counts every account that is not deleted.
+function accountCap() {
+  const cap = Number(process.env.MAX_ACCOUNTS);
+  return Number.isInteger(cap) && cap > 0 ? cap : 0;
+}
 
 const validPassword = (value) => typeof value === 'string' && value.length >= 10 && value.length <= 1024;
 const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
@@ -42,11 +68,10 @@ function publicApiBase() {
   return value || null;
 }
 
-// Codes are often pasted as "ABCD-EFGH-JKLM" or "123 456"; separators are ignored and letters upper-cased.
+// Codes are often pasted as "ABCD-EFGH-JKLM" or with spaces; separators are ignored and letters upper-cased.
 function normalizeInviteCode(raw) {
   if (typeof raw !== 'string') return null;
   const compact = raw.trim().replace(/[\s-]/g, '');
-  if (/^\d{6}$/.test(compact)) return compact;
   if (INVITE_CODE_PATTERN.test(compact.toUpperCase())) return compact.toUpperCase();
   const trimmed = raw.trim();
   // Long opaque codes issued before the 12-character format.
@@ -64,7 +89,14 @@ const login = async (req, res, next) => {
     const user = await User.findOne({ email: normalized, status: { $ne: 'deleted' } });
     // Unverified accounts have no password yet; legacy unverified ones are refused until they verify.
     const usable = Boolean(user && user.passwordHash && user.emailVerifiedAt);
-    const passwordMatches = usable ? await user.matchPassword(password) : await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
+    // Every attempt costs one bcrypt compare (a dummy one for unknown addresses, so timing reveals nothing).
+    // The gate sheds load with 503 busy instead of letting a flood queue CPU work in front of /v1.
+    const compare = await withBcryptSlot(() => (usable ? user.matchPassword(password) : bcrypt.compare(password, DUMMY_PASSWORD_HASH)));
+    if (compare.busy) {
+      res.set('Retry-After', '2');
+      return res.status(503).json(BUSY);
+    }
+    const passwordMatches = compare.value;
     if (!usable || !passwordMatches) {
       logger.event('login_failed', { reqId: req.id, emailHash: digest(normalized).slice(0, 16), reason: !user ? 'unknown' : !usable ? 'unverified' : 'password' });
       return res.status(401).json(LOGIN_FAILED);
@@ -90,7 +122,8 @@ const verify = (req, res) => {
 async function signupConfig(_req, res, next) {
   try {
     const mode = await getSignupMode();
-    return res.json({ success: true, signupEnabled: Boolean(mode), signupMode: mode || 'closed', publicApiBase: publicApiBase() });
+    const open = Boolean(mode) && !isStorageFull();
+    return res.json({ success: true, signupEnabled: open, signupMode: open ? mode : 'closed', publicApiBase: publicApiBase(), turnstileSiteKey: turnstile.siteKey() });
   } catch (error) { return next(error); }
 }
 
@@ -98,7 +131,17 @@ async function signupConfig(_req, res, next) {
 async function signup(req, res, next) {
   try {
     const mode = await getSignupMode();
-    if (!mode) return res.status(503).json({ success: false, error: 'signup_unavailable', message: 'Registration is closed right now' });
+    if (!mode) return res.status(503).json(SIGNUP_CLOSED);
+    // Storage guard (lib/storageGuard.js) and the optional account cap close signup for every address alike,
+    // before any lookup, so neither answer says anything about whether an address is registered.
+    if (isStorageFull()) {
+      logger.event('signup_refused', { reqId: req.id, reason: 'storage_full' });
+      return res.status(503).json(SIGNUP_CLOSED);
+    }
+    if (accountCap() && (await User.countDocuments({ status: { $ne: 'deleted' } })) >= accountCap()) {
+      logger.alert('account_cap_reached', { reqId: req.id, cap: accountCap() });
+      return res.status(503).json(SIGNUP_CLOSED);
+    }
     if (process.env.NODE_ENV === 'production' && !mailer.isConfigured()) {
       return res.status(503).json({ success: false, error: 'email_unavailable', message: 'Registration is temporarily unavailable' });
     }
@@ -115,21 +158,28 @@ async function signup(req, res, next) {
       if (!inviteCode) return res.status(400).json({ success: false, error: 'invite_invalid', message: 'That invite code is invalid or has expired' });
       // Older invites were hashed with plain sha256 before the keyed digest existed; keep accepting both.
       inviteHashes = [inviteDigest(inviteCode), digest(inviteCode)];
-      const ticket = inviteGuard.reserve(req.ip);
+      const ticket = inviteGuard.reserve(inviteSource(req));
       if (!ticket) {
-        logger.event('invite_locked', { reqId: req.id, ip: req.ip });
+        inviteLocked.hit(logger.truncateIp(req.ip), { reqId: req.id });
         return res.status(429).json({ success: false, error: 'invite_locked', message: 'Too many incorrect invite codes. Try again later or ask for a new invite.' });
       }
       // An invalid code ends here: no user lookup and no mail, so a leaked code cannot probe addresses.
       const invite = await Invite.exists({ codeHash: { $in: inviteHashes }, ...usableInviteFilter() });
       if (!invite) {
-        logger.event('invite_failed', { reqId: req.id, ip: req.ip });
+        logger.event('invite_failed', { reqId: req.id, ip: logger.truncateIp(req.ip) });
+        inviteFailures.hit('all');
         return res.status(400).json({ success: false, error: 'invite_invalid', message: 'That invite code is invalid or has expired' });
       }
       inviteGuard.release(ticket);
     }
-    // Reserve the mail unit before looking at the account so an over-budget 503 is the same for every address.
+    // Per-domain daily cap, then the mail unit, both before looking at the account so a refusal is the same for
+    // every address. The domain unit is given back below whenever no new account is created.
+    if (!takeSignupSlot(email)) {
+      domainCapped.hit(email.slice(email.lastIndexOf('@') + 1), { reqId: req.id });
+      return res.status(429).json({ success: false, error: 'rate_limited', message: 'Too many signups from this email domain today. Please try again tomorrow.' });
+    }
     if (!(await reserveMail())) {
+      releaseSignupSlot(email);
       logger.event('mail_budget_exhausted', { reqId: req.id, template: 'verification' });
       return res.status(503).json({ success: false, error: 'mail_budget', message: 'We cannot send more email today. Please try again tomorrow.' });
     }
@@ -142,6 +192,7 @@ async function signup(req, res, next) {
       existing = null;
     }
     if (existing) {
+      releaseSignupSlot(email);
       if (existing.status !== 'active') {
         await refundMail();
         logger.event('signup_suspended_account', { reqId: req.id, userId: String(existing._id) });
@@ -172,7 +223,7 @@ async function signup(req, res, next) {
     try {
       user = await User.create({ email, passwordHash: null, emailVerifiedAt: null, status: 'active', ...consent });
     } catch (error) {
-      if (error.code === 11000) { await refundMail(); return res.status(200).json(GENERIC_SIGNUP); }
+      if (error.code === 11000) { releaseSignupSlot(email); await refundMail(); return res.status(200).json(GENERIC_SIGNUP); }
       throw error;
     }
     if (inviteHashes.length) {
@@ -182,6 +233,7 @@ async function signup(req, res, next) {
       );
       if (!consumed) {
         await User.deleteOne({ _id: user._id });
+        releaseSignupSlot(email);
         await refundMail();
         return res.status(400).json({ success: false, error: 'invite_invalid', message: 'That invite code is invalid or has expired' });
       }
@@ -220,16 +272,19 @@ async function resendVerification(req, res, next) {
   try {
     const email = normalizeEmail(req.body?.email);
     if (!validEmail(email)) return res.status(400).json({ success: false, error: 'validation_failed', message: 'Enter a valid email address' });
+    // SEC23: the unit is reserved before the lookup, so a spent budget answers 503 for every address alike
+    // instead of only for addresses with an unverified account. Unused units are refunded.
+    if (!(await reserveMail())) {
+      logger.event('mail_budget_exhausted', { reqId: req.id, template: 'verification' });
+      return res.status(503).json({ success: false, error: 'mail_budget', message: 'We cannot send more email today. Please try again tomorrow.' });
+    }
     const user = await User.findOne({ email, status: 'active', emailVerifiedAt: null }).select('_id email');
     if (user && recipientAllowed('verify', email)) {
-      if (await reserveMail()) {
-        const token = await issueEmailToken(user._id, 'verify');
-        sendInBackground(mailer.sendVerification(user, token), 'verification', req);
-        logger.event('verification_resent', { reqId: req.id, userId: String(user._id) });
-      } else {
-        logger.event('mail_budget_exhausted', { reqId: req.id, template: 'verification' });
-        return res.status(503).json({ success: false, error: 'mail_budget', message: 'We cannot send more email today. Please try again tomorrow.' });
-      }
+      const token = await issueEmailToken(user._id, 'verify');
+      sendInBackground(mailer.sendVerification(user, token), 'verification', req);
+      logger.event('verification_resent', { reqId: req.id, userId: String(user._id) });
+    } else {
+      await refundMail();
     }
     return res.json(GENERIC_RESEND);
   } catch (error) { return next(error); }
@@ -239,7 +294,9 @@ async function forgotPassword(req, res, next) {
   try {
     const email = normalizeEmail(req.body?.email);
     if (validEmail(email)) {
-      const user = await User.findOne({ email, status: 'active' }).select('_id email');
+      // SEC6: verified accounts only. An unverified signup has no password to reset; it uses resend-verification,
+      // which keeps strangers' unverified rows from draining the reset reserve.
+      const user = await User.findOne({ email, status: 'active', emailVerifiedAt: { $ne: null } }).select('_id email');
       // Cooldown first (cheap, in memory), then the reserved part of the daily budget. Both keep the generic answer.
       if (user && recipientAllowed('reset', email)) {
         if (await reserveMail({ reset: true })) {

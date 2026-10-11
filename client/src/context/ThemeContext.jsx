@@ -211,7 +211,10 @@ export const THEMES = {
 export const THEME_GROUPS = ['Dark', 'Light', 'Funky', 'Unique'];
 
 const DEFAULT_THEME = 'powershell';
-const STORAGE_KEY = 'admin_dashboard_theme';
+const STORAGE_KEY = 'pc_theme';
+// The key older builds used. Its value is moved to STORAGE_KEY once, then removed. index.html's
+// first-paint script reads both, so a returning visitor never sees the default flash.
+const LEGACY_STORAGE_KEY = 'admin_dashboard_theme';
 
 const ThemeContext = createContext();
 
@@ -221,7 +224,16 @@ const hasWindow = typeof window !== 'undefined';
 // must never take the whole app down with it.
 function readStoredTheme() {
   if (!hasWindow) return null;
-  try { return window.localStorage.getItem(STORAGE_KEY); } catch { return null; }
+  try {
+    const storage = window.localStorage;
+    const current = storage.getItem(STORAGE_KEY);
+    const legacy = storage.getItem(LEGACY_STORAGE_KEY);
+    if (legacy !== null) {
+      if (current === null) storage.setItem(STORAGE_KEY, legacy);
+      storage.removeItem(LEGACY_STORAGE_KEY);
+    }
+    return current ?? legacy;
+  } catch { return null; }
 }
 function storeTheme(id) {
   if (!hasWindow) return;

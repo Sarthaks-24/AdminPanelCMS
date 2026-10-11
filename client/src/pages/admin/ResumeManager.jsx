@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../api/client';
-import { useApiBase } from '../../lib/apiBase';
+import { PENDING_BASE, useApiBase } from '../../lib/apiBase';
 import { describeApiError } from '../../lib/apiErrors';
 import {
   ExternalLink,
@@ -15,7 +15,9 @@ const EMPTY = { resumeUrl: '', fileName: '', version: '', summaryText: '' };
 const inputClass = 'w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-sm focus:border-t-accent outline-none';
 
 export default function ResumeManager() {
-  const { v1Base } = useApiBase();
+  const { v1Base: resolvedBase, resolved: baseResolved } = useApiBase();
+  // Show `…` until the server has said what the public base is, so nobody copies a guess.
+  const v1Base = baseResolved ? resolvedBase : PENDING_BASE;
   const [resumeData, setResumeData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -59,7 +61,7 @@ export default function ResumeManager() {
     try {
       const res = await api.put('/resume', form);
       setResumeData(res.data);
-      setStatusMessage('Résumé saved. Apps that serve it pick it up within about a minute.');
+      setStatusMessage('Résumé saved. Apps serve it on the next request; sites that fetch in the browser show it within a minute.');
       setTimeout(() => setStatusMessage(null), 5000);
     } catch (err) {
       setErrorMessage(describeApiError(err, { fallback: 'Could not save the résumé.' }).message);

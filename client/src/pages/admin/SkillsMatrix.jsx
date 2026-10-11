@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useId } from 'react';
 import { api } from '../../api/client';
 import { apiErrorMessage } from '../../lib/apiErrors';
 import { ListSkeleton, EmptyState } from '../../components/admin/States';
+import Modal from '../../components/admin/ui/Modal';
+import useConfirm from '../../components/admin/ui/useConfirm';
+import { submitKeepingVisibility, chosenVisibility, currentVisibility } from '../../lib/visibilitySubmit';
 import {
   Plus,
   Trash2,
@@ -11,6 +14,7 @@ import {
   AlertCircle,
   X,
   Save,
+  Minus,
   Tag,
   Search,
   CheckSquare,
@@ -32,7 +36,18 @@ const SUGGESTED_CATEGORIES = [
 
 const PROFICIENCIES = ['Beginner', 'Familiar', 'Proficient', 'Advanced', 'Expert'];
 
+// Server caps (docs/CONTENT_FIELDS.md): name 120, category 60.
+const NAME_MAX = 120;
+const CATEGORY_MAX = 60;
+
+const fieldClass = 'w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-sm focus:border-t-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-t-accent/40';
+const labelClass = 'block text-xs font-medium text-t-muted mb-1';
+const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-t-accent';
+
 export default function SkillsMatrix() {
+  const [confirm, confirmDialog] = useConfirm();
+  const uid = useId();
+  const fid = (name) => `${uid}-${name}`;
   const [skills, setSkills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
@@ -65,6 +80,8 @@ export default function SkillsMatrix() {
   // Modal / Form State for Single Skill
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  // What Enter means in the edit form: the skill keeps the visibility it has (FX-38).
+  const [editingVisibility, setEditingVisibility] = useState('published');
   const [modalSaving, setModalSaving] = useState(false);
   const [form, setForm] = useState({
     name: '',
@@ -81,7 +98,7 @@ export default function SkillsMatrix() {
       const list = Array.isArray(res.data) ? res.data : res.data.skills || [];
       setSkills(list);
     } catch (err) {
-      setErrorMsg(apiErrorMessage(err, 'Failed to load skills matrix.'));
+      setErrorMsg(apiErrorMessage(err, 'Could not load your skills.'));
     } finally {
       setLoading(false);
     }
@@ -134,7 +151,7 @@ export default function SkillsMatrix() {
   // Open Bulk Edit Modal
   const openBulkModal = () => {
     if (selectedIds.length === 0) return;
-    setBulkCategory('KEEP');
+    setBulkCategory(''); // empty = keep each skill's own category
     setBulkProficiency('KEEP');
     setBulkApplyExp(false);
     setBulkExpValue(1);
@@ -163,7 +180,7 @@ export default function SkillsMatrix() {
         if (bulkFeatured === 'UNFEATURE') updates.featured = false;
 
         if (Object.keys(updates).length === 0) {
-          setErrorMsg('No changes selected to apply. Please modify at least one field or switch to Grid mode.');
+          setErrorMsg('Nothing to change yet. Set at least one field, or switch to “Edit as a table”.');
           setBulkSaving(false);
           return;
         }
@@ -193,7 +210,7 @@ export default function SkillsMatrix() {
       setSelectedIds([]);
       setTimeout(() => setSuccessMsg(null), 3500);
     } catch (err) {
-      setErrorMsg(apiErrorMessage(err, 'Error updating selected skills'));
+      setErrorMsg(apiErrorMessage(err, 'Could not update the selected skills.'));
     } finally {
       setBulkSaving(false);
     }
@@ -215,7 +232,7 @@ export default function SkillsMatrix() {
       setSuccessMsg(`${featured ? 'Featured' : 'Unfeatured'} ${updatedList.length} skills.`);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(apiErrorMessage(err, 'Error updating featured status'));
+      setErrorMsg(apiErrorMessage(err, 'Could not update the featured flag.'));
     } finally {
       setBulkSaving(false);
     }
@@ -231,7 +248,7 @@ export default function SkillsMatrix() {
       setSuccessMsg(`Published ${selectedIds.length} skills.`);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(apiErrorMessage(err, 'Error publishing selected skills'));
+      setErrorMsg(apiErrorMessage(err, 'Could not publish the selected skills.'));
     } finally {
       setBulkSaving(false);
     }
@@ -245,25 +262,30 @@ export default function SkillsMatrix() {
       setSuccessMsg(`${skill.name} moved to ${visibility}.`);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(apiErrorMessage(err, 'Error changing visibility'));
+      setErrorMsg(apiErrorMessage(err, 'Could not change the visibility.'));
     }
   };
 
   // Bulk Quick Action: Delete
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
-    if (!window.confirm(`Permanently delete all ${selectedIds.length} selected skills from the matrix?`)) return;
+    const ok = await confirm({
+      title: `Delete ${selectedIds.length} ${selectedIds.length === 1 ? 'skill' : 'skills'}?`,
+      consequence: 'They disappear from every App that serves your skills.',
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
 
     setBulkSaving(true);
     setErrorMsg(null);
     try {
       const res = await api.post('/skills/bulk-delete', { ids: selectedIds });
       setSkills((prev) => prev.filter((s) => !selectedIds.includes(s._id)));
-      setSuccessMsg(`Deleted ${res.data.deletedCount || selectedIds.length} skills successfully.`);
+      setSuccessMsg(`Deleted ${res.data.deletedCount || selectedIds.length} skills.`);
       setSelectedIds([]);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(apiErrorMessage(err, 'Error deleting selected skills'));
+      setErrorMsg(apiErrorMessage(err, 'Could not delete the selected skills.'));
     } finally {
       setBulkSaving(false);
     }
@@ -285,6 +307,7 @@ export default function SkillsMatrix() {
   // Single Skill Modal
   const openAddModal = (cat) => {
     setEditingId(null);
+    setEditingVisibility('published');
     setForm({
       name: '',
       category: cat && cat !== 'All' ? cat : '',
@@ -298,6 +321,7 @@ export default function SkillsMatrix() {
 
   const openEditModal = (skill) => {
     setEditingId(skill._id);
+    setEditingVisibility(currentVisibility(skill));
     setForm({
       name: skill.name,
       category: skill.category,
@@ -311,7 +335,8 @@ export default function SkillsMatrix() {
 
   const handleModalSubmit = async (e) => {
     e.preventDefault();
-    const visibility = e.nativeEvent?.submitter?.value === 'draft' ? 'draft' : 'published';
+    // A click on either button is a choice; Enter keeps the skill's current visibility.
+    const visibility = chosenVisibility(e, editingId ? editingVisibility : 'published');
     setModalSaving(true);
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -329,7 +354,7 @@ export default function SkillsMatrix() {
       setShowModal(false);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(apiErrorMessage(err, 'Error saving skill'));
+      setErrorMsg(apiErrorMessage(err, 'Could not save the skill.'));
     } finally {
       setModalSaving(false);
     }
@@ -337,7 +362,7 @@ export default function SkillsMatrix() {
 
   const handleBatchSubmit = async (e) => {
     e.preventDefault();
-    const visibility = e.nativeEvent?.submitter?.value === 'draft' ? 'draft' : 'published';
+    const visibility = chosenVisibility(e, 'published');
     if (!batchInput.trim()) return;
     setBatchSaving(true);
     setErrorMsg(null);
@@ -371,14 +396,19 @@ export default function SkillsMatrix() {
       setSuccessMsg(`Added ${added.length} ${added.length === 1 ? 'skill' : 'skills'} to “${batchCategory}”${visibility === 'published' ? ', published' : ' as drafts'}.`);
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err) {
-      setErrorMsg(apiErrorMessage(err, 'Error batch inserting skills'));
+      setErrorMsg(apiErrorMessage(err, 'Could not add those skills.'));
     } finally {
       setBatchSaving(false);
     }
   };
 
   const handleDelete = async (id, name) => {
-    if (!window.confirm(`Delete skill "${name}" from the matrix?`)) return;
+    const ok = await confirm({
+      title: `Delete “${name}”?`,
+      consequence: 'It disappears from every App that serves your skills.',
+      confirmLabel: 'Delete skill',
+    });
+    if (!ok) return;
     try {
       await api.delete(`/skills/${id}`);
       setSkills((prev) => prev.filter((s) => s._id !== id));
@@ -386,7 +416,7 @@ export default function SkillsMatrix() {
       setSuccessMsg(`Skill "${name}" deleted.`);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(apiErrorMessage(err, 'Error deleting skill'));
+      setErrorMsg(apiErrorMessage(err, 'Could not delete the skill.'));
     }
   };
 
@@ -396,11 +426,12 @@ export default function SkillsMatrix() {
       const res = await api.put(`/skills/${skill._id}`, updated);
       setSkills((prev) => prev.map((s) => (s._id === skill._id ? res.data : s)));
     } catch {
-      setErrorMsg('Error updating featured flag');
+      setErrorMsg('Could not update the featured flag.');
     }
   };
 
   const featuredCount = skills.filter((s) => s.featured).length;
+  const selectedSkills = skills.filter((s) => selectedIds.includes(s._id));
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -418,22 +449,24 @@ export default function SkillsMatrix() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           {selectedIds.length > 0 && (
             <button
+              type="button"
               onClick={openBulkModal}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs transition-all shadow-sm cursor-pointer"
+              className={`inline-flex min-h-9 items-center gap-1.5 px-3 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs transition-all shadow-sm cursor-pointer ${focusRing}`}
             >
-              <Edit2 size={14} />
-              <span>Edit Selected ({selectedIds.length})</span>
+              <Edit2 size={14} aria-hidden="true" />
+              <span>Edit selected ({selectedIds.length})</span>
             </button>
           )}
 
           <button
+            type="button"
             onClick={() => openAddModal(activeCategory)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs transition-all shadow-sm cursor-pointer"
+            className={`inline-flex min-h-9 items-center gap-2 px-3.5 py-2 rounded bg-t-accent2 hover:opacity-90 text-t-on-accent2 font-semibold text-xs transition-all shadow-sm cursor-pointer ${focusRing}`}
           >
-            <Plus size={15} />
+            <Plus size={15} aria-hidden="true" />
             <span>Add a skill</span>
           </button>
         </div>
@@ -441,83 +474,89 @@ export default function SkillsMatrix() {
 
       {/* Notifications */}
       {successMsg && (
-        <div className="p-3 rounded bg-t-accent2-dim border border-t-accent2/50 text-t-accent2 text-xs flex items-center gap-2 font-mono">
-          <CheckCircle size={15} />
+        <div role="status" className="p-3 rounded bg-t-accent2-dim border border-t-accent2/50 text-t-text text-sm flex items-center gap-2">
+          <CheckCircle size={15} aria-hidden="true" className="shrink-0 text-t-accent2" />
           <span>{successMsg}</span>
         </div>
       )}
       {errorMsg && (
-        <div className="p-3 rounded bg-t-danger-dim border border-t-danger/50 text-t-danger text-xs flex items-center gap-2 font-mono">
-          <AlertCircle size={15} />
+        <div role="alert" className="p-3 rounded bg-t-danger-dim border border-t-danger/50 text-t-danger text-sm flex items-center gap-2">
+          <AlertCircle size={15} aria-hidden="true" className="shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
 
       <datalist id="skill-category-options">{categoryOptions.map((c) => <option key={c} value={c} />)}</datalist>
 
-      {/* Quick Batch Entry Strip */}
+      {/* Quick batch entry */}
       <div className="p-4 rounded bg-t-surface border border-t-border">
-        <div className="flex items-center gap-2 mb-2">
-          <Tag size={14} className="text-t-accent2" />
-          <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted">
-            Add several skills at once
-          </span>
-          <span className="text-xs font-mono text-t-dim">
-            (separate with commas)
-          </span>
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <Tag size={14} aria-hidden="true" className="text-t-accent2" />
+          <h2 className="text-sm font-semibold text-t-text">Add several skills at once</h2>
+          <span className="text-xs text-t-muted">(separate with commas)</span>
         </div>
-        <form onSubmit={handleBatchSubmit} className="flex flex-col sm:flex-row gap-3">
-          <input
-            list="skill-category-options"
-            required
-            maxLength={60}
-            value={batchCategory}
-            onChange={(e) => setBatchCategory(e.target.value)}
-            placeholder="Category, e.g. Frontend"
-            aria-label="Category"
-            autoComplete="off"
-            className="px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none sm:w-56"
-          />
-          <input
-            type="text"
-            value={batchInput}
-            onChange={(e) => setBatchInput(e.target.value)}
-            placeholder="e.g. Kubernetes, Ansible, Terraform, Nginx"
-            className="flex-1 px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
-          />
-          <button
-            type="submit"
-            name="visibility"
-            value="draft"
-            disabled={batchSaving || !batchInput.trim()}
-            className="px-3 py-2 rounded border border-t-border-hi text-t-text font-semibold text-xs hover:bg-t-surface-hi disabled:opacity-40"
-          >
-            Add as drafts
-          </button>
-          <button
-            type="submit"
-            name="visibility"
-            value="published"
-            disabled={batchSaving || !batchInput.trim()}
-            className="px-4 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs shadow-sm disabled:opacity-40"
-          >
-            {batchSaving ? 'Adding…' : 'Add and publish'}
-          </button>
+        <form onSubmit={handleBatchSubmit} onKeyDown={submitKeepingVisibility} className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
+          <div className="sm:w-56">
+            <label htmlFor={fid('batch-category')} className="sr-only">Category</label>
+            <input
+              id={fid('batch-category')}
+              list="skill-category-options"
+              required
+              maxLength={CATEGORY_MAX}
+              value={batchCategory}
+              onChange={(e) => setBatchCategory(e.target.value)}
+              placeholder="Category, e.g. Frontend"
+              autoComplete="off"
+              className={fieldClass}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <label htmlFor={fid('batch-names')} className="sr-only">Skill names, separated by commas</label>
+            <input
+              id={fid('batch-names')}
+              type="text"
+              value={batchInput}
+              onChange={(e) => setBatchInput(e.target.value)}
+              placeholder="e.g. Kubernetes, Ansible, Terraform, Nginx"
+              className={fieldClass}
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="submit"
+              name="visibility"
+              value="draft"
+              disabled={batchSaving || !batchInput.trim()}
+              className={`min-h-9 px-3 py-2 rounded border border-t-border-hi text-t-text font-semibold text-xs hover:bg-t-surface-hi disabled:opacity-40 ${focusRing}`}
+            >
+              Add as drafts
+            </button>
+            <button
+              type="submit"
+              name="visibility"
+              value="published"
+              disabled={batchSaving || !batchInput.trim()}
+              className={`min-h-9 px-4 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs shadow-sm disabled:opacity-40 ${focusRing}`}
+            >
+              {batchSaving ? 'Adding…' : 'Add and publish'}
+            </button>
+          </div>
         </form>
       </div>
 
-      {/* Search & Category Filter Navigation */}
+      {/* Search and category filter */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Tabs */}
-          <div className="flex flex-wrap gap-1 bg-t-surface p-1 rounded border border-t-border">
+          <div role="group" aria-label="Filter by category" className="flex flex-wrap gap-1 bg-t-surface p-1 rounded border border-t-border">
             {CATEGORIES.map((cat) => (
               <button
                 key={cat}
+                type="button"
+                aria-pressed={activeCategory === cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`px-3 py-1.5 rounded text-xs font-mono transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded text-xs transition-all cursor-pointer ${focusRing} ${
                   activeCategory === cat
-                    ? 'bg-t-accent text-t-on-accent font-bold shadow-sm'
+                    ? 'bg-t-accent text-t-on-accent font-semibold shadow-sm'
                     : 'text-t-muted hover:text-t-text hover:bg-t-surface-hi'
                 }`}
               >
@@ -526,45 +565,46 @@ export default function SkillsMatrix() {
             ))}
           </div>
 
-          {/* Search Box */}
           <div className="relative w-full sm:w-64">
-            <Search size={14} className="absolute left-3 top-2.5 text-t-dim" />
+            <Search size={14} aria-hidden="true" className="absolute left-3 top-2.5 text-t-dim" />
+            <label htmlFor={fid('search')} className="sr-only">Search skills</label>
             <input
-              type="text"
+              id={fid('search')}
+              type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search skill..."
-              className="w-full pl-9 pr-3 py-1.5 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
+              placeholder="Search skills…"
+              className="w-full pl-9 pr-3 py-1.5 rounded bg-t-bg border border-t-border-hi text-t-text text-sm focus:border-t-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-t-accent/40"
             />
           </div>
         </div>
 
-        {/* Multi-Selection Control Bar */}
+        {/* Selection bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-3 py-2 rounded bg-t-surface border border-t-border">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
+              type="button"
               onClick={toggleSelectAllFiltered}
-              className="flex items-center gap-2 text-xs font-mono text-t-muted hover:text-t-text cursor-pointer select-none"
+              aria-pressed={isAllFilteredSelected ? true : isSomeFilteredSelected ? 'mixed' : false}
+              className={`flex items-center gap-2 rounded text-xs text-t-muted hover:text-t-text cursor-pointer select-none ${focusRing}`}
             >
               {isAllFilteredSelected ? (
-                <CheckSquare size={16} className="text-t-accent" />
+                <CheckSquare size={16} aria-hidden="true" className="text-t-accent" />
               ) : isSomeFilteredSelected ? (
-                <div className="w-4 h-4 rounded bg-t-accent flex items-center justify-center text-t-on-accent text-xs font-bold leading-none">
-                  -
-                </div>
+                <span aria-hidden="true" className="w-4 h-4 rounded bg-t-accent flex items-center justify-center text-t-on-accent"><Minus size={12} /></span>
               ) : (
-                <Square size={16} className="text-t-dim hover:text-t-muted" />
+                <Square size={16} aria-hidden="true" className="text-t-dim" />
               )}
               <span>
                 {isAllFilteredSelected
-                  ? 'Deselect All Visible'
-                  : `Select All Visible (${filteredSkills.length})`}
+                  ? 'Deselect all shown'
+                  : `Select all shown (${filteredSkills.length})`}
               </span>
             </button>
 
             {selectedIds.length > 0 && (
-              <span className="text-xs font-mono text-t-accent ml-2 pl-2 border-l border-t-border-hi">
-                {selectedIds.length} skill{selectedIds.length > 1 ? 's' : ''} selected
+              <span className="text-xs text-t-accent ml-2 pl-2 border-l border-t-border-hi">
+                {selectedIds.length} {selectedIds.length === 1 ? 'skill' : 'skills'} selected
               </span>
             )}
           </div>
@@ -572,80 +612,87 @@ export default function SkillsMatrix() {
           {selectedIds.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
+                type="button"
                 onClick={openBulkModal}
                 disabled={bulkSaving}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent text-xs font-semibold shadow transition-all cursor-pointer"
+                className={`inline-flex min-h-8 items-center gap-1.5 px-2.5 py-1 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent text-xs font-semibold shadow transition-all cursor-pointer ${focusRing}`}
               >
-                <Edit2 size={12} />
-                <span>Edit Selected ({selectedIds.length})</span>
+                <Edit2 size={12} aria-hidden="true" />
+                <span>Edit selected ({selectedIds.length})</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => handleBulkFeatureToggle(true)}
                 disabled={bulkSaving}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-t-accent2-dim hover:bg-t-accent2-dim text-t-accent2 border border-t-accent2/30 text-xs font-mono transition-all cursor-pointer"
-                title="Mark all selected as featured in spotlight"
+                aria-label="Feature the selected skills"
+                title="Feature the selected skills"
+                className={`inline-flex min-h-8 items-center gap-1 px-2 py-1 rounded bg-t-accent2-dim text-t-text border border-t-accent2/30 text-xs transition-all cursor-pointer ${focusRing}`}
               >
-                <Star size={12} className="fill-current" />
+                <Star size={12} aria-hidden="true" className="fill-current text-t-accent2" />
                 <span className="hidden sm:inline">Feature</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => handleBulkFeatureToggle(false)}
                 disabled={bulkSaving}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-t-surface-hi hover:bg-t-surface-hi text-t-muted border border-t-border-hi text-xs font-mono transition-all cursor-pointer"
-                title="Remove spotlight from selected"
+                className={`inline-flex min-h-8 items-center gap-1 px-2 py-1 rounded bg-t-surface-hi text-t-muted border border-t-border-hi text-xs transition-all cursor-pointer ${focusRing}`}
               >
-                <span className="hidden sm:inline">Unfeature</span>
+                <span>Unfeature</span>
               </button>
 
               <button
+                type="button"
                 onClick={handleBulkPublish}
                 disabled={bulkSaving}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-t-accent2-dim text-t-accent2 border border-t-accent2/30 text-xs font-mono transition-all cursor-pointer"
-                title="Publish all selected skills"
+                className={`inline-flex min-h-8 items-center gap-1 px-2 py-1 rounded bg-t-accent2-dim text-t-text border border-t-accent2/30 text-xs transition-all cursor-pointer ${focusRing}`}
               >
                 <span>Publish</span>
               </button>
 
               <button
+                type="button"
                 onClick={handleBulkDelete}
                 disabled={bulkSaving}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-t-danger-dim hover:bg-t-danger-dim text-t-danger border border-t-danger-dim/50 text-xs font-mono transition-all cursor-pointer"
-                title="Delete all selected skills"
+                aria-label="Delete the selected skills"
+                title="Delete the selected skills"
+                className={`inline-flex min-h-8 items-center gap-1 px-2 py-1 rounded bg-t-danger-dim text-t-danger border border-t-danger/30 text-xs transition-all cursor-pointer ${focusRing}`}
               >
-                <Trash2 size={12} />
+                <Trash2 size={12} aria-hidden="true" />
                 <span className="hidden sm:inline">Delete</span>
               </button>
 
               <button
+                type="button"
                 onClick={clearSelection}
-                className="p-1 rounded text-t-muted hover:text-t-text cursor-pointer ml-1"
+                aria-label="Clear selection"
                 title="Clear selection"
+                className={`p-1.5 rounded text-t-muted hover:text-t-text cursor-pointer ml-1 ${focusRing}`}
               >
-                <X size={14} />
+                <X size={14} aria-hidden="true" />
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Skills Grid */}
+      {/* Skills grid */}
       {loading ? (
         <ListSkeleton label="Loading skills" />
       ) : skills.length === 0 ? (
-        <EmptyState title="No skills yet" hint="Add a few above, separated by commas. They are published as you save, so Apps see them straight away." />
+        <EmptyState title="No skills yet" hint="Add a few above, separated by commas. “Add and publish” makes them visible to your Apps straight away." />
       ) : filteredSkills.length === 0 ? (
         <EmptyState title="No skills match" hint="Adjust the category or search filters to see more." />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredSkills.map((skill) => {
             const isSelected = selectedIds.includes(skill._id);
+            const checkboxId = fid(`select-${skill._id}`);
             return (
-              <div
+              <li
                 key={skill._id}
-                onClick={() => toggleSelectSkill(skill._id)}
-                className={`p-3 rounded border transition-all flex flex-col justify-between cursor-pointer select-none group ${
+                className={`p-3 rounded border transition-all flex flex-col justify-between ${
                   isSelected
                     ? 'bg-t-surface-hi border-t-accent shadow-md shadow-t-accent/10'
                     : 'bg-t-surface border-t-border hover:border-t-accent/50'
@@ -655,220 +702,210 @@ export default function SkillsMatrix() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-2.5 flex-1 min-w-0">
                       <input
+                        id={checkboxId}
                         type="checkbox"
                         checked={isSelected}
-                        onChange={(e) => toggleSelectSkill(skill._id, e)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="mt-0.5 w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent focus:ring-t-accent cursor-pointer"
+                        onChange={() => toggleSelectSkill(skill._id)}
+                        className="mt-1 w-4 h-4 rounded accent-t-accent cursor-pointer"
                       />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-bold text-t-text block truncate">
-                          {skill.name}
-                        </span>
-                        <span className="text-xs font-mono text-t-muted">
-                          {skill.category}
-                        </span>
-                      </div>
+                      <label htmlFor={checkboxId} className="flex-1 min-w-0 cursor-pointer select-none">
+                        <span className="text-sm font-semibold text-t-text block truncate">{skill.name}</span>
+                        <span className="text-xs text-t-muted">{skill.category}</span>
+                      </label>
                     </div>
 
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleFeatured(skill);
-                      }}
-                      className={`p-1 rounded transition-colors cursor-pointer ${
-                        skill.featured
-                          ? 'text-t-accent2'
-                          : 'text-t-dim hover:text-t-muted'
+                      type="button"
+                      onClick={() => handleToggleFeatured(skill)}
+                      aria-pressed={Boolean(skill.featured)}
+                      aria-label={`Featured: ${skill.name}`}
+                      title={skill.featured ? 'Featured. Click to unfeature' : 'Click to feature'}
+                      className={`p-1.5 rounded transition-colors cursor-pointer ${focusRing} ${
+                        skill.featured ? 'text-t-accent2' : 'text-t-dim hover:text-t-muted'
                       }`}
-                      title={skill.featured ? 'Featured in spotlight stack' : 'Click to feature in spotlight'}
                     >
-                      <Star size={15} className={skill.featured ? 'fill-current' : ''} />
+                      <Star size={15} aria-hidden="true" className={skill.featured ? 'fill-current' : ''} />
                     </button>
                   </div>
 
-                  <div className="mt-3 flex items-center gap-2 text-xs font-mono pl-6">
-                    <span className="px-2 py-0.5 rounded bg-t-bg border border-t-border-hi text-t-accent-br">
+                  <div className="mt-3 flex items-center gap-2 text-xs pl-6">
+                    <span className="px-2 py-0.5 rounded bg-t-bg border border-t-border-hi text-t-text">
                       {skill.proficiency}
                     </span>
-                    <span className="text-t-dim">
-                      {skill.yearsOfExperience} {skill.yearsOfExperience === 1 ? 'yr' : 'yrs'} exp
+                    <span className="text-t-muted">
+                      {skill.yearsOfExperience} {skill.yearsOfExperience === 1 ? 'year' : 'years'}
                     </span>
                   </div>
                 </div>
 
-                <div className="mt-3 pt-2.5 border-t border-t-border flex items-center justify-between pl-6">
-                  <span className="text-xs font-mono text-t-dim">
-                    {skill.featured ? 'Featured' : 'Not featured'} · {skill.visibility || 'draft'}
+                <div className="mt-3 pt-2.5 border-t border-t-border flex flex-wrap items-center justify-between gap-2 pl-6">
+                  <span className="text-xs text-t-muted">
+                    {skill.featured ? 'Featured' : 'Not featured'} · {skill.visibility === 'published' ? 'Published' : 'Draft'}
                   </span>
-                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-1">
                     <button
+                      type="button"
                       onClick={() => handleVisibilityToggle(skill)}
-                      className="px-1.5 py-1 text-xs uppercase font-mono border border-t-border-hi rounded text-t-muted hover:text-t-accent cursor-pointer"
-                      title={`Move to ${skill.visibility === 'published' ? 'draft' : 'published'}`}
+                      aria-label={`${skill.visibility === 'published' ? 'Unpublish' : 'Publish'} ${skill.name}`}
+                      className={`px-1.5 py-1 text-xs border border-t-border-hi rounded text-t-muted hover:text-t-accent cursor-pointer ${focusRing}`}
                     >
                       {skill.visibility === 'published' ? 'Unpublish' : 'Publish'}
                     </button>
                     <button
+                      type="button"
                       onClick={() => openEditModal(skill)}
-                      className="p-1 text-t-muted hover:text-t-text transition-colors cursor-pointer"
-                      title="Edit single skill"
+                      aria-label={`Edit ${skill.name}`}
+                      title="Edit"
+                      className={`p-1.5 rounded text-t-muted hover:text-t-text transition-colors cursor-pointer ${focusRing}`}
                     >
-                      <Edit2 size={13} />
+                      <Edit2 size={13} aria-hidden="true" />
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleDelete(skill._id, skill.name)}
-                      className="p-1 text-t-danger hover:text-t-text transition-colors cursor-pointer"
-                      title="Delete single skill"
+                      aria-label={`Delete ${skill.name}`}
+                      title="Delete"
+                      className={`p-1.5 rounded text-t-danger hover:bg-t-danger-dim transition-colors cursor-pointer ${focusRing}`}
                     >
-                      <Trash2 size={13} />
+                      <Trash2 size={13} aria-hidden="true" />
                     </button>
                   </div>
                 </div>
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
 
-      {/* Bulk Edit Modal for Multiple Skills */}
+      {/* Edit several skills */}
       {showBulkModal && (
-        <div className="fixed inset-0 bg-t-bg/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl rounded bg-t-surface border border-t-border shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
-            <div className="p-4 border-b border-t-border flex items-center justify-between bg-t-bg">
-              <div className="flex items-center gap-2">
-                <Edit2 size={16} className="text-t-accent" />
-                <span className="text-xs font-mono font-bold text-t-text uppercase tracking-wider">
-                  Bulk Edit ({selectedIds.length} Skills Selected)
-                </span>
-              </div>
+        <Modal
+          title={`Edit ${selectedIds.length} selected ${selectedIds.length === 1 ? 'skill' : 'skills'}`}
+          description="Change one field across all of them, or edit each one in a table."
+          icon={Edit2}
+          size="lg"
+          onClose={() => setShowBulkModal(false)}
+          footer={
+            <div className="flex flex-wrap justify-end gap-2">
               <button
+                type="button"
                 onClick={() => setShowBulkModal(false)}
-                className="p-1 rounded text-t-muted hover:text-t-text cursor-pointer"
+                className={`min-h-9 px-3.5 py-1.5 rounded text-sm font-semibold text-t-muted hover:text-t-text hover:bg-t-surface-hi cursor-pointer ${focusRing}`}
               >
-                <X size={16} />
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form={fid('bulk-form')}
+                disabled={bulkSaving || selectedIds.length === 0}
+                className={`inline-flex min-h-9 items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-sm shadow cursor-pointer disabled:opacity-50 ${focusRing}`}
+              >
+                <Save size={13} aria-hidden="true" />
+                <span>{bulkSaving ? 'Saving…' : `Save ${selectedIds.length} ${selectedIds.length === 1 ? 'skill' : 'skills'}`}</span>
               </button>
             </div>
-
-            {/* Mode Switcher Tabs */}
-            <div className="flex items-center border-b border-t-border bg-t-surface px-4 pt-2">
+          }
+        >
+          <div className="space-y-4">
+            <div role="group" aria-label="Editing mode" className="flex flex-wrap items-center border-b border-t-border">
               <button
                 type="button"
+                aria-pressed={bulkTab === 'batch'}
                 onClick={() => setBulkTab('batch')}
-                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-mono border-b-2 font-semibold transition-all cursor-pointer ${
-                  bulkTab === 'batch'
-                    ? 'border-t-accent text-t-text'
-                    : 'border-transparent text-t-muted hover:text-t-muted'
+                className={`-mb-px flex items-center gap-1.5 px-3 py-2 text-sm border-b-2 transition-all cursor-pointer ${focusRing} ${
+                  bulkTab === 'batch' ? 'border-t-accent font-semibold text-t-text' : 'border-transparent text-t-muted hover:text-t-text'
                 }`}
               >
-                <SlidersHorizontal size={13} />
-                <span>Batch Property Override</span>
+                <SlidersHorizontal size={13} aria-hidden="true" />
+                <span>Set a field for all</span>
               </button>
               <button
                 type="button"
+                aria-pressed={bulkTab === 'table'}
                 onClick={() => setBulkTab('table')}
-                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-mono border-b-2 font-semibold transition-all cursor-pointer ${
-                  bulkTab === 'table'
-                    ? 'border-t-accent text-t-text'
-                    : 'border-transparent text-t-muted hover:text-t-muted'
+                className={`-mb-px flex items-center gap-1.5 px-3 py-2 text-sm border-b-2 transition-all cursor-pointer ${focusRing} ${
+                  bulkTab === 'table' ? 'border-t-accent font-semibold text-t-text' : 'border-transparent text-t-muted hover:text-t-text'
                 }`}
               >
-                <ListChecks size={13} />
+                <ListChecks size={13} aria-hidden="true" />
                 <span>Edit as a table</span>
               </button>
             </div>
 
-            {/* Selected Skills Chips */}
-            <div className="p-3 bg-t-bg/60 border-b border-t-border">
-              <div className="text-xs font-mono text-t-muted mb-1.5 flex items-center justify-between">
-                <span>Selected Skills in Batch:</span>
-                <span className="text-t-dim">Click &times; to deselect</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
-                {skills
-                  .filter((s) => selectedIds.includes(s._id))
-                  .map((skill) => (
-                    <span
-                      key={skill._id}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-t-surface-hi border border-t-border-hi text-t-muted text-xs font-mono"
+            <div className="rounded border border-t-border bg-t-bg/60 p-3">
+              <p className="text-xs text-t-muted mb-1.5">Selected skills</p>
+              <ul className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                {selectedSkills.map((skill) => (
+                  <li key={skill._id} className="inline-flex items-center gap-1 pl-2 rounded bg-t-surface-hi border border-t-border-hi text-t-text text-xs">
+                    <span>{skill.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeSkillFromBulk(skill._id)}
+                      aria-label={`Remove ${skill.name} from the selection`}
+                      className={`px-1.5 py-0.5 rounded text-t-muted hover:text-t-danger cursor-pointer ${focusRing}`}
                     >
-                      <span>{skill.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeSkillFromBulk(skill._id)}
-                        className="text-t-muted hover:text-t-danger cursor-pointer"
-                        title="Remove from batch"
-                      >
-                        &times;
-                      </button>
-                    </span>
-                  ))}
-              </div>
+                      <X size={12} aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
 
-            {/* Modal Body */}
-            <form onSubmit={handleBulkSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
+            <form id={fid('bulk-form')} onSubmit={handleBulkSubmit} className="space-y-4">
               {bulkTab === 'batch' ? (
                 <div className="space-y-4">
-                  <p className="text-xs text-t-muted">
-                    Choose which fields to overwrite across all {selectedIds.length} selected skills. Fields set to "Keep Existing" will remain unchanged on each individual skill.
+                  <p className="text-sm text-t-muted">
+                    Only the fields you set change. Anything left on “Keep” stays as it is on each skill.
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-mono text-t-muted mb-1">
-                        Category
-                      </label>
+                      <label htmlFor={fid('bulk-category')} className={labelClass}>Category</label>
                       <input
+                        id={fid('bulk-category')}
                         list="skill-category-options"
-                        maxLength={60}
+                        maxLength={CATEGORY_MAX}
                         value={bulkCategory}
                         onChange={(e) => setBulkCategory(e.target.value)}
-                        placeholder="Keep existing category"
-                        aria-label="Category (leave empty to keep)"
+                        placeholder="Keep each skill’s category"
                         autoComplete="off"
-                        className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
+                        className={fieldClass}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-mono text-t-muted mb-1">
-                        Proficiency Level
-                      </label>
+                      <label htmlFor={fid('bulk-proficiency')} className={labelClass}>Proficiency</label>
                       <select
+                        id={fid('bulk-proficiency')}
                         value={bulkProficiency}
                         onChange={(e) => setBulkProficiency(e.target.value)}
-                        className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
+                        className={fieldClass}
                       >
-                        <option value="KEEP">[ Keep Existing Proficiency ]</option>
+                        <option value="KEEP">Keep each skill’s proficiency</option>
                         {PROFICIENCIES.map((lvl) => (
-                          <option key={lvl} value={lvl}>
-                            Set to: {lvl}
-                          </option>
+                          <option key={lvl} value={lvl}>Set to {lvl}</option>
                         ))}
                       </select>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
-                          id="bulkApplyExpCheckbox"
+                          id={fid('bulk-apply-years')}
                           checked={bulkApplyExp}
                           onChange={(e) => setBulkApplyExp(e.target.checked)}
-                          className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent focus:ring-t-accent cursor-pointer"
+                          className="w-4 h-4 rounded accent-t-accent cursor-pointer"
                         />
-                        <label
-                          htmlFor="bulkApplyExpCheckbox"
-                          className="text-xs font-mono text-t-muted cursor-pointer"
-                        >
-                          Update Years of Experience
+                        <label htmlFor={fid('bulk-apply-years')} className="text-xs font-medium text-t-muted cursor-pointer">
+                          Set years of experience
                         </label>
                       </div>
+                      <label htmlFor={fid('bulk-years')} className="sr-only">Years of experience</label>
                       <input
+                        id={fid('bulk-years')}
                         type="number"
                         min="0"
                         step="0.5"
@@ -876,21 +913,20 @@ export default function SkillsMatrix() {
                         value={bulkExpValue}
                         onChange={(e) => setBulkExpValue(parseFloat(e.target.value) || 0)}
                         placeholder="e.g. 2.5"
-                        className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none disabled:opacity-30 disabled:bg-t-surface-hi"
+                        className={`${fieldClass} disabled:opacity-40 disabled:bg-t-surface-hi`}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-mono text-t-muted mb-1">
-                        Spotlight Featured Status
-                      </label>
+                      <label htmlFor={fid('bulk-featured')} className={labelClass}>Featured</label>
                       <select
+                        id={fid('bulk-featured')}
                         value={bulkFeatured}
                         onChange={(e) => setBulkFeatured(e.target.value)}
-                        className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
+                        className={fieldClass}
                       >
-                        <option value="KEEP">[ Keep Existing Featured Status ]</option>
-                        <option value="FEATURE">Set All as Featured (★ Spotlight)</option>
+                        <option value="KEEP">Keep each skill’s setting</option>
+                        <option value="FEATURE">Feature all</option>
                         <option value="UNFEATURE">Unfeature all</option>
                       </select>
                     </div>
@@ -898,253 +934,216 @@ export default function SkillsMatrix() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-xs text-t-muted mb-2">
-                    Review and edit individual properties for each selected skill side by side.
-                  </p>
+                  <p className="text-sm text-t-muted">Edit each selected skill side by side.</p>
 
-                  <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+                  <ul className="space-y-2">
                     {editableSkills.map((item) => (
-                      <div
-                        key={item._id}
-                        className="p-3 rounded bg-t-bg border border-t-border space-y-2 text-xs font-mono"
-                      >
-                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                      <li key={item._id} className="p-3 rounded bg-t-bg border border-t-border text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
                           <div className="sm:col-span-4">
-                            <label className="text-xs text-t-dim block mb-0.5">Skill Name</label>
+                            <label htmlFor={fid(`row-name-${item._id}`)} className={labelClass}>Name</label>
                             <input
+                              id={fid(`row-name-${item._id}`)}
                               type="text"
+                              required
+                              maxLength={NAME_MAX}
                               value={item.name}
-                              onChange={(e) =>
-                                handleEditableSkillChange(item._id, 'name', e.target.value)
-                              }
-                              className="w-full px-2 py-1.5 rounded bg-t-surface border border-t-border-hi text-t-text text-xs outline-none focus:border-t-accent"
+                              onChange={(e) => handleEditableSkillChange(item._id, 'name', e.target.value)}
+                              className={fieldClass}
                             />
                           </div>
 
                           <div className="sm:col-span-3">
-                            <label className="text-xs text-t-dim block mb-0.5">Category</label>
+                            <label htmlFor={fid(`row-category-${item._id}`)} className={labelClass}>Category</label>
                             <input
+                              id={fid(`row-category-${item._id}`)}
                               list="skill-category-options"
                               required
-                              maxLength={60}
+                              maxLength={CATEGORY_MAX}
                               value={item.category}
                               onChange={(e) => handleEditableSkillChange(item._id, 'category', e.target.value)}
-                              aria-label={`Category for ${item.name}`}
                               autoComplete="off"
-                              className="w-full px-2 py-1.5 rounded bg-t-surface border border-t-border-hi text-t-text text-xs outline-none focus:border-t-accent"
+                              className={fieldClass}
                             />
                           </div>
 
                           <div className="sm:col-span-2">
-                            <label className="text-xs text-t-dim block mb-0.5">Proficiency</label>
+                            <label htmlFor={fid(`row-proficiency-${item._id}`)} className={labelClass}>Proficiency</label>
                             <select
+                              id={fid(`row-proficiency-${item._id}`)}
                               value={item.proficiency}
-                              onChange={(e) =>
-                                handleEditableSkillChange(item._id, 'proficiency', e.target.value)
-                              }
-                              className="w-full px-2 py-1.5 rounded bg-t-surface border border-t-border-hi text-t-text text-xs outline-none focus:border-t-accent"
+                              onChange={(e) => handleEditableSkillChange(item._id, 'proficiency', e.target.value)}
+                              className={fieldClass}
                             >
                               {PROFICIENCIES.map((lvl) => (
-                                <option key={lvl} value={lvl}>
-                                  {lvl}
-                                </option>
+                                <option key={lvl} value={lvl}>{lvl}</option>
                               ))}
                             </select>
                           </div>
 
                           <div className="sm:col-span-2">
-                            <label className="text-xs text-t-dim block mb-0.5">Exp (Yrs)</label>
+                            <label htmlFor={fid(`row-years-${item._id}`)} className={labelClass}>Years</label>
                             <input
+                              id={fid(`row-years-${item._id}`)}
                               type="number"
                               min="0"
                               step="0.5"
                               value={item.yearsOfExperience}
-                              onChange={(e) =>
-                                handleEditableSkillChange(
-                                  item._id,
-                                  'yearsOfExperience',
-                                  parseFloat(e.target.value) || 0
-                                )
-                              }
-                              className="w-full px-2 py-1.5 rounded bg-t-surface border border-t-border-hi text-t-text text-xs outline-none focus:border-t-accent"
+                              onChange={(e) => handleEditableSkillChange(item._id, 'yearsOfExperience', parseFloat(e.target.value) || 0)}
+                              className={fieldClass}
                             />
                           </div>
 
-                          <div className="sm:col-span-1 flex items-center justify-end gap-1 pt-3 sm:pt-0">
+                          <div className="sm:col-span-1 flex items-center justify-end gap-1">
                             <button
                               type="button"
-                              onClick={() =>
-                                handleEditableSkillChange(item._id, 'featured', !item.featured)
-                              }
-                              className={`p-1.5 rounded transition-all cursor-pointer ${
-                                item.featured
-                                  ? 'text-t-accent2 bg-t-accent2-dim'
-                                  : 'text-t-dim hover:text-t-muted'
+                              onClick={() => handleEditableSkillChange(item._id, 'featured', !item.featured)}
+                              aria-pressed={Boolean(item.featured)}
+                              aria-label={`Featured: ${item.name}`}
+                              title={item.featured ? 'Featured' : 'Not featured'}
+                              className={`p-1.5 rounded transition-all cursor-pointer ${focusRing} ${
+                                item.featured ? 'text-t-accent2 bg-t-accent2-dim' : 'text-t-dim hover:text-t-muted'
                               }`}
-                              title={item.featured ? 'Featured' : 'Not Featured'}
                             >
-                              <Star size={14} className={item.featured ? 'fill-current' : ''} />
+                              <Star size={14} aria-hidden="true" className={item.featured ? 'fill-current' : ''} />
                             </button>
                             <button
                               type="button"
                               onClick={() => removeSkillFromBulk(item._id)}
-                              className="p-1.5 text-t-dim hover:text-t-danger cursor-pointer"
-                              title="Remove from batch"
+                              aria-label={`Remove ${item.name} from the selection`}
+                              title="Remove from the selection"
+                              className={`p-1.5 rounded text-t-dim hover:text-t-danger cursor-pointer ${focusRing}`}
                             >
-                              <Trash2 size={13} />
+                              <X size={13} aria-hidden="true" />
                             </button>
                           </div>
                         </div>
-                      </div>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
               )}
-
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-2 pt-4 border-t border-t-border">
-                <button
-                  type="button"
-                  onClick={() => setShowBulkModal(false)}
-                  className="px-3.5 py-1.5 rounded text-xs font-semibold text-t-muted hover:text-t-text hover:bg-t-surface-hi cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={bulkSaving || selectedIds.length === 0}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs shadow cursor-pointer disabled:opacity-50"
-                >
-                  <Save size={13} />
-                  <span>
-                    {bulkSaving
-                      ? 'Applying Changes...'
-                      : `Apply Changes to ${selectedIds.length} Skills`}
-                  </span>
-                </button>
-              </div>
             </form>
           </div>
-        </div>
+        </Modal>
       )}
 
-      {/* Modal for Add / Edit Single Skill */}
+      {/* Add or edit one skill */}
       {showModal && (
-        <div className="fixed inset-0 bg-t-bg/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded bg-t-surface border border-t-border shadow-2xl">
-            <div className="p-4 border-b border-t-border flex items-center justify-between bg-t-bg">
-              <span className="text-xs font-mono font-bold text-t-text uppercase tracking-wider">
-                {editingId ? 'Edit Skill Competency' : 'Add New Skill Competency'}
-              </span>
+        <Modal
+          title={editingId ? 'Edit skill' : 'Add a skill'}
+          description={editingId ? (editingVisibility === 'published' ? 'Published: Apps serve it now. Pressing Enter saves it and keeps it published.' : 'Draft: no App can see it yet.') : undefined}
+          size="sm"
+          onClose={() => setShowModal(false)}
+          footer={
+            <div className="flex flex-wrap justify-end gap-2">
               <button
+                type="button"
                 onClick={() => setShowModal(false)}
-                className="p-1 rounded text-t-muted hover:text-t-text cursor-pointer"
+                className={`min-h-9 px-3.5 py-1.5 rounded text-sm font-semibold text-t-muted hover:text-t-text hover:bg-t-surface-hi cursor-pointer ${focusRing}`}
               >
-                <X size={16} />
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form={fid('skill-form')}
+                name="visibility"
+                value="draft"
+                disabled={modalSaving}
+                className={`min-h-9 px-3.5 py-1.5 rounded border border-t-border-hi text-sm font-semibold text-t-text hover:bg-t-surface-hi disabled:opacity-50 ${focusRing}`}
+              >
+                Save as draft
+              </button>
+              <button
+                type="submit"
+                form={fid('skill-form')}
+                name="visibility"
+                value="published"
+                disabled={modalSaving}
+                className={`inline-flex min-h-9 items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-sm shadow disabled:opacity-50 ${focusRing}`}
+              >
+                <Save size={13} aria-hidden="true" />
+                <span>{modalSaving ? 'Saving…' : 'Save and publish'}</span>
               </button>
             </div>
+          }
+        >
+          <form id={fid('skill-form')} onSubmit={handleModalSubmit} onKeyDown={submitKeepingVisibility} className="space-y-4">
+            <div>
+              <label htmlFor={fid('skill-name')} className={labelClass}>Name *</label>
+              <input
+                id={fid('skill-name')}
+                type="text"
+                required
+                maxLength={NAME_MAX}
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="e.g. Docker"
+                className={fieldClass}
+              />
+            </div>
 
-            <form onSubmit={handleModalSubmit} className="p-5 space-y-4">
+            <div>
+              <label htmlFor={fid('skill-category')} className={labelClass}>Category *</label>
+              <input
+                id={fid('skill-category')}
+                list="skill-category-options"
+                required
+                maxLength={CATEGORY_MAX}
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                placeholder="e.g. Frontend"
+                autoComplete="off"
+                className={fieldClass}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-mono text-t-muted mb-1">Skill Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="e.g. Docker, Redis, Kubernetes"
-                  className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="skill-category" className="block text-xs font-mono text-t-muted mb-1">Category *</label>
-                <input
-                  id="skill-category"
-                  list="skill-category-options"
-                  required
-                  maxLength={60}
-                  value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  placeholder="e.g. Frontend"
-                  autoComplete="off"
-                  className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-mono text-t-muted mb-1">Proficiency Level</label>
-                  <select
-                    value={form.proficiency}
-                    onChange={(e) => setForm({ ...form, proficiency: e.target.value })}
-                    className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
-                  >
-                    {PROFICIENCIES.map((lvl) => (
-                      <option key={lvl} value={lvl}>
-                        {lvl}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-mono text-t-muted mb-1">Years of Exp</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={form.yearsOfExperience}
-                    onChange={(e) => setForm({ ...form, yearsOfExperience: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="skillFeatured"
-                  checked={form.featured}
-                  onChange={(e) => setForm({ ...form, featured: e.target.checked })}
-                  className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-t-accent2"
-                />
-                <label htmlFor="skillFeatured" className="text-xs text-t-muted cursor-pointer">
-                  Feature in Spotlight summary and top highlight stack
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4 border-t border-t-border">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-3.5 py-1.5 rounded text-xs font-semibold text-t-muted hover:text-t-text hover:bg-t-surface-hi cursor-pointer"
+                <label htmlFor={fid('skill-proficiency')} className={labelClass}>Proficiency</label>
+                <select
+                  id={fid('skill-proficiency')}
+                  value={form.proficiency}
+                  onChange={(e) => setForm({ ...form, proficiency: e.target.value })}
+                  className={fieldClass}
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  name="visibility"
-                  value="draft"
-                  disabled={modalSaving}
-                  className="px-3.5 py-1.5 rounded border border-t-border-hi text-xs font-semibold text-t-text hover:bg-t-surface-hi disabled:opacity-50"
-                  >
-                    Save as draft
-                  </button>
-                  <button
-                  type="submit"
-                  name="visibility"
-                  value="published"
-                  disabled={modalSaving}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs shadow disabled:opacity-50"
-                  >
-                    <Save size={13} aria-hidden="true" />
-                    <span>{modalSaving ? 'Saving…' : 'Save and publish'}</span>
-                  </button>
+                  {PROFICIENCIES.map((lvl) => (
+                    <option key={lvl} value={lvl}>{lvl}</option>
+                  ))}
+                </select>
               </div>
-            </form>
-          </div>
-        </div>
+              <div>
+                <label htmlFor={fid('skill-years')} className={labelClass}>Years of experience</label>
+                <input
+                  id={fid('skill-years')}
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={form.yearsOfExperience}
+                  onChange={(e) => setForm({ ...form, yearsOfExperience: parseFloat(e.target.value) || 0 })}
+                  className={fieldClass}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <input
+                type="checkbox"
+                id={fid('skill-featured')}
+                checked={form.featured}
+                onChange={(e) => setForm({ ...form, featured: e.target.checked })}
+                className="w-4 h-4 rounded accent-t-accent"
+              />
+              <label htmlFor={fid('skill-featured')} className="text-sm text-t-muted cursor-pointer">
+                Featured (Apps can ask for featured skills only)
+              </label>
+            </div>
+          </form>
+        </Modal>
       )}
+
+      {confirmDialog}
     </div>
   );
 }
+

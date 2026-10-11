@@ -2,8 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import PublicShell from '../../components/public/PublicShell';
 import ScopeDemo from '../../components/public/ScopeDemo';
-import { SITE } from '../../content/site';
-import { useApiBase } from '../../lib/apiBase';
+import { SITE, supportMailto } from '../../content/site';
+import { PENDING_BASE, useApiBase } from '../../lib/apiBase';
 import { useSignupMode } from '../../hooks/useSignupMode';
 
 // The eight things the dashboard holds, named the way the API names them.
@@ -28,7 +28,6 @@ const COMPARED = [
   { section: 'certifications', portfolio: 'all', resume: null },
   { section: 'socials', portfolio: 'all', resume: null },
   { section: 'resume', portfolio: 'the link', resume: 'the link' },
-  { section: 'fs', portfolio: 'enabled', resume: null },
 ];
 
 // The portfolio builds with a secret key; the résumé microsite reads live from visitors' browsers.
@@ -45,7 +44,7 @@ const LIMITS = [
   { what: 'Secret key', value: '600 requests/min' },
   { what: 'Publishable key', value: '120 requests/min per visitor, 3,000/min per key' },
   { what: 'Uncached requests per account', value: '10 per second; a cache hit or 304 is free' },
-  { what: 'Response cache', value: 'about 60 seconds' },
+  { what: 'Response cache', value: 'cleared on every edit; browsers may keep a copy for 60 s' },
   { what: 'Uptime', value: 'best effort during the beta, no SLA' },
 ];
 
@@ -53,16 +52,20 @@ const buttonPrimary = 'rounded-lg bg-t-accent px-5 py-2.5 text-[0.875rem] font-s
 const buttonSecondary = 'rounded-lg border border-t-border-hi px-5 py-2.5 text-[0.875rem] font-medium text-t-text transition hover:border-t-accent';
 
 export default function Landing() {
-  const { isInviteOnly } = useSignupMode();
-  const { v1Base } = useApiBase();
-  // Rendered in every mode. In invite mode the same page explains how to get a code.
-  const signupLabel = isInviteOnly ? 'Request an invite' : 'Create a free account';
+  const { isInviteOnly, isClosed } = useSignupMode();
+  const { apiOrigin, resolved } = useApiBase();
+  // The account button renders in every mode. Invite-only: it leads to the signup form, which takes
+  // the code and says how to ask for one. Closed: it asks support to tell you when registration opens.
+  const signupLabel = isClosed ? 'Registration closed: get notified' : isInviteOnly ? 'Have an invite? Sign up' : 'Create a free account';
+  const signupCta = (className) => (isClosed
+    ? <a href={supportMailto(`Tell me when ${SITE.name} registration opens`)} className={className}>{signupLabel}</a>
+    : <Link to="/signup" className={className}>{signupLabel}</Link>);
 
   const steps = [
     { title: 'Create an account and verify your email.', note: 'You choose a password from the verification link. About a minute.' },
     { title: 'Add your profile and a project.', note: 'Everything you save is published unless you keep it as a draft.' },
     { title: 'Create an App and choose what it can read.', note: 'The “Everything published” preset is the default; narrow it whenever you like. Then create a secret key.' },
-    { title: 'Fetch it from your build.', command: `curl -H "Authorization: Bearer sk_live_…" ${v1Base}/projects`, note: 'The dashboard tells you the moment your key reaches us.' },
+    { title: 'Fetch it from your build.', command: `curl -H "Authorization: Bearer sk_live_…" ${resolved ? apiOrigin : PENDING_BASE}/v1/projects`, note: 'The dashboard tells you the moment your key reaches us.' },
   ];
 
   return (
@@ -82,8 +85,8 @@ export default function Landing() {
           <p className="mt-4 text-[0.875rem] text-t-dim">{SITE.status}</p>
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Link to="/signup" className={buttonPrimary}>{signupLabel}</Link>
-            <Link to="/docs/quickstart" className={buttonSecondary}>Read the 5-minute quickstart</Link>
+            {signupCta(buttonPrimary)}
+            <Link to="/docs/quickstart" className={buttonSecondary}>Read the quickstart</Link>
           </div>
         </div>
 
@@ -109,8 +112,8 @@ export default function Landing() {
           </h2>
           <p className="mt-4 text-[0.9375rem] leading-7 text-t-muted">
             Nothing is duplicated and nothing is synced. Each App holds a grant, and the API applies it on the way
-            out. Edit your bio once and every site allowed to read it picks the change up within the minute its
-            response is cached for.
+            out. Edit your bio once and every site allowed to read it picks the change up within about a minute if
+            it reads live, or on its next build if it fetches at build time.
           </p>
         </div>
 
@@ -182,7 +185,7 @@ export default function Landing() {
           </h2>
           <p className="mt-4 text-[0.9375rem] leading-7 text-t-muted">
             About ten minutes, no card. Your data stays yours: export everything as JSON or delete your account
-            from Settings at any time.
+            from <strong className="font-medium text-t-text">Account</strong> in the dashboard at any time.
           </p>
         </div>
 
@@ -234,9 +237,25 @@ export default function Landing() {
             </tbody>
           </table>
 
-          {/* <!-- OWNER-APPROVAL: pricing sentence --> */}
           <p className="mt-5 text-[0.9375rem] leading-7 text-t-muted">
             Free during the beta; any paid plan will be announced 30 days ahead.
+          </p>
+        </div>
+      </section>
+
+      {/* ── Who runs it ─────────────────────────────────────────────────── */}
+      <section aria-labelledby="about-title" className="mx-auto max-w-[90rem] px-4 py-16 sm:px-6">
+        <div className="max-w-3xl border-t border-t-border pt-8">
+          <h2 id="about-title" className="text-balance font-display text-[1.5rem] leading-tight tracking-[-0.02em]">
+            Who runs {SITE.name}
+          </h2>
+          <p className="mt-4 text-[0.9375rem] leading-7 text-t-muted">
+            {SITE.name} is a hosted service operated by {SITE.legal.operator}, based in {SITE.legal.jurisdiction}. It
+            is in beta and run on a best-effort basis: your content is backed up daily, you can export or delete it
+            yourself at any time, and every change to the API, the limits or the Terms is posted in the{' '}
+            <Link to="/docs/changelog" className="text-t-accent hover:underline">changelog</Link> first. Questions,
+            problems and invite requests go to{' '}
+            <a href={supportMailto()} className="text-t-accent hover:underline">{SITE.support.email}</a>.
           </p>
         </div>
       </section>
@@ -248,7 +267,7 @@ export default function Landing() {
             Write it once. Read it from everything you build.
           </h2>
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <Link to="/signup" className={buttonPrimary}>{signupLabel}</Link>
+            {signupCta(buttonPrimary)}
             <Link to="/login" className={buttonSecondary}>Sign in</Link>
           </div>
         </div>

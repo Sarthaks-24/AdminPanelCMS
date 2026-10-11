@@ -17,15 +17,17 @@ export const api = axios.create({
   },
 });
 
-// Response Interceptor: Handle 401 Unauthorized
+// Response interceptor: a 401 on a dashboard page means the session ended (expired, signed out in
+// another tab, password changed). AuthContext hears the event, clears the user, and ProtectedRoute
+// sends the visitor to /login with a way back, without a full page reload.
+export const SESSION_EXPIRED_EVENT = 'pc:session-expired';
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     // The startup session probe expects a 401 when signed out and must not trigger a redirect.
-    if (error.response?.status === 401 && !error.config?.skipAuthRedirect) {
-      const path = window.location.pathname;
-      const publicPages = ['/admin/login', '/admin/signup', '/admin/check-email', '/admin/verify-email', '/admin/forgot-password', '/admin/reset-password'];
-      if (path.startsWith('/admin') && !publicPages.includes(path)) window.location.href = '/admin/login';
+    if (error.response?.status === 401 && !error.config?.skipAuthRedirect && window.location.pathname.startsWith('/dashboard')) {
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
     }
     return Promise.reject(error);
   }

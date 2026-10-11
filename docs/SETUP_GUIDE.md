@@ -98,7 +98,7 @@ npm run dev
 
 The defaults in `client/.env` (`VITE_MODE=dev`, `VITE_DEV_API_URL=http://localhost:5000/api`) match the API above.
 
-Open <http://localhost:5173/admin/login> and sign in with `ADMIN_EMAIL` and `DEV_ADMIN_PASSWORD`.
+Open <http://localhost:5173/login> and sign in with `ADMIN_EMAIL` and `DEV_ADMIN_PASSWORD`.
 
 The dashboard must be opened at exactly the origin in `DEV_CLIENT_ORIGIN`. If Vite picks another port, or you use `127.0.0.1` instead of `localhost`, sign-in fails with a CORS error; change one to match the other.
 

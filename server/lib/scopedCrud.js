@@ -7,6 +7,7 @@ const { WRITABLE_FIELDS } = require('./modelConstants');
 const { withContentQuota } = require('./contentQuota');
 const contentChanged = require('./onContentChanged');
 const pullContentFromApps = require('./pullContentFromApps');
+const { checkContentBytes, contentBytesExceeded, applyPatch } = require('./contentBytes');
 
 // Models whose ids can sit in an App's `include.<section>.ids` list.
 const APP_SELECTABLE_MODELS = ['Social', 'Skill', 'Project', 'Experience', 'Education', 'Certification'];
@@ -39,9 +40,12 @@ function scopedCrud(Model, fieldName, { sort = { order: 1, createdAt: -1 }, quer
     create: async (req, res, next) => {
       try {
         const ownerId = req.userId;
+        const fields = pickFields(req.body, WRITABLE_FIELDS[Model.modelName]);
+        const budget = await checkContentBytes(ownerId, Model.modelName, { next: new Model(fields).toObject() });
+        if (!budget.allowed) return contentBytesExceeded(res, budget);
         const result = await withContentQuota(Model, ownerId, 1, async () => {
           const last = await Model.findOne({ owner: ownerId }).sort({ order: -1 }).select('order').lean();
-          const data = { ...pickFields(req.body, WRITABLE_FIELDS[Model.modelName]), owner: ownerId };
+          const data = { ...fields, owner: ownerId };
           if (data.order === undefined) data.order = (last?.order ?? -1) + 1;
           return Model.create(data);
         });
@@ -55,6 +59,10 @@ function scopedCrud(Model, fieldName, { sort = { order: 1, createdAt: -1 }, quer
       try {
         if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: 'not_found' });
         const data = pickFields(req.body, WRITABLE_FIELDS[Model.modelName]);
+        const stored = await Model.findOne({ _id: req.params.id, owner: req.userId }).lean();
+        if (!stored) return res.status(404).json({ success: false, error: 'not_found' });
+        const budget = await checkContentBytes(req.userId, Model.modelName, { next: applyPatch(Model, stored, data), previous: stored });
+        if (!budget.allowed) return contentBytesExceeded(res, budget);
         const item = await Model.findOneAndUpdate({ _id: req.params.id, owner: req.userId }, { $set: flattenPaths(data) }, { returnDocument: 'after', runValidators: true });
         if (item) {
           // Editing content must not silently drop it from apps' "selected" lists; only unpublishing does.

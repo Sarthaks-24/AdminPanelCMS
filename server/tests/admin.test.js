@@ -15,7 +15,7 @@ describe('superadmin controls', () => {
   });
 
   it('creates, lists, and revokes hashed 12-character invite codes without returning stored hashes', async () => {
-    const admin = await createUser(User, { role: 'superadmin' });
+    const admin = await createUser(User, { role: 'superadmin', adminReauthAt: new Date() });
     const auth = loginAs(admin);
     const created = await request(app).post('/api/admin/invites').set('Authorization', auth).send({ expiresInDays: 14, maxUses: 3 }).expect(201);
     const code = created.body.invite.code;
@@ -32,8 +32,23 @@ describe('superadmin controls', () => {
     expect(await Invite.countDocuments()).toBe(0);
   });
 
-  it('caps invites at 50 uses and 90 days', async () => {
+  it('requires a recent password re-check to change the signup mode or mint invites', async () => {
     const admin = await createUser(User, { role: 'superadmin' });
+    const auth = loginAs(admin);
+    const settings = await request(app).put('/api/admin/settings').set('Authorization', auth).send({ signupMode: 'open' }).expect(403);
+    expect(settings.body.error).toBe('reauth_required');
+    const invite = await request(app).post('/api/admin/invites').set('Authorization', auth).send({}).expect(403);
+    expect(invite.body.error).toBe('reauth_required');
+    expect(await Invite.countDocuments()).toBe(0);
+    // Reads and revocation stay available without the re-check.
+    await request(app).get('/api/admin/settings').set('Authorization', auth).expect(200);
+    await request(app).get('/api/admin/invites').set('Authorization', auth).expect(200);
+    await User.updateOne({ _id: admin._id }, { $set: { adminReauthAt: new Date() } });
+    await request(app).post('/api/admin/invites').set('Authorization', auth).send({}).expect(201);
+  });
+
+  it('caps invites at 50 uses and 90 days', async () => {
+    const admin = await createUser(User, { role: 'superadmin', adminReauthAt: new Date() });
     const auth = loginAs(admin);
     await request(app).post('/api/admin/invites').set('Authorization', auth).send({ maxUses: 51 }).expect(400);
     await request(app).post('/api/admin/invites').set('Authorization', auth).send({ expiresInDays: 91 }).expect(400);
@@ -41,7 +56,7 @@ describe('superadmin controls', () => {
   });
 
   it('returns aggregate performance metrics without exposing individual API app details', async () => {
-    const admin = await createUser(User, { role: 'superadmin' });
+    const admin = await createUser(User, { role: 'superadmin', adminReauthAt: new Date() });
     const owner = await createUser(User, { email: 'private-owner@test.com' });
     const appDoc = await App.create({ owner: owner._id, quotaSlot: 0, name: 'Owner App', type: 'protected', allowedOrigins: ['https://portfolio.test'], include: {} });
     const dashboard = await request(app).get('/api/admin/overview').set('Authorization', loginAs(admin)).expect(200);
@@ -62,7 +77,7 @@ describe('signup mode setting', () => {
 
   it('is superadmin-only and rejects unknown modes', async () => {
     const regular = await createUser(User);
-    const admin = await createUser(User, { role: 'superadmin' });
+    const admin = await createUser(User, { role: 'superadmin', adminReauthAt: new Date() });
     await request(app).get('/api/admin/settings').set('Authorization', loginAs(regular)).expect(403);
     await request(app).put('/api/admin/settings').set('Authorization', loginAs(regular)).send({ signupMode: 'open' }).expect(403);
     await request(app).put('/api/admin/settings').set('Authorization', loginAs(admin)).send({ signupMode: 'anyone' }).expect(400);
@@ -70,7 +85,7 @@ describe('signup mode setting', () => {
   });
 
   it('defaults to the environment value and lets the dashboard override it, including back to closed', async () => {
-    const admin = await createUser(User, { role: 'superadmin' });
+    const admin = await createUser(User, { role: 'superadmin', adminReauthAt: new Date() });
     const auth = loginAs(admin);
     process.env.SIGNUP_MODE = 'invite';
     const initial = await request(app).get('/api/admin/settings').set('Authorization', auth).expect(200);
@@ -93,7 +108,7 @@ describe('signup mode setting', () => {
   });
 
   it('honours SIGNUP_MODE=closed from the environment when nothing is saved', async () => {
-    const admin = await createUser(User, { role: 'superadmin' });
+    const admin = await createUser(User, { role: 'superadmin', adminReauthAt: new Date() });
     process.env.SIGNUP_MODE = 'closed';
     const settings = await request(app).get('/api/admin/settings').set('Authorization', loginAs(admin)).expect(200);
     expect(settings.body.settings).toMatchObject({ signupMode: 'closed', source: 'environment', environmentDefault: 'closed' });
@@ -101,7 +116,7 @@ describe('signup mode setting', () => {
   });
 
   it('stays closed in production until legal policies are approved, even when set to open', async () => {
-    const admin = await createUser(User, { role: 'superadmin' });
+    const admin = await createUser(User, { role: 'superadmin', adminReauthAt: new Date() });
     await request(app).put('/api/admin/settings').set('Authorization', loginAs(admin)).send({ signupMode: 'open' }).expect(200);
     process.env.NODE_ENV = 'production';
     expect((await request(app).get('/api/auth/config').expect(200)).body).toMatchObject({ signupEnabled: false, signupMode: 'closed' });

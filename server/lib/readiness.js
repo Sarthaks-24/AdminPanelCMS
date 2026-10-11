@@ -11,6 +11,7 @@ async function checkReady({ connection = mongoose.connection, timeoutMs = 2000 }
   let timer;
   try {
     await Promise.race([
+      // ownerGuard-exemption: a ping on the admin database reads no collection
       connection.getClient().db('admin').command({ ping: 1 }),
       new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('ping timeout')), timeoutMs); }),
     ]);
@@ -20,4 +21,16 @@ async function checkReady({ connection = mongoose.connection, timeoutMs = 2000 }
   } finally { clearTimeout(timer); }
 }
 
-module.exports = { checkReady, setShuttingDown, isShuttingDown };
+// /readyz is public and sits above every limiter, so the Mongo ping is shared: one ping per
+// READY_CACHE_MS however many probes arrive. Draining and a dropped connection are still seen at once.
+const READY_CACHE_MS = 3000;
+let cached = null; // { at, promise }
+function checkReadyCached({ connection = mongoose.connection, now = Date.now() } = {}) {
+  if (shuttingDown) return Promise.resolve({ ok: false, reason: 'shutting_down' });
+  if (connection.readyState !== 1) return Promise.resolve({ ok: false, reason: 'mongo_disconnected' });
+  if (!cached || now - cached.at >= READY_CACHE_MS) cached = { at: now, promise: checkReady({ connection }) };
+  return cached.promise;
+}
+function resetReadyCache() { cached = null; }
+
+module.exports = { checkReady, checkReadyCached, resetReadyCache, setShuttingDown, isShuttingDown, READY_CACHE_MS };

@@ -221,6 +221,10 @@ exports.getApp = async (req, res, next) => {
 exports.createApp = async (req, res, next) => {
   try {
     const payload = pickFields(req.body, editable);
+    // SEC15: a static App must name its origins at creation; "any website" is an explicit ['*'], never a default.
+    if (payload.type === 'static' && (!Array.isArray(payload.allowedOrigins) || payload.allowedOrigins.length === 0)) {
+      return res.status(400).json({ success: false, error: 'validation_failed', details: ['static apps need at least one allowed origin, such as https://example.com; send ["*"] to allow any website'] });
+    }
     if (payload.allowedOrigins === undefined) payload.allowedOrigins = [];
     const errors = await validateApp(req.userId, payload);
     if (errors.length) return res.status(400).json({ success: false, error: 'validation_failed', details: errors });
@@ -279,7 +283,13 @@ exports.createToken = async (req, res, next) => {
     if (!app) return res.status(404).json({ success: false, error: 'not_found' });
     if (!req.user.emailVerifiedAt) return res.status(403).json({ success: false, error: 'email_unverified', message: 'Verify your email before creating API tokens' });
     const now = new Date();
-    await ApiToken.updateMany({ app: app._id, owner: req.userId, revokedAt: null, expiresAt: { $lte: now } }, { $set: { revokedAt: now } });
+    // Expired keys are retired before the quota check; their hashes leave the active set like any revocation.
+    const expiredFilter = { app: app._id, owner: req.userId, revokedAt: null, expiresAt: { $lte: now } };
+    const expired = await ApiToken.find(expiredFilter).select('hash').lean();
+    if (expired.length) {
+      await ApiToken.updateMany(expiredFilter, { $set: { revokedAt: now } });
+      for (const token of expired) evictTokenByHash(token.hash);
+    }
     const type = tokenKindFor(app.type);
     const days = [30, 90, 365].includes(Number(req.body?.expiresInDays)) ? Number(req.body.expiresInDays) : null;
     const generated = generateToken(type);

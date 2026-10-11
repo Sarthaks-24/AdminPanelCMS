@@ -8,6 +8,8 @@ const readiness = require('./lib/readiness');
 const requestId = require('./middleware/requestId');
 const errorHandler = require('./middleware/errorHandler');
 const sanitizeMongoInput = require('./middleware/sanitizeMongoInput');
+const { watchResponses } = require('./lib/alerts');
+const { rejectWritesWhenFull } = require('./lib/storageGuard');
 
 const authRoutes = require('./routes/auth');
 const accountRoutes = require('./routes/account');
@@ -39,6 +41,9 @@ const PROBE_PATHS = new Set(['/livez', '/readyz', '/api/health']);
 const requestFields = (req, res) => ({
   method: req.method,
   path: (req.originalUrl || req.url || '').split('?')[0],
+  // The client address as Express resolved it through TRUST_PROXY_HOPS; a proxy address here means
+  // the hop count is wrong and every visitor shares one rate-limit bucket.
+  ip: req.ip,
   status: res.statusCode,
   owner: req.ownerId ? String(req.ownerId) : (req.userId ? String(req.userId) : undefined),
   app: req.cmsApp ? String(req.cmsApp._id) : undefined,
@@ -46,6 +51,8 @@ const requestFields = (req, res) => ({
   cacheHit: res.locals?.cacheHit,
 });
 app.use(requestId);
+// Burst alerts on load-shedding 503s, 429s and /v1 401s (lib/alerts.js, docs/OPERATIONS.md#alerts).
+app.use(watchResponses);
 app.use(pinoHttp({
   logger,
   genReqId: (req) => req.id,
@@ -65,9 +72,11 @@ app.use(helmet());
 const liveness = (req, res) => res.json({ status: 'ok', uptime: Math.floor(process.uptime()), timestamp: new Date().toISOString() });
 app.get('/livez', liveness);
 app.get('/api/health', liveness);
+// The ping result is shared for a few seconds (lib/readiness.js) and the public body is the bare
+// status: the internal reason (shutting_down, mongo_disconnected, mongo_ping_failed) is not published.
 app.get('/readyz', async (req, res) => {
-  const result = await readiness.checkReady();
-  res.status(result.ok ? 200 : 503).json({ status: result.ok ? 'ready' : 'unavailable', ...(result.reason ? { reason: result.reason } : {}), timestamp: new Date().toISOString() });
+  const result = await readiness.checkReadyCached();
+  res.status(result.ok ? 200 : 503).json({ status: result.ok ? 'ready' : 'unavailable' });
 });
 
 // Mount /v1 before the dashboard CORS middleware so its stricter preflight policy wins.
@@ -96,6 +105,10 @@ app.use(express.json({ limit: '256kb' }));
 // Express 5 leaves req.body undefined without a JSON body; controllers may destructure it.
 app.use((req, res, next) => { req.body ??= {}; next(); });
 
+// Dashboard responses carry account data (the export is the full PII set): never store them in a browser or
+// shared cache. /v1 sets its own Cache-Control.
+app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+
 app.use('/api', rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 600,
@@ -104,6 +117,8 @@ app.use('/api', rateLimit({
 }));
 
 app.use('/api', sanitizeMongoInput);
+// Near the Atlas storage cap, content and App writes answer 503 storage_full (reads and deletes still pass).
+app.use(['/api/profile', '/api/socials', '/api/skills', '/api/projects', '/api/experience', '/api/education', '/api/certifications', '/api/resume', '/api/apps'], rejectWritesWhenFull);
 app.use('/api/auth', authRoutes);
 app.use('/api/account', accountRoutes);
 app.use('/api/admin', adminRoutes);

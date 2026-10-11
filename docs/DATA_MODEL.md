@@ -245,7 +245,7 @@ Key format: `pk_live_` or `sk_live_` followed by 43 base-62 characters (256 rand
 
 ### Invite
 
-`codeHash` (HMAC-SHA-256 of the 12-character base32 code, keyed by `INVITE_CODE_PEPPER` or `JWT_SECRET`), `createdBy`, `usedBy` (the last account to use it; cleared if that account is deleted), `usedCount`, `maxUses` (1 to 50), `expiresAt` (TTL index). Legacy 6-digit codes are accepted until they expire; none are created.
+`codeHash` (HMAC-SHA-256 of the 12-character base32 code, keyed by `INVITE_CODE_PEPPER` or `JWT_SECRET`), `createdBy`, `usedBy` (the last account to use it; cleared if that account is deleted), `usedCount`, `maxUses` (1 to 50), `expiresAt` (TTL index).
 
 ### Setting
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import ResendVerification from '../../components/admin/ResendVerification';
 
 const inputClass = 'mt-2 w-full rounded-lg border border-t-border-hi bg-t-bg px-3 py-2.5 text-sm text-t-text focus:border-t-accent focus:outline-none focus:ring-2 focus:ring-t-accent/20';
 
@@ -46,8 +47,10 @@ export default function AccountSettings() {
     setBusy(true);
     try {
       const { data } = await api.delete('/account', { data: { password: deleteForm.password } });
-      logout(); navigate('/admin/login', { replace: true });
-      if (!data.deleted) setError('Account access has been disabled; cleanup is pending.');
+      // This page unmounts on navigate, so the outcome travels to the sign-in page in route state.
+      const notice = data.deleted ? 'Your account and its content were deleted.' : 'Your account is disabled and its data is being deleted. Cleanup finishes within a few hours.';
+      navigate('/login', { replace: true, state: { notice } });
+      logout();
     } catch (err) { setError(err.response?.data?.error === 'credentials_invalid' ? 'The password is incorrect.' : 'Could not delete the account.'); }
     finally { setBusy(false); }
   };
@@ -59,7 +62,7 @@ export default function AccountSettings() {
       <section className="rounded-xl border border-t-border bg-t-surface p-5 sm:p-6">
         <h2 className="text-base font-semibold">Account</h2>
         <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2"><div><dt className="text-t-muted">Email</dt><dd className="mt-1 break-all">{profile?.email || user?.email || 'Loading…'}</dd></div><div><dt className="text-t-muted">Email status</dt><dd className="mt-1">{profile?.emailVerified ? 'Verified' : 'Not verified'}</dd></div><div><dt className="text-t-muted">Terms accepted</dt><dd className="mt-1">{profile?.acceptedTermsAt ? `${new Date(profile.acceptedTermsAt).toLocaleDateString()}${profile.acceptedTermsVersion ? ` (version ${profile.acceptedTermsVersion})` : ''}` : 'Not recorded'}</dd></div><div><dt className="text-t-muted">Privacy Policy accepted</dt><dd className="mt-1">{profile?.acceptedPrivacyAt ? `${new Date(profile.acceptedPrivacyAt).toLocaleDateString()}${profile.acceptedPrivacyVersion ? ` (version ${profile.acceptedPrivacyVersion})` : ''}` : 'Not recorded'}</dd></div></dl>
-        {!profile?.emailVerified && <button type="button" onClick={async () => { try { await api.post('/auth/resend-verification', { email: profile?.email || user?.email }); setMessage('If verification is needed, a message will be sent.'); } catch { setError('Could not request a verification email.'); } }} className="mt-4 text-sm font-medium text-t-accent hover:underline">Resend verification email</button>}
+        {profile && !profile.emailVerified && <div className="mt-4"><ResendVerification email={profile.email || user?.email} /></div>}
       </section>
       <section className="rounded-xl border border-t-border bg-t-surface p-5 sm:p-6">
         <h2 className="text-base font-semibold">Change password</h2>
@@ -75,11 +78,11 @@ export default function AccountSettings() {
         <button type="button" onClick={exportData} disabled={busy} className="mt-4 rounded-lg border border-t-border-hi px-4 py-2.5 text-sm font-medium hover:bg-t-bg disabled:opacity-60">Download account export</button>
       </section>
       <section className="rounded-xl border border-t-danger/30 bg-t-danger-dim p-5 sm:p-6">
-        <h2 className="text-base font-semibold text-red-400">Delete account</h2><p className="mt-2 text-sm text-t-muted">Deletion immediately disables sign-in and removes your account data. This cannot be undone.</p>
+        <h2 className="text-base font-semibold text-t-danger">Delete account</h2><p className="mt-2 text-sm text-t-muted">Deletion immediately disables sign-in and removes your account data. This cannot be undone.</p>
         <form onSubmit={deleteAccount} className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="text-sm">Current password<input className={inputClass} type="password" autoComplete="current-password" required value={deleteForm.password} onChange={(event) => setDeleteForm((p) => ({ ...p, password: event.target.value }))} /></label>
           <label className="text-sm">Type DELETE to confirm<input className={inputClass} type="text" autoComplete="off" required value={deleteForm.confirmation} onChange={(event) => setDeleteForm((p) => ({ ...p, confirmation: event.target.value }))} /></label>
-          <button className="rounded-lg bg-t-danger px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60 sm:col-span-2 sm:w-fit" disabled={busy}>Delete account</button>
+          <button className="rounded-lg bg-t-danger px-4 py-2.5 text-sm font-semibold text-t-bg hover:brightness-110 disabled:opacity-60 sm:col-span-2 sm:w-fit" disabled={busy}>Delete account</button>
         </form>
       </section>
     </div>

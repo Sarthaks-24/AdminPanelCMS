@@ -15,7 +15,7 @@ describe('transactional mail adapter', () => {
     const token = { label: 'Portfolio site', prefix: 'pk_live_123', expiresAt: new Date('2027-01-02T00:00:00.000Z'), value: 'raw-secret' };
     await mailer.sendTokenExpiryWarning(user, [token]);
     expect(messages).toHaveLength(1);
-    expect(messages[0]).toMatchObject({ to: user.email, template: 'token-expiry', subject: 'API token expiring soon' });
+    expect(messages[0]).toMatchObject({ to: user.email, template: 'token-expiry', subject: 'Portfolio Control: API key expiring soon' });
     expect(messages[0].tokens).toEqual([{ label: token.label, prefix: token.prefix, expiresAt: token.expiresAt }]);
     expect(JSON.stringify(messages[0])).not.toContain(token.value);
   });
@@ -28,6 +28,73 @@ describe('transactional mail adapter', () => {
     await expect(mailer.sendPasswordReset({ email: 'x@test.com' }, 'token')).rejects.toThrow(/RESEND_FROM_EMAIL/);
     process.env.RESEND_FROM_EMAIL = 'CMS <no-reply@example.com>';
     expect(mailer.isConfigured()).toBe(true);
+  });
+
+  it('links to the top-level account pages, not the old /admin paths', async () => {
+    const previous = process.env.CLIENT_ORIGIN;
+    process.env.CLIENT_ORIGIN = 'https://app.example.com';
+    try {
+      await mailer.sendVerification({ email: 'a@test.com' }, 'verify-token');
+      await mailer.sendPasswordReset({ email: 'a@test.com' }, 'reset-token');
+      await mailer.sendAccountExistsNotice({ email: 'a@test.com' }, 'exists-token');
+    } finally {
+      if (previous === undefined) delete process.env.CLIENT_ORIGIN; else process.env.CLIENT_ORIGIN = previous;
+    }
+    const urls = messages.map((message) => new URL(message.url));
+    expect(urls.map((url) => url.pathname)).toEqual(['/verify-email', '/reset-password', '/reset-password']);
+    expect(urls.map((url) => url.searchParams.get('token'))).toEqual(['verify-token', 'reset-token', 'exists-token']);
+    expect(urls.every((url) => url.origin === 'https://app.example.com')).toBe(true);
+  });
+
+  describe('branding', () => {
+    afterEach(() => { delete process.env.PRODUCT_NAME; delete process.env.OPERATOR_NAME; delete process.env.SUPPORT_EMAIL; });
+
+    it('names the product in every subject', async () => {
+      process.env.CLIENT_ORIGIN ||= 'https://app.example.com';
+      process.env.PRODUCT_NAME = 'Acme Content';
+      await mailer.sendVerification({ email: 'a@test.com' }, 't');
+      await mailer.sendPasswordReset({ email: 'a@test.com' }, 't');
+      await mailer.sendAccountExistsNotice({ email: 'a@test.com' }, 't');
+      await mailer.sendTokenExpiryWarning({ email: 'a@test.com' }, [{ label: 'x', prefix: 'sk_live_1', expiresAt: new Date() }]);
+      expect(messages.map((message) => message.subject)).toEqual([
+        'Finish creating your Acme Content account',
+        'Reset your Acme Content password',
+        'Acme Content: someone tried to sign up with your email',
+        'Acme Content: API key expiring soon',
+      ]);
+    });
+
+    it('puts the product, operator, support address and the reason in the header and footer', () => {
+      process.env.PRODUCT_NAME = 'Acme Content';
+      process.env.OPERATOR_NAME = 'Jane Doe';
+      process.env.SUPPORT_EMAIL = 'help@acme.test';
+      const { html, text } = mailer.renderMail({ template: 'verification', url: 'https://app.example.com/verify-email?token=abc' });
+      for (const body of [html, text]) {
+        expect(body).toContain('Acme Content');
+        expect(body).toContain('run by Jane Doe');
+        expect(body).toContain('help@acme.test');
+        expect(body).toContain('You got this email because someone (hopefully you) started creating an account on Acme Content');
+        expect(body).toContain('https://app.example.com/verify-email?token=abc');
+      }
+      expect(html).toContain('mailto:help@acme.test');
+    });
+
+    it('falls back to placeholder defaults and omits the support line when no address is set', () => {
+      const { html, text } = mailer.renderMail({ template: 'password-reset', url: 'https://app.example.com/reset-password?token=abc' });
+      expect(text).toContain('Portfolio Control is run by Portfolio Control.');
+      expect(text).not.toContain('Questions?');
+      expect(html).not.toContain('mailto:');
+    });
+
+    it('escapes configured names in the HTML', () => {
+      process.env.PRODUCT_NAME = '<b>Acme</b>';
+      process.env.OPERATOR_NAME = 'A & B';
+      const { html } = mailer.renderMail({ template: 'account-exists', url: 'https://x.test/reset-password?token=1&a=<2>' });
+      expect(html).not.toContain('<b>Acme</b>');
+      expect(html).toContain('&lt;b&gt;Acme&lt;/b&gt;');
+      expect(html).toContain('A &amp; B');
+      expect(html).toContain('a=&lt;2&gt;');
+    });
   });
 });
 

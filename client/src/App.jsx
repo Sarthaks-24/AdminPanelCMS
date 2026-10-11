@@ -1,10 +1,11 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './components/admin/Toast';
 import ProtectedRoute from './components/admin/ProtectedRoute';
 import RouteErrorBoundary from './components/admin/RouteErrorBoundary';
+import LegacyAdminRedirect from './components/admin/LegacyAdminRedirect';
 import { SITE } from './content/site';
 
 // Every page is its own chunk. A visitor who only reads the landing page never downloads the
@@ -12,7 +13,6 @@ import { SITE } from './content/site';
 const Landing = lazy(() => import('./pages/public/Landing'));
 const DocsIndex = lazy(() => import('./pages/public/DocsIndex'));
 const DocPage = lazy(() => import('./pages/public/DocPage'));
-const LicensePage = lazy(() => import('./pages/public/LicensePage'));
 
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
 const Signup = lazy(() => import('./pages/auth/Signup'));
@@ -20,7 +20,7 @@ const CheckEmail = lazy(() => import('./pages/auth/CheckEmail'));
 const VerifyEmail = lazy(() => import('./pages/auth/VerifyEmail'));
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'));
-const LegalPreview = lazy(() => import('./pages/auth/LegalPreview'));
+const LegalPage = lazy(() => import('./pages/auth/LegalPage'));
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
 const DashboardHome = lazy(() => import('./pages/admin/DashboardHome'));
@@ -67,31 +67,27 @@ export default function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/docs" element={<DocsIndex />} />
             <Route path="/docs/:slug" element={<DocPage />} />
-            <Route path="/license" element={<LicensePage />} />
 
-            {/* Account creation and sign-in. The short paths are the ones we print; the /admin ones stay valid. */}
+            {/* Account creation and sign-in. */}
             <Route path="/signup" element={<Signup />} />
             <Route path="/login" element={<AdminLogin />} />
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin/signup" element={<Signup />} />
-            <Route path="/admin/check-email" element={<CheckEmail />} />
-            <Route path="/admin/verify-email" element={<VerifyEmail />} />
-            <Route path="/admin/forgot-password" element={<ForgotPassword />} />
-            <Route path="/admin/reset-password" element={<ResetPassword />} />
-            <Route path="/legal/terms" element={<LegalPreview />} />
-            <Route path="/legal/privacy" element={<LegalPreview />} />
+            <Route path="/check-email" element={<CheckEmail />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/legal/terms" element={<LegalPage />} />
+            <Route path="/legal/privacy" element={<LegalPage />} />
 
             {/* Dashboard */}
             <Route
-              path="/admin"
+              path="/dashboard"
               element={
                 <ProtectedRoute>
                   <AdminLayout />
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="/admin/dashboard" replace />} />
-              <Route path="dashboard" element={<DashboardHome />} />
+              <Route index element={<DashboardHome />} />
               <Route path="profile" element={<ProfileEditor />} />
               <Route path="socials" element={<SocialsManager />} />
               <Route path="skills" element={<SkillsMatrix />} />
@@ -107,6 +103,10 @@ export default function App() {
               <Route path="account" element={<AccountSettings />} />
               <Route path="superadmin" element={<SuperadminPanel />} />
             </Route>
+
+            {/* Tenants used to live under /admin/*. Old bookmarks and emailed links keep working. */}
+            <Route path="/admin/*" element={<LegacyAdminRedirect />} />
+            <Route path="/admin" element={<LegacyAdminRedirect />} />
 
             {/* Fallback */}
             <Route path="*" element={<NotFound />} />

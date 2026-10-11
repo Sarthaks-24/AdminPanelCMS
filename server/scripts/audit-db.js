@@ -13,6 +13,7 @@ async function run() {
     console.log(`Read-only target host=${mongoose.connection.host} database=${mongoose.connection.name}`);
     for (const name of collections) {
       try {
+        // ownerGuard-exemption-begin: read-only inventory counts every collection with native commands
         const [count, owned, published, indexResult] = await Promise.all([
           mongoose.connection.db.command({ count: name, query: {} }),
           mongoose.connection.db.command({ count: name, query: { owner: { $exists: true } } }),
@@ -21,6 +22,7 @@ async function run() {
             : Promise.resolve({ n: '-' }),
           mongoose.connection.db.command({ listIndexes: name, cursor: { batchSize: 100 } }),
         ]);
+        // ownerGuard-exemption-end
         const indexes = (indexResult.cursor.firstBatch || []).map((index) => `${index.name} ${JSON.stringify(index.key)}${index.unique ? ' unique' : ''}`);
         console.log(`${name}: documents=${count.n}; owned=${owned.n}; published=${published.n}; indexes=${indexes.join(' | ') || '(none)'}`);
       } catch (error) {

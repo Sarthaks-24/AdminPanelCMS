@@ -45,6 +45,7 @@ export default function AppsPage() {
   const [preset, setPreset] = useState('everything');
   const [type, setType] = useState('protected');
   const [origin, setOrigin] = useState('');
+  const [anyOrigin, setAnyOrigin] = useState(false);
   const [error, setError] = useState(null);
   const [listError, setListError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -64,11 +65,20 @@ export default function AppsPage() {
 
   async function createApp(event) {
     event.preventDefault();
-    setBusy(true); setError(null);
-    const allowedOrigins = type === 'static' ? origin.split(/[\s,]+/).filter(Boolean) : [];
+    setError(null);
+    // A browser App needs either listed origins or the explicit "any website" opt-in; the server
+    // refuses an empty list.
+    const listed = origin.split(/[\s,]+/).filter(Boolean);
+    if (type === 'static' && !anyOrigin && listed.length === 0) {
+      setError({ message: 'Add at least one origin, such as https://example.com, or tick “Any website (*)”.', fix: null });
+      document.getElementById('app-origins')?.focus();
+      return;
+    }
+    setBusy(true);
+    const allowedOrigins = type !== 'static' ? [] : anyOrigin ? ['*'] : listed;
     try {
       const { data } = await api.post('/apps', { name: name.trim(), type, allowedOrigins, include: chosen.include });
-      navigate(`/admin/apps/${data._id}`, { state: { justCreated: true } });
+      navigate(`/dashboard/apps/${data._id}`, { state: { justCreated: true } });
     } catch (err) {
       setError(describeApiError(err, { fallback: 'Could not create the App.' }));
       setBusy(false);
@@ -132,8 +142,13 @@ export default function AppsPage() {
           {type === 'static' && (
             <div className="mt-3 max-w-xl">
               <label htmlFor="app-origins" className="block text-sm font-medium text-t-text">Allowed origins</label>
-              <input id="app-origins" value={origin} onChange={(event) => setOrigin(event.target.value)} placeholder="https://example.com, https://www.example.com" autoComplete="off" spellCheck={false} aria-describedby="app-origins-hint" className="mt-1 h-10 w-full rounded border border-t-border-hi bg-t-bg px-3 text-sm text-t-text outline-none focus:border-t-accent focus:ring-2 focus:ring-t-accent/20" />
-              <p id="app-origins-hint" className="mt-1 text-xs leading-5 text-t-muted">Browser keys are public. The origin list stops other sites from using your key in a browser; it doesn’t stop scripts. Leave it empty for any origin (<code translate="no">*</code>); <code translate="no">http://localhost</code> works in development.</p>
+              <input id="app-origins" value={anyOrigin ? '' : origin} disabled={anyOrigin} required={!anyOrigin} onChange={(event) => setOrigin(event.target.value)} placeholder="https://example.com, https://www.example.com" autoComplete="off" spellCheck={false} aria-describedby="app-origins-hint" className="mt-1 h-10 w-full rounded border border-t-border-hi bg-t-bg px-3 text-sm text-t-text outline-none focus:border-t-accent focus:ring-2 focus:ring-t-accent/20 disabled:cursor-not-allowed disabled:opacity-60" />
+              <p id="app-origins-hint" className="mt-1 text-xs leading-5 text-t-muted">The sites allowed to use this App’s key in a browser: scheme and host, no path. <code translate="no">http://localhost:5173</code> works in development. Browser keys are public; the list stops other websites, not scripts.</p>
+              <label htmlFor="app-any-origin" className="mt-3 flex items-start gap-2.5 text-sm text-t-text">
+                <input id="app-any-origin" type="checkbox" checked={anyOrigin} onChange={(event) => setAnyOrigin(event.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--theme-accent)]" />
+                <span>Any website (<code translate="no">*</code>)</span>
+              </label>
+              {anyOrigin && <p role="note" className="mt-2 rounded border border-t-warn/40 bg-t-warn/10 p-3 text-sm text-t-text">Any website can use this App’s publishable key from a browser, and every visit counts against its limit. Prefer listing your site’s origins.</p>}
             </div>
           )}
         </fieldset>
@@ -176,7 +191,7 @@ export default function AppsPage() {
               {app.type === 'static' && (
                 <div className="flex items-start gap-2 text-xs text-t-muted"><Globe2 size={13} aria-hidden="true" className="mt-0.5 shrink-0" /><span className="break-all">{app.allowedOrigins?.includes('*') || !app.allowedOrigins?.length ? 'Any origin' : app.allowedOrigins.join(', ')}</span></div>
               )}
-              <Link to={`/admin/apps/${app._id}`} className="inline-flex min-h-9 items-center gap-2 rounded border border-t-border-hi px-3 text-sm text-t-text transition-colors hover:border-t-accent hover:text-t-accent">Open App <ArrowRight size={13} aria-hidden="true" /></Link>
+              <Link to={`/dashboard/apps/${app._id}`} className="inline-flex min-h-9 items-center gap-2 rounded border border-t-border-hi px-3 text-sm text-t-text transition-colors hover:border-t-accent hover:text-t-accent">Open App <ArrowRight size={13} aria-hidden="true" /></Link>
             </article>
           ))}
         </div>

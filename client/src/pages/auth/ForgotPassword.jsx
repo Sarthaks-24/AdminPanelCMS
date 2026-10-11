@@ -13,6 +13,6 @@ export default function ForgotPassword() {
   };
   return <AuthShell eyebrow="Account recovery" title={sent ? 'Check your inbox' : 'Forgot your password?'} description={sent ? 'If an account exists for that address, password reset instructions will be sent.' : 'Enter your account email and we’ll send reset instructions if an account matches.'}>
     {!sent && <form onSubmit={submit} className="space-y-5">{error && <p role="alert" className="text-sm text-t-danger">{error}</p>}<label className="block text-sm font-medium">Email address<input className={fieldClass} type="email" required maxLength={254} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><button className={buttonClass} disabled={loading}>{loading ? 'Sending…' : 'Send reset link'}</button></form>}
-    <Link className="mt-6 block text-center text-sm font-medium text-t-accent hover:underline" to="/admin/login">Return to sign in</Link>
+    <Link className="mt-6 block text-center text-sm font-medium text-t-accent hover:underline" to="/login">Return to sign in</Link>
   </AuthShell>;
 }

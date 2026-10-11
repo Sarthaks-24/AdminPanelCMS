@@ -13,6 +13,7 @@ const MODE_KEYS = [
   'RESEND_FROM_EMAIL',
   'ADMIN_PASSWORD',
   'BACKUP_REMOTE_DESTINATION',
+  'INVITE_CODE_PEPPER',
 ];
 
 const ALIASES = { dev: 'dev', development: 'dev', prod: 'prod', production: 'prod' };

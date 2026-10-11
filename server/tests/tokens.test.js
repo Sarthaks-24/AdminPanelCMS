@@ -2,7 +2,7 @@ const { generateToken, hashToken, prefixOf } = require('../lib/tokens');
 const cache = require('../lib/cache');
 const {
   LruTtlCache, BoundedMap, tokenCache, badTokenCache, responseCache,
-  bumpOwnerVersion, getOwnerVersion, shouldWriteLastUsed, normalizedFilters, buildCacheKey,
+  bumpOwnerVersion, getOwnerVersion, shouldWriteLastUsed, normalizedFilters, filterError, buildCacheKey,
 } = cache;
 
 describe('API token primitives and cache versioning', () => {
@@ -62,7 +62,8 @@ describe('API token primitives and cache versioning', () => {
     bounded.delete('a');
     expect(bounded.bytes).toBe(40);
     expect(responseCache.maxBytes).toBe(64 * 1024 * 1024);
-    expect(responseCache.maxItemBytes).toBe(256 * 1024);
+    expect(responseCache.maxItemBytes).toBe(1024 * 1024);
+    expect(responseCache.ttl).toBe(15 * 60_000);
     expect(tokenCache.max).toBe(20_000);
   });
 
@@ -86,12 +87,14 @@ describe('API token primitives and cache versioning', () => {
     expect(cache.isActiveToken(hash)).toBe(true);
     cache.evictTokenByHash(hash);
     expect(cache.isActiveToken(hash)).toBe(false);
+    // An App edit only drops the resolved entries: the App's keys stay live (FX-10).
     cache.addActiveToken(hash, 'owner-1', 'app-1');
+    tokenCache.set(hash, { appDoc: { _id: 'app-1', owner: 'owner-1' } });
     cache.evictApp('app-2');
-    expect(cache.isActiveToken(hash)).toBe(true);
+    expect(tokenCache.get(hash)).toBeDefined();
     cache.evictApp('app-1');
-    expect(cache.isActiveToken(hash)).toBe(false);
-    cache.addActiveToken(hash, 'owner-1', 'app-1');
+    expect(tokenCache.get(hash)).toBeUndefined();
+    expect(cache.isActiveToken(hash)).toBe(true);
     tokenCache.set(hash, { appDoc: { _id: 'app-1', owner: 'owner-1' } });
     cache.evictOwner('owner-1');
     expect(tokenCache.get(hash)).toBeUndefined();
@@ -104,9 +107,41 @@ describe('API token primitives and cache versioning', () => {
     expect(normalizedFilters(req('/projects', { stack: ' Node.JS ' }))).toEqual({ stack: 'node.js' });
     expect(normalizedFilters(req('/projects', { tag: 'Redis', featured: 'true' }))).toEqual({ stack: 'redis', featured: true });
     expect(normalizedFilters(req('/projects', { stack: '', featured: 'yes' }))).toEqual({});
+    expect(normalizedFilters(req('/projects', { featured: 'false' }))).toEqual({ featured: false });
     expect(normalizedFilters(req('/skills', { category: 'FRONTEND' }))).toEqual({ category: 'frontend' });
     expect(normalizedFilters(req('/socials', { category: 'x' }))).toEqual({});
-    expect(buildCacheKey(req('/projects', { stack: 'Node.js' }))).toBe(buildCacheKey(req('/projects', { tag: 'node.js' })));
-    expect(buildCacheKey(req('/projects', { stack: 'a' }))).not.toBe(buildCacheKey(req('/projects', { stack: 'b' })));
+    // Filters never reach the cache key: a section is cached once and filtered in memory (FX-17).
+    expect(buildCacheKey(req('/projects', { stack: 'a' }))).toBe(buildCacheKey(req('/projects', { stack: 'b' })));
+    expect(buildCacheKey(req('/projects/x', {}), '/projects')).toBe(buildCacheKey(req('/projects', {})));
+  });
+
+  it('rejects repeated and malformed filter values with the parameter name', () => {
+    const req = (path, query) => ({ path, query });
+    expect(filterError(req('/projects', { featured: 'true', stack: 'go' }))).toBeNull();
+    expect(filterError(req('/projects', { featured: 'false' }))).toBeNull();
+    expect(filterError(req('/projects', { featured: 'yes' }))).toMatchObject({ param: 'featured' });
+    expect(filterError(req('/projects', { stack: ['a', 'b'] }))).toMatchObject({ param: 'stack' });
+    expect(filterError(req('/projects', { tag: { x: '1' } }))).toMatchObject({ param: 'tag' });
+    expect(filterError(req('/skills', { category: ['a', 'b'] }))).toMatchObject({ param: 'category' });
+    expect(filterError(req('/socials', { featured: 'yes' }))).toBeNull(); // unknown parameters stay ignored
+  });
+
+  it('drops indexed entries without a scan and keeps expired entries for stale-if-busy', () => {
+    const indexed = new LruTtlCache(10, 60_000, { indexBy: (entry) => [entry.owner] });
+    indexed.set('a1', { owner: 'a' }); indexed.set('a2', { owner: 'a' }); indexed.set('b1', { owner: 'b' });
+    expect(indexed.deleteIndexed('a')).toBe(2);
+    expect(indexed.size).toBe(1);
+    expect(indexed.index.has('a')).toBe(false);
+    indexed.delete('b1');
+    expect(indexed.index.size).toBe(0);
+
+    const stale = new LruTtlCache(10, 60_000, { keepStale: true });
+    stale.set('k', { v: 1 }, -1); // already expired
+    expect(stale.get('k')).toBeUndefined();
+    expect(stale.peek('k')).toEqual({ v: 1 });
+    const strict = new LruTtlCache(10, 60_000);
+    strict.set('k', { v: 1 }, -1);
+    expect(strict.get('k')).toBeUndefined();
+    expect(strict.peek('k')).toBeUndefined();
   });
 });

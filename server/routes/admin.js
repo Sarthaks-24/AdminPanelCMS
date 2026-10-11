@@ -9,9 +9,11 @@ const { overview, listInvites, createInvite, revokeInvite, getSettings, updateSe
 router.use(requireSuperAdmin);
 router.get('/overview', overview);
 router.get('/settings', getSettings);
-router.put('/settings', updateSettings);
+// Flipping signup open and minting invites change who can join the platform: they need the same recent
+// password re-check as the destructive user actions (SEC11).
+router.put('/settings', requireRecentReauth, updateSettings);
 router.get('/invites', listInvites);
-router.post('/invites', createInvite);
+router.post('/invites', requireRecentReauth, createInvite);
 router.delete('/invites/:id', validateId(), revokeInvite);
 router.get('/mail-budget', mailBudget);
 router.post('/reauth', adminReauthRateLimiter, reauth);

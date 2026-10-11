@@ -57,23 +57,30 @@ async function main() {
   const partial = `${destination}.partial`;
   const rclone = process.env.RCLONE_BINARY || 'rclone';
   const candidates = ['mongodump', path.join(process.env.ProgramFiles || 'C:\\Program Files', 'MongoDB', 'Tools', '100', 'bin', 'mongodump.exe')];
+  // The URI (with its password) reaches mongodump through a 0600 YAML file, never argv, so `ps` on a shared
+  // host cannot read it. The file sits in a private temp directory and is removed as soon as the dump ends.
+  const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cms-dump-'));
+  const configFile = path.join(configDir, 'mongodump.yaml');
+  fs.writeFileSync(configFile, `uri: ${JSON.stringify(uri)}\n`, { mode: 0o600 });
+  const removeConfig = () => { try { fs.rmSync(configDir, { recursive: true, force: true }); } catch { /* already gone */ } };
   let dump;
   for (const executable of candidates) {
     try {
-      dump = spawn(executable, ['--uri', uri, '--db', dbName, '--archive', '--gzip'], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+      dump = spawn(executable, ['--config', configFile, '--db', dbName, '--archive', '--gzip'], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
       const dumpExit = new Promise((resolve) => dump.once('close', resolve));
       await new Promise((resolve, reject) => {
         dump.once('spawn', resolve);
         dump.once('error', reject);
       });
       dump.exitCodePromise = dumpExit;
+      dumpExit.then(removeConfig);
       break;
     } catch (error) {
-      if (error.code !== 'ENOENT') throw new Error('mongodump failed to start.');
+      if (error.code !== 'ENOENT') { removeConfig(); throw new Error('mongodump failed to start.'); }
       dump = null;
     }
   }
-  if (!dump) throw new Error('mongodump is unavailable; install MongoDB Database Tools.');
+  if (!dump) { removeConfig(); throw new Error('mongodump is unavailable; install MongoDB Database Tools.'); }
   const gpgArgs = ['--batch', '--yes', '--pinentry-mode', 'loopback', '--passphrase-file', passphraseFile, '--symmetric', '--cipher-algo', 'AES256', '--output', partial];
   let gpg;
   let size;

@@ -37,11 +37,35 @@ function ownerGuardPlugin(schema, { modelName = 'ContentModel' } = {}) {
   });
 
   schema.pre('aggregate', function guardAggregate() {
-    const match = this.pipeline()[0]?.$match;
+    const pipeline = this.pipeline();
+    const match = pipeline[0]?.$match;
     if (!match || !isValidOwner(match.owner)) {
       throw new Error(`[CRITICAL INVARIANT VIOLATION] ${modelName}.aggregate must start with an owner match`);
     }
+    // An owner $match only scopes this collection. These stages read or write other collections (or other
+    // tenants' rows of this one) after the match, so they are refused anywhere in the pipeline, $facet included.
+    const denied = findDeniedStage(pipeline);
+    if (denied) throw new Error(`[CRITICAL INVARIANT VIOLATION] ${modelName}.aggregate may not use ${denied}`);
   });
+}
+
+const DENIED_AGGREGATE_STAGES = ['$lookup', '$unionWith', '$graphLookup', '$out', '$merge'];
+
+function findDeniedStage(value) {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findDeniedStage(item);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (!value || typeof value !== 'object') return null;
+  for (const [key, child] of Object.entries(value)) {
+    if (DENIED_AGGREGATE_STAGES.includes(key)) return key;
+    const found = findDeniedStage(child);
+    if (found) return found;
+  }
+  return null;
 }
 
 async function scopedBulkWrite(Model, ownerId, operations, options = {}) {
@@ -72,4 +96,4 @@ async function scopedBulkWrite(Model, ownerId, operations, options = {}) {
   return Model.bulkWrite(operations, options);
 }
 
-module.exports = { ownerGuardPlugin, scopedBulkWrite, isValidOwner };
+module.exports = { ownerGuardPlugin, scopedBulkWrite, isValidOwner, DENIED_AGGREGATE_STAGES };

@@ -37,7 +37,7 @@ export default function VerifyEmail() {
     try {
       const { data } = await api.post('/auth/verify-email', { token, password });
       applySession(data.user);
-      navigate('/admin/dashboard', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       const code = err.response?.data?.error;
       if (code === 'token_invalid') setExpired(true);
@@ -49,9 +49,9 @@ export default function VerifyEmail() {
 
   if (!token || expired) {
     return (
-      <AuthShell eyebrow="Email verification" title={token ? 'This link no longer works' : 'This link is missing its code'} description={token ? 'Verification links work once and expire after 24 hours. Start again and we’ll send you a fresh one.' : 'Open the link from your email again, or start the registration over.'}>
-        <Link className={buttonClass} to="/admin/signup">Send me a new link</Link>
-        <p className="mt-5 text-center text-sm text-t-muted">Already set a password? <Link className="font-medium text-t-accent hover:underline" to="/admin/login">Sign in</Link></p>
+      <AuthShell eyebrow="Email verification" title={token ? 'This link no longer works' : 'This link is missing its code'} description={token ? 'Verification links work once and expire after 24 hours. Ask for a fresh one with the email you signed up with.' : 'Open the link from your email again, or start the registration over.'}>
+        <Link className={buttonClass} to="/check-email">Send me a new link</Link>
+        <p className="mt-5 text-center text-sm text-t-muted">Already set a password? <Link className="font-medium text-t-accent hover:underline" to="/login">Sign in</Link></p>
       </AuthShell>
     );
   }

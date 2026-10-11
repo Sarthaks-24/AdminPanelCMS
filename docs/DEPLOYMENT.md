@@ -57,8 +57,9 @@ Set these in the **container platform's environment settings**, not in a file. U
 
 ```env
 MODE=prod
-MONGODB_URI=mongodb+srv://api_user:...@<cluster>.mongodb.net/Portfolio_prod?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://api_user:<password>@<cluster>.mongodb.net/Portfolio_prod?retryWrites=true&w=majority
 JWT_SECRET=<new 32+ character random string, not the dev one>
+INVITE_CODE_PEPPER=<another 32+ character random string, different from JWT_SECRET; keep it stable>
 CLIENT_ORIGIN=https://cms.example.com
 PUBLIC_API_URL=https://api.example.com
 TRUST_PROXY_HOPS=1
@@ -69,6 +70,8 @@ RESEND_MAIL_KEY=<live key>
 RESEND_FROM_EMAIL=Portfolio Control <no-reply@example.com>
 LOG_LEVEL=info
 ```
+
+`INVITE_CODE_PEPPER` is required in production (the boot check refuses to start without it): invite codes are hashed with it instead of `JWT_SECRET`, so the signing key can be rotated after an incident without killing outstanding invites. `PUBLIC_API_URL` stays optional, but production boot prints a loud warning without it, because the dashboard then guesses the `/v1` base URL that tenants copy.
 
 `LEGAL_POLICIES_APPROVED` stays `false` until the Terms, Privacy and Acceptable Use pages are the real ones and reviewed; with `false`, production signup returns `503 signup_unavailable` whatever the mode says. `SIGNUP_MODE=closed` is the default anyway; set it explicitly so the intent is visible.
 
@@ -98,24 +101,24 @@ Set `MODE=dev` again as soon as it is done, and remove the production URI from y
 ```bash
 cd server
 docker build -t cms-api .
-docker run --rm -p 5000:5000 --env-file <(printenv | grep -E '^(MODE|MONGODB_URI|JWT_SECRET|CLIENT_ORIGIN|PUBLIC_API_URL|TRUST_PROXY_HOPS|SESSION_COOKIE_SAMESITE|SIGNUP_MODE|LEGAL_POLICIES_APPROVED|RESEND_|LOG_LEVEL)') cms-api
+docker run --rm -p 5000:5000 --env-file <(printenv | grep -E '^(MODE|MONGODB_URI|JWT_SECRET|INVITE_CODE_PEPPER|CLIENT_ORIGIN|PUBLIC_API_URL|TRUST_PROXY_HOPS|SESSION_COOKIE_SAMESITE|SIGNUP_MODE|LEGAL_POLICIES_APPROVED|RESEND_|TURNSTILE_|MAX_ACCOUNTS|LOG_LEVEL)') cms-api
 ```
 
-What the image does: `node:20-alpine`, `npm ci --omit=dev`, runs as the unprivileged `node` user, exposes `PORT` 5000, has a Docker `HEALTHCHECK` on `/livez`, and starts `node server.js` under `tini` so SIGTERM reaches Node. Any platform that runs a container (Fly.io, Render, Railway, a VPS with Docker) works; pick an always-on plan with one instance.
+What the image does: `node:22-alpine` pinned by digest (Node 22 LTS; Dependabot proposes digest bumps), `npm ci --omit=dev`, runs as the unprivileged `node` user, exposes `PORT` 5000, has a Docker `HEALTHCHECK` on `/livez`, and starts `node server.js` under `tini` so SIGTERM reaches Node. Any platform that runs a container (Fly.io, Render, Railway, a VPS with Docker) works; pick an always-on plan with one instance.
 
 Probes:
 
 | Path | Answers | Use it for |
 | :--- | :--- | :--- |
 | `GET /livez` | `200` as soon as the process is up | the container health check, restarts |
-| `GET /readyz` | `200` when Mongo answers a ping, `503` otherwise | the platform's readiness / traffic gate |
+| `GET /readyz` | `200` when Mongo answers a ping (shared across calls for 3 s), `503` otherwise; body is only `{status}` | the platform's readiness / traffic gate |
 | `GET /api/health` | alias of `/livez`, kept for older monitors | |
 
 Both probes are mounted before the `/api` rate limiter, so a monitor can never be rate-limited into a false alarm.
 
-Shutdown: on `SIGTERM` the server stops accepting connections, lets in-flight requests finish (a few seconds), closes Mongo and exits. Give the platform a stop grace period of at least 10 seconds so deploys drop nothing.
+Shutdown: on `SIGTERM` the server flips `/readyz` to `503`, waits `SHUTDOWN_DELAY_MS` (default 5000) so the load balancer stops routing to it, then stops accepting connections, lets in-flight requests finish, closes Mongo and exits. Give the platform a stop grace period of at least `SHUTDOWN_DELAY_MS` + 10 s (15 s with the default) so deploys drop nothing.
 
-The process logs one JSON line per request (pino) with a `reqId` that is also echoed as `X-Request-Id`, so a consumer's error report can be matched to a log line. It starts with `[Env] MODE=prod · database Portfolio_prod`. If it exits with `Invalid configuration`, the message lists what to fix.
+The process logs one JSON line per request (pino) with a `reqId` that is also echoed as `X-Request-Id`, so a consumer's error report can be matched to a log line. Logs go to stdout only: point the platform's log drain at a sink with retention and set up the alerts in [OPERATIONS.md](OPERATIONS.md#alerts). It starts with `[Env] MODE=prod · database Portfolio_prod`. If it exits with `Invalid configuration`, the message lists what to fix.
 
 ### 5. Deploy the dashboard
 
@@ -128,7 +131,7 @@ Cloudflare Pages or Netlify, building from the repository:
 | Output directory | `dist` |
 | Environment | `VITE_MODE=prod`, `VITE_PROD_API_URL=https://api.example.com/api`, Node 20 |
 
-`client/public/_redirects` is already in the repository and is copied into `dist`; it sends every unknown path to `index.html` so client-side routes such as `/admin/apps` and `/docs/api` work on a hard reload. Netlify reads it as is; on Cloudflare Pages it is also honoured (Pages supports `_redirects`), and a single-page app is the default anyway when no file matches.
+`client/public/_redirects` is already in the repository and is copied into `dist`; it sends every unknown path to `index.html` so client-side routes such as `/dashboard/apps` and `/docs/api` work on a hard reload. Netlify reads it as is; on Cloudflare Pages it is also honoured (Pages supports `_redirects`), and a single-page app is the default anyway when no file matches.
 
 If you choose the one-origin layout instead, add the two proxy lines above the fallback:
 
@@ -174,6 +177,8 @@ Done in this order; nothing below is optional before the first stranger signs up
 - [ ] Dashboard on Pages/Netlify with the SPA fallback; `CLIENT_ORIGIN` matches.
 - [ ] `PUBLIC_API_URL` set; the Connect panel shows `https://api.<domain>/v1/...`.
 - [ ] Resend sending domain verified; `RESEND_FROM_EMAIL` on it.
+- [ ] `INVITE_CODE_PEPPER` set (different from `JWT_SECRET`).
+- [ ] Log drain with retention attached, and alerts on the `alert` field wired ([OPERATIONS.md](OPERATIONS.md#alerts)).
 - [ ] `SIGNUP_MODE=closed`, `LEGAL_POLICIES_APPROVED=false` until legal is approved.
 - [ ] Nightly backup ran once by hand; one restore drill logged.
 - [ ] Smoke test above passed from the public URL, including a `/v1` `200` with the `{data}` envelope.
@@ -191,9 +196,11 @@ These are the numbers every doc and UI quotes (contract §1, 2026-10-11). They a
 | Per-owner miss budget | 10 units/s; only cache misses count, a hit or `304` is free; `/v1/fs` costs one unit per enabled section |
 | Global miss bucket | 40 units/s, then `503 busy` with `Retry-After: 1` |
 | Token-lookup pre-DB bucket | 20/s for tokens not in the active set, then `503 busy` |
-| Response cache TTL | about 60 s (`ETag` + `Cache-Control: private, max-age=60`) |
+| Response cache TTL | 15 min server-side, invalidated on every write, stale-if-busy; browsers may keep a copy 60 s (`ETag` + `Cache-Control: private, max-age=60`) |
 | Per account | 10 Apps, 100 items per section, 2 live keys per App, field caps in [DATA_MODEL.md](DATA_MODEL.md#field-caps) |
-| Mail | `MAIL_DAILY_CAP` 500/day with a 50 reset reserve |
+| Mail | `MAIL_DAILY_CAP` 500/day with a 50 reset reserve; `SIGNUP_DOMAIN_DAILY_CAP` 50 new signups per email domain per day |
+| Login | 30 failed attempts per IP (IPv6 /56) per 15 min, 10 per IP + email per 15 min, 50 per email across all IPs per hour; at most `BCRYPT_MAX_CONCURRENT` (4) password checks at once, then `503 busy` |
+| Storage | at `STORAGE_BLOCK_PERCENT` (90%) of `DB_STORAGE_CAP_BYTES`, signup closes and content writes answer `503 storage_full` |
 | Request body (`/api`) | 256 KB; `/v1` accepts no body |
 
 Rate-limited responses carry `Retry-After` and the draft-7 `RateLimit` headers.
@@ -211,7 +218,7 @@ Invite codes (12 characters) are created in the Superadmin panel or with `npm ru
 ## Rolling back
 
 - A bad release: redeploy the previous image. The in-memory caches start empty, which is harmless.
-- A leaked `JWT_SECRET`: change it and restart. Every session ends; API tokens are unaffected. Outstanding invite codes stop working too unless `INVITE_CODE_PEPPER` is set separately.
+- A leaked `JWT_SECRET`: change it and restart. Every session ends; API tokens and outstanding invite codes are unaffected (invites are hashed with `INVITE_CODE_PEPPER`, which production requires).
 - A leaked API key: the owner revokes it in the App's key list; it stops working on the next request (the active-token set is updated in-process).
 - A leaked database password: rotate it in Atlas, update the container environment and `PROD_MONGODB_URI`, redeploy, run the backup workflow by hand.
-- A bad data change: restore from the nightly archive into a fresh database with the restore-drill command pointed at it, inspect, then repoint `MONGODB_URI`. Expect to lose up to a day.
+- A bad data change: follow the production restore runbook ([OPERATIONS.md](OPERATIONS.md#production-restore)). It covers re-applying account deletions made after the backup and rolling back one tenant only.

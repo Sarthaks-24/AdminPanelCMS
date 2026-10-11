@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { Check, Copy, KeyRound, Radio, RefreshCw, ShieldAlert } from 'lucide-react';
 import { api } from '../../api/client';
 import { describeApiError, ERROR_SECTION_LABELS, ERROR_SECTION_ROUTES } from '../../lib/apiErrors';
+import { PENDING_BASE } from '../../lib/apiBase';
+import { DASHBOARD } from '../../lib/routes';
+import { SITE, supportMailto } from '../../content/site';
 
 const POLL_MS = 10_000;
 const POLL_WINDOW_MS = 5 * 60_000;
@@ -24,27 +27,27 @@ function buildSnippets({ v1Base, type, key }) {
   const publishable = key || 'pk_live_…';
   const astro = `---
 // Runs at build time; the secret key never reaches a browser.
-const res = await fetch(\`\${import.meta.env.CMS_API_URL}/projects\`, {
-  headers: { Authorization: \`Bearer \${import.meta.env.CMS_SECRET_KEY}\` },
+const res = await fetch(\`\${import.meta.env.CONTENT_API_URL}/projects\`, {
+  headers: { Authorization: \`Bearer \${import.meta.env.CONTENT_API_KEY}\` },
 });
-if (!res.ok) throw new Error(\`CMS \${res.status}: \${(await res.json()).error}\`);
+if (!res.ok) throw new Error(\`Content API \${res.status}: \${(await res.json()).error}\`);
 const { data: projects } = await res.json();
 ---
 <ul>{projects.map((p) => <li>{p.title}</li>)}</ul>`;
   const next = `// app/projects/page.jsx — runs on the server; the secret key never reaches a browser.
 export default async function ProjectsPage() {
-  const res = await fetch(\`\${process.env.CMS_API_URL}/projects\`, {
-    headers: { Authorization: \`Bearer \${process.env.CMS_SECRET_KEY}\` },
+  const res = await fetch(\`\${process.env.CONTENT_API_URL}/projects\`, {
+    headers: { Authorization: \`Bearer \${process.env.CONTENT_API_KEY}\` },
     next: { revalidate: 300 },
   });
-  if (!res.ok) throw new Error(\`CMS \${res.status}: \${(await res.json()).error}\`);
+  if (!res.ok) throw new Error(\`Content API \${res.status}: \${(await res.json()).error}\`);
   const { data: projects } = await res.json();
   return <ul>{projects.map((p) => <li key={p.slug}>{p.title}</li>)}</ul>;
 }`;
   const node = `// fetch-content.mjs — run it in your build step: node fetch-content.mjs
 // Lists are fetched once, one after another, and a busy answer is retried after Retry-After.
-const base = process.env.CMS_API_URL ?? '${v1Base}';
-const headers = { Authorization: \`Bearer \${process.env.CMS_SECRET_KEY}\` };
+const base = process.env.CONTENT_API_URL ?? '${v1Base}';
+const headers = { Authorization: \`Bearer \${process.env.CONTENT_API_KEY}\` };
 
 async function get(path) {
   const res = await fetch(base + path, { headers });
@@ -53,7 +56,7 @@ async function get(path) {
     await new Promise((r) => setTimeout(r, wait));
     return get(path);
   }
-  if (!res.ok) throw new Error(\`CMS \${res.status}: \${(await res.json()).error}\`);
+  if (!res.ok) throw new Error(\`Content API \${res.status}: \${(await res.json()).error}\`);
   return (await res.json()).data;
 }
 
@@ -65,11 +68,11 @@ await import('node:fs/promises').then((fs) => fs.writeFile('content.json', JSON.
 const res = await fetch('${v1Base}/projects', {
   headers: { Authorization: 'Bearer ${publishable}' },
 });
-if (!res.ok) throw new Error('CMS ' + res.status);
+if (!res.ok) throw new Error('Content API ' + res.status);
 const { data: projects } = await res.json();`;
   const env = `# .env (never committed; set the same two values in your host's build settings)
-CMS_API_URL=${v1Base}
-CMS_SECRET_KEY=${secret}`;
+CONTENT_API_URL=${v1Base}
+CONTENT_API_KEY=${secret}`;
 
   return type === 'static'
     ? [{ id: 'browser', label: 'Browser', code: browser, lang: 'js' }, { id: 'curl', label: 'curl', code: curl, lang: 'bash' }]
@@ -81,7 +84,7 @@ CMS_SECRET_KEY=${secret}`;
     ];
 }
 
-function CopyButton({ value, label = 'Copy', copiedLabel = 'Copied', className = '' }) {
+function CopyButton({ value, label = 'Copy', copiedLabel = 'Copied', className = '', disabled = false }) {
   const [state, setState] = useState('idle');
   async function copy() {
     try { await navigator.clipboard.writeText(value); setState('done'); }
@@ -90,7 +93,7 @@ function CopyButton({ value, label = 'Copy', copiedLabel = 'Copied', className =
   }
   return (
     <span className="inline-flex items-center gap-2">
-      <button type="button" onClick={copy} className={`inline-flex min-h-9 items-center gap-1.5 rounded border border-t-border-hi px-3 text-xs font-medium text-t-text hover:border-t-accent hover:text-t-accent ${className}`}>
+      <button type="button" onClick={copy} disabled={disabled} className={`inline-flex min-h-9 items-center gap-1.5 rounded border border-t-border-hi px-3 text-xs font-medium text-t-text hover:border-t-accent hover:text-t-accent disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-t-border-hi disabled:hover:text-t-text ${className}`}>
         {state === 'done' ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}{state === 'done' ? copiedLabel : label}
       </button>
       <span aria-live="polite" className="sr-only">{state === 'done' ? `${copiedLabel}.` : state === 'failed' ? 'Copy failed; select the text and copy it yourself.' : ''}</span>
@@ -99,7 +102,7 @@ function CopyButton({ value, label = 'Copy', copiedLabel = 'Copied', className =
   );
 }
 
-function Snippets({ v1Base, type, keyValue, keyShownOnce }) {
+function Snippets({ v1Base, baseReady, type, keyValue, keyShownOnce }) {
   const snippets = useMemo(() => buildSnippets({ v1Base, type, key: keyValue }), [v1Base, type, keyValue]);
   const [active, setActive] = useState(snippets[0].id);
   const current = snippets.find((snippet) => snippet.id === active) || snippets[0];
@@ -132,7 +135,7 @@ function Snippets({ v1Base, type, keyValue, keyShownOnce }) {
         )}
         <pre className="overflow-x-auto rounded border border-t-border bg-t-code p-3 text-xs leading-relaxed text-t-text"><code translate="no">{current.code}</code></pre>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <CopyButton value={current.env ? `${current.env}\n\n${current.code}` : current.code} label="Copy snippet" />
+          <CopyButton value={current.env ? `${current.env}\n\n${current.code}` : current.code} label="Copy snippet" disabled={!baseReady} />
           {!keyValue && (
             <p className="text-xs text-t-muted">{type === 'static' ? 'Create a publishable key and it fills in here.' : <>A real <code translate="no">sk_live_…</code> is shown once when created; paste yours in place of the placeholder.</>}</p>
           )}
@@ -144,7 +147,7 @@ function Snippets({ v1Base, type, keyValue, keyShownOnce }) {
           </p>
         ) : (
           <p role="note" className="rounded border border-t-warn/40 bg-t-warn/10 p-3 text-sm leading-6 text-t-text">
-            Name the variable <code translate="no">CMS_SECRET_KEY</code>. Never prefix it with <code translate="no">PUBLIC_</code>, <code translate="no">NEXT_PUBLIC_</code> or <code translate="no">VITE_</code>; those are copied into the JavaScript visitors download. Import it only in build or server code. Pull requests from forks don’t get secrets. Fetch each list once and build pages from it: the account limit is 10 uncached requests/second, and a busy service answers 503 with <code translate="no">Retry-After</code>.
+            Name the variable <code translate="no">CONTENT_API_KEY</code>. Never prefix it with <code translate="no">PUBLIC_</code>, <code translate="no">NEXT_PUBLIC_</code> or <code translate="no">VITE_</code>; those are copied into the JavaScript visitors download. Import it only in build or server code. Pull requests from forks don’t get secrets. Fetch each list once and build pages from it: the account limit is 10 uncached requests/second, and a busy service answers 503 with <code translate="no">Retry-After</code>.
           </p>
         )}
       </div>
@@ -161,12 +164,12 @@ function warningRow(code, { appId, onFix }) {
   const editorLink = (label, target) => <button type="button" onClick={() => onFix?.(target)} className="font-medium text-t-accent underline underline-offset-4">{label}</button>;
   switch (kind) {
     case 'no_sections_enabled': return { text: '0 sections enabled: every request returns 403 until you turn one on.', fix: editorLink('Turn a section on', 'sections') };
-    case 'all_drafts': return { text: `Every item in ${sectionLabel} is a draft, so this App gets an empty list.`, fix: <Link to={sectionTo || '/admin/dashboard'} className="font-medium text-t-accent underline underline-offset-4">Publish drafts</Link> };
-    case 'no_published': return { text: `Nothing published in ${sectionLabel} yet.`, fix: <Link to={sectionTo || '/admin/dashboard'} className="font-medium text-t-accent underline underline-offset-4">Add one</Link> };
+    case 'all_drafts': return { text: `Every item in ${sectionLabel} is a draft, so this App gets an empty list.`, fix: <Link to={sectionTo || DASHBOARD} className="font-medium text-t-accent underline underline-offset-4">Publish drafts</Link> };
+    case 'no_published': return { text: `Nothing published in ${sectionLabel} yet.`, fix: <Link to={sectionTo || DASHBOARD} className="font-medium text-t-accent underline underline-offset-4">Add one</Link> };
     case 'origin_star': return { text: 'Any website can use this App’s publishable key in a browser. List your site’s origins to stop that.', fix: editorLink('Allowed origins', 'settings') };
     case 'no_active_token': return { text: 'No active key. Nothing can read this App until you create one.', fix: editorLink('Create a key', 'keys') };
-    case 'profile_missing': return { text: 'No profile saved yet, so /v1/profile answers 404 not_configured.', fix: <Link to="/admin/profile" className="font-medium text-t-accent underline underline-offset-4">Profile</Link> };
-    case 'resume_missing': return { text: 'No résumé link saved, so /v1/resume answers 404 not_configured.', fix: <Link to="/admin/resume" className="font-medium text-t-accent underline underline-offset-4">Résumé</Link> };
+    case 'profile_missing': return { text: 'No profile saved yet, so /v1/profile answers 404 not_configured.', fix: <Link to={`${DASHBOARD}/profile`} className="font-medium text-t-accent underline underline-offset-4">Profile</Link> };
+    case 'resume_missing': return { text: 'No résumé link saved, so /v1/resume answers 404 not_configured.', fix: <Link to={`${DASHBOARD}/resume`} className="font-medium text-t-accent underline underline-offset-4">Résumé</Link> };
     default: return { text: code, fix: appId ? editorLink('Open settings', 'settings') : null };
   }
 }
@@ -310,8 +313,8 @@ function FirstRequest({ app, enabled, onOpenKeys }) {
   return (
     <div>
       <div aria-live="polite" className="text-sm leading-6 text-t-text">
-        {status === 'nokey' && <p>No active key yet. <button type="button" onClick={onOpenKeys} className="font-medium text-t-accent underline underline-offset-4">Create one</button> and this panel starts listening.</p>}
-        {(status === 'idle' || status === 'waiting') && (
+        {(status === 'nokey' || (status === 'idle' && !enabled)) && <p>No active key yet. <button type="button" onClick={onOpenKeys} className="font-medium text-t-accent underline underline-offset-4">Create one</button> and this panel starts listening.</p>}
+        {status === 'waiting' && (
           <p className="flex items-start gap-2"><Radio size={16} aria-hidden="true" className="mt-1 shrink-0 animate-pulse text-t-accent" /><span>Waiting for your key to reach us… Run the request above from your terminal or build.</span></p>
         )}
         {status === 'hit' && hit && (
@@ -326,15 +329,16 @@ function FirstRequest({ app, enabled, onOpenKeys }) {
         <summary className="cursor-pointer font-medium text-t-text">Got an error back? Look it up</summary>
         <ul className="mt-3 space-y-2 text-t-muted">
           {[
-            ['403 section_disabled', describeApiError({ status: 403, data: { error: 'section_disabled' } }, { appId: app._id })],
-            ['403 origin_not_allowed or “Failed to fetch”', describeApiError({ status: 403, data: { error: 'origin_not_allowed' } }, { appId: app._id })],
-            ['401 token_missing / token_invalid, 400 token_in_query', describeApiError({ status: 401, data: { error: 'token_invalid' } }, { appId: app._id })],
-            ['403 token_type_mismatch', describeApiError({ status: 403, data: { error: 'token_type_mismatch' } }, { appId: app._id })],
-            ['429 rate_limited (key)', describeApiError({ status: 429, data: { error: 'rate_limited', message: 'Token request limit exceeded' } }, { appId: app._id })],
-            ['429 rate_limited (account)', describeApiError({ status: 429, data: { error: 'rate_limited', message: 'Account request limit exceeded' } }, { appId: app._id })],
-            ['503 busy', describeApiError({ status: 503, data: { error: 'busy' } }, { appId: app._id })],
-            ['404 not_configured', describeApiError({ status: 404, data: { error: 'not_configured' } }, { appId: app._id })],
-            ['200 { data: [] }', { message: 'Nothing published in that section yet.', fix: { label: 'Publish drafts', to: '/admin/dashboard' } }],
+            ['403 section_disabled', describeApiError({ status: 403, data: { error: 'section_disabled' } }, { appId: app._id, surface: 'v1' })],
+            ['403 origin_not_allowed', describeApiError({ status: 403, data: { error: 'origin_not_allowed' } }, { appId: app._id, surface: 'v1' })],
+            ['“Failed to fetch” (no status)', describeApiError(new TypeError('Failed to fetch'), { appId: app._id, surface: 'v1' })],
+            ['401 token_missing / token_invalid, 400 token_in_query', describeApiError({ status: 401, data: { error: 'token_invalid' } }, { appId: app._id, surface: 'v1' })],
+            ['403 token_type_mismatch', describeApiError({ status: 403, data: { error: 'token_type_mismatch' } }, { appId: app._id, surface: 'v1' })],
+            ['429 rate_limited (key)', describeApiError({ status: 429, data: { error: 'rate_limited', message: 'Token request limit exceeded' } }, { appId: app._id, surface: 'v1' })],
+            ['429 rate_limited (account)', describeApiError({ status: 429, data: { error: 'rate_limited', message: 'Account request limit exceeded' } }, { appId: app._id, surface: 'v1' })],
+            ['503 busy', describeApiError({ status: 503, data: { error: 'busy' } }, { appId: app._id, surface: 'v1' })],
+            ['404 not_configured', describeApiError({ status: 404, data: { error: 'not_configured' } }, { appId: app._id, surface: 'v1' })],
+            ['200 { data: [] }', { message: 'Nothing published in that section yet.', fix: { label: 'Publish drafts', to: DASHBOARD } }],
           ].map(([signal, described]) => (
             <li key={signal} className="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
               <code translate="no" className="shrink-0 text-xs text-t-text sm:w-64">{signal}</code>
@@ -356,12 +360,18 @@ function FirstRequest({ app, enabled, onOpenKeys }) {
  * `variant="editor"` sits at the top of the App editor. `variant="post-mint"` is shown inside the key dialog
  * right after a key is created, with the real key filled into the snippets (an sk is only ever shown there).
  */
-export default function ConnectPanel({ app, v1Base, variant = 'editor', mintedToken = null, tokens = null, onOpenKeys, onFix, headingLevel = 2 }) {
+export default function ConnectPanel({ app, v1Base, baseResolved = true, baseConfigured = true, variant = 'editor', mintedToken = null, tokens = null, onOpenKeys, onFix, headingLevel = 2 }) {
   const Heading = `h${headingLevel}`;
   const Sub = `h${Math.min(headingLevel + 1, 6)}`;
   const activeTokens = useMemo(() => (Array.isArray(tokens) ? tokens.filter((token) => isActive(token)) : null), [tokens]);
   const pkValue = useMemo(() => activeTokens?.find((token) => token.type === 'pk' && token.value)?.value || null, [activeTokens]);
   const keyValue = mintedToken?.token || (app.type === 'static' ? pkValue : null);
+  // The base URL is the server's PUBLIC_API_URL. Until /auth/config answers we only have a guess, and a
+  // copied guess is a broken integration, so show "…" and keep Copy off. A production service with no
+  // PUBLIC_API_URL has no base to give; say so instead of guessing. In development the guess is shown.
+  const baseMissing = baseResolved && !baseConfigured && !import.meta.env.DEV;
+  const baseReady = baseResolved && !baseMissing;
+  const shownBase = baseReady ? v1Base : PENDING_BASE;
   const pollingEnabled = variant === 'post-mint' ? Boolean(mintedToken) : activeTokens === null ? true : activeTokens.length > 0;
 
   return (
@@ -376,10 +386,14 @@ export default function ConnectPanel({ app, v1Base, variant = 'editor', mintedTo
       <div>
         <Sub className="text-sm font-semibold text-t-text">Base URL</Sub>
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          <code translate="no" className="min-w-0 break-all rounded border border-t-border bg-t-code px-3 py-2 text-sm text-t-text">{v1Base}</code>
-          <CopyButton value={v1Base} label="Copy" />
+          <code translate="no" aria-busy={!baseResolved} className="min-w-0 break-all rounded border border-t-border bg-t-code px-3 py-2 text-sm text-t-text">{shownBase}</code>
+          <CopyButton value={v1Base} label="Copy" disabled={!baseReady} />
         </div>
-        <p className="mt-2 text-xs text-t-muted">Every endpoint hangs off it: <code translate="no">{v1Base}/projects</code>, <code translate="no">{v1Base}/profile</code>, <code translate="no">{v1Base}/app</code>.</p>
+        {baseMissing ? (
+          <p role="alert" className="mt-2 text-sm text-t-danger">Base URL not configured by the service; <a href={supportMailto('Base URL not configured')} className="font-medium underline underline-offset-4">contact support</a> ({SITE.support.email}).</p>
+        ) : (
+          <p className="mt-2 text-xs text-t-muted">Every endpoint hangs off it: <code translate="no">{shownBase}/projects</code>, <code translate="no">{shownBase}/profile</code>, <code translate="no">{shownBase}/app</code>.{baseResolved && !baseConfigured && ' (Development: PUBLIC_API_URL is not set, so this is a guess from the dashboard’s API URL.)'}</p>
+        )}
       </div>
 
       <div>
@@ -394,13 +408,19 @@ export default function ConnectPanel({ app, v1Base, variant = 'editor', mintedTo
             <button type="button" onClick={onOpenKeys} className="inline-flex min-h-9 items-center gap-2 rounded border border-t-border-hi px-3 text-sm font-medium text-t-text hover:border-t-accent hover:text-t-accent"><KeyRound size={14} aria-hidden="true" />{app.type === 'static' ? 'Create publishable key' : 'Create secret key'}</button>
           )}
         </div>
-        <div className="mt-2"><Snippets v1Base={v1Base} type={app.type} keyValue={keyValue} keyShownOnce={Boolean(mintedToken?.shownOnce)} /></div>
+        <div className="mt-2"><Snippets v1Base={shownBase} baseReady={baseReady} type={app.type} keyValue={keyValue} keyShownOnce={Boolean(mintedToken?.shownOnce)} /></div>
       </div>
 
       <div>
         <Sub className="text-sm font-semibold text-t-text">First request</Sub>
         <div className="mt-2"><FirstRequest app={app} enabled={pollingEnabled} onOpenKeys={onOpenKeys} /></div>
       </div>
+
+      <p className="border-t border-t-border pt-4 text-sm text-t-muted">
+        Reference: <Link to="/docs/api" className="font-medium text-t-accent underline underline-offset-4">API reference</Link>
+        {' · '}<Link to="/docs/limits" className="font-medium text-t-accent underline underline-offset-4">Errors &amp; limits</Link>
+        {' · '}<Link to="/docs/quickstart" className="font-medium text-t-accent underline underline-offset-4">Quickstart</Link>
+      </p>
     </section>
   );
 }

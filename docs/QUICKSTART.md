@@ -2,7 +2,7 @@
 
 From an empty account to your own content arriving in your build, in about ten minutes. No card.
 
-Everything below uses this deployment's public API base: `{{API_BASE}}`. Every endpoint is under it.
+Every request goes to `{{API_BASE}}`, and every endpoint below hangs off it under `/v1`, for example `{{API_BASE}}/v1/projects`.
 
 ## 1. Create an account and verify your email
 
@@ -32,9 +32,9 @@ An **App** is one scoped, read-only view of your content: one per site you build
 
 In the Connect panel, click **Create secret key**. Copy it now: a secret key is shown once and never again. Keys look like `sk_live_` followed by 43 characters.
 
-Store it in your build's environment as `CMS_SECRET_KEY`.
+Store it in your build's environment as `CONTENT_API_KEY`.
 
-> **Name the variable `CMS_SECRET_KEY`. Never prefix it with `PUBLIC_`, `NEXT_PUBLIC_` or `VITE_`.** Those prefixes copy the value into the JavaScript your visitors download, which turns your secret key into a public one. Import it only in build or server code. Pull requests from forks don't receive secrets, so a fork's preview build will fail to fetch, which is the correct outcome.
+> **Name the variable `CONTENT_API_KEY`. Never prefix it with `PUBLIC_`, `NEXT_PUBLIC_` or `VITE_`.** Those prefixes copy the value into the JavaScript your visitors download, which turns your secret key into a public one. Import it only in build or server code. Pull requests from forks don't receive secrets, so a fork's preview build will fail to fetch, which is the correct outcome.
 
 ## 5. Fetch from your build
 
@@ -43,7 +43,7 @@ Fetch each list once per build and build your pages from it. The lists are small
 ### curl
 
 ```bash
-curl -H "Authorization: Bearer $CMS_SECRET_KEY" {{API_BASE}}/projects
+curl -H "Authorization: Bearer $CONTENT_API_KEY" {{API_BASE}}/v1/projects
 ```
 
 ### Astro
@@ -51,10 +51,10 @@ curl -H "Authorization: Bearer $CMS_SECRET_KEY" {{API_BASE}}/projects
 ```astro
 ---
 // Runs at build time; the secret key never reaches a browser.
-const res = await fetch('{{API_BASE}}/projects', {
-  headers: { Authorization: `Bearer ${import.meta.env.CMS_SECRET_KEY}` },
+const res = await fetch('{{API_BASE}}/v1/projects', {
+  headers: { Authorization: `Bearer ${import.meta.env.CONTENT_API_KEY}` },
 });
-if (!res.ok) throw new Error(`CMS ${res.status}: ${(await res.json()).error}`);
+if (!res.ok) throw new Error(`Content API ${res.status}: ${(await res.json()).error}`);
 const { data: projects } = await res.json();
 ---
 <ul>
@@ -67,11 +67,11 @@ const { data: projects } = await res.json();
 ```js
 // app/work/page.js — a server component. Revalidates every 5 minutes.
 export default async function Work() {
-  const res = await fetch('{{API_BASE}}/projects', {
-    headers: { Authorization: `Bearer ${process.env.CMS_SECRET_KEY}` },
+  const res = await fetch('{{API_BASE}}/v1/projects', {
+    headers: { Authorization: `Bearer ${process.env.CONTENT_API_KEY}` },
     next: { revalidate: 300 },
   });
-  if (!res.ok) throw new Error(`CMS ${res.status}: ${(await res.json()).error}`);
+  if (!res.ok) throw new Error(`Content API ${res.status}: ${(await res.json()).error}`);
   const { data: projects } = await res.json();
   return <ul>{projects.map((project) => <li key={project._id}>{project.title}</li>)}</ul>;
 }
@@ -81,7 +81,7 @@ Every successful response is `{ "data": … }`: an array for a list, an object f
 
 ## 6. Confirm it arrived
 
-Back in the App's Connect panel, the line **"Waiting for your key to reach us…"** flips to **"Your key reached us"** within a few seconds of your first request. It records that your key was accepted at `{{API_BASE}}`; whether the request then got `200` or an error is in the response you received.
+Back in the App's Connect panel, the line **"Waiting for your key to reach us…"** flips to **"Your key reached us"** within a few seconds of your first request. It records that your key was accepted at `{{API_BASE}}/v1`; whether the request then got `200` or an error is in the response you received.
 
 Two notes:
 
@@ -91,8 +91,8 @@ Two notes:
 ## What next
 
 - **Narrow a grant.** Open the App and untick sections or fields. An empty field list means "this section's defaults"; to serve nothing from a section, turn the section off.
-- **A second site.** Create a second App. It reads from the same content, with its own grant and its own key. Edit your bio once and both sites see it within about a minute.
+- **A second site.** Create a second App. It reads from the same content, with its own grant and its own key. Edit your bio once and both sites read it: a site that fetches in the browser sees it within about a minute; a site that fetches at build time sees it on its next build (trigger one from your host, or use `revalidate` as in the Next.js example).
 - **A site that fetches in the browser.** Create an App with **Visitors' browsers**, add the site's `https://` origin, and use its publishable key (`pk_live_…`). Anyone can copy that key from your page, so the App's grant is the only thing protecting your content, and the key's limit (120 requests a minute per visitor) is shared by all of them. For real traffic, fetch at build time.
-- **A terminal-style site.** Enable the **Filesystem view** on an App and read `{{API_BASE}}/fs`: the same granted content as a tree of files.
+- **A terminal-style site.** Enable the **Filesystem view** on an App and read `{{API_BASE}}/v1/fs`: the same granted content as a tree of files.
 
 The [API reference](API_REFERENCE.md) has every endpoint and query parameter; [Content fields](CONTENT_FIELDS.md) lists what each section can serve.

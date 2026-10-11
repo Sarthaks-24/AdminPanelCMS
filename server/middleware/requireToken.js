@@ -2,7 +2,7 @@ const { hashToken } = require('../lib/tokens');
 const cache = require('../lib/cache');
 const { ensureActiveTokensLoaded } = require('../lib/activeTokens');
 const { takePreDbSlot } = require('./v1Limiters');
-const { v1Error } = require('../lib/v1Errors');
+const { v1Error, V1_EXPOSE_HEADERS } = require('../lib/v1Errors');
 const logger = require('../lib/logger');
 const ApiToken = require('../models/ApiToken');
 const App = require('../models/App');
@@ -35,7 +35,8 @@ async function requireToken(req, res, next) {
   try {
     let entry = cache.tokenCache.get(tokenHash);
     if (!entry) {
-      // A hash outside the active set is rejected here with zero database work.
+      // A hash outside the active set is rejected here with zero database work. Tokens written without
+      // the model hooks (a script, a restore, another process) join the set at the next re-sync.
       const setReady = await ensureActiveTokensLoaded();
       if (setReady && !cache.isActiveToken(tokenHash)) return invalid();
       let pending = inflight.get(tokenHash);
@@ -65,7 +66,7 @@ async function requireToken(req, res, next) {
       if (origin && !allowedOrigins.includes('*') && !allowedOrigins.includes(origin)) return v1Error(res, 403, 'origin_not_allowed', 'This origin is not allowed for this app');
       if (origin) {
         res.setHeader('Access-Control-Allow-Origin', allowedOrigins.includes('*') ? '*' : origin);
-        res.setHeader('Access-Control-Expose-Headers', 'ETag, Retry-After, RateLimit, RateLimit-Policy, X-Request-Id');
+        res.setHeader('Access-Control-Expose-Headers', V1_EXPOSE_HEADERS);
         res.setHeader('Vary', 'Authorization, Origin');
       }
     }

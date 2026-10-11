@@ -61,6 +61,7 @@ async function main() {
   if (!sourceDatabase || sourceDatabase === targetDatabase) throw new Error('Source and restore database names must be different.');
   const targetUri = localMongoUri(restoreBaseUri, targetDatabase);
   await mongoose.connect(targetUri, { maxPoolSize: 2 });
+  // ownerGuard-exemption: the restore target is a confirmed, local disposable database
   const existing = await mongoose.connection.db.listCollections().toArray();
   await mongoose.disconnect();
   if (existing.length) throw new Error(`Restore target ${targetDatabase} is not empty; choose a new disposable *_restore_test database.`);
@@ -81,6 +82,7 @@ async function main() {
     if (summary.restored === 0) throw new Error('mongorestore reported zero restored documents; the archive is empty or belongs to another database.');
 
     await mongoose.connect(targetUri, { maxPoolSize: 2 });
+    // ownerGuard-exemption-begin: counts every restored collection on the local disposable database
     const collections = await mongoose.connection.db.listCollections().toArray();
     if (!collections.length) throw new Error('The restore completed but created no collections.');
     const counts = [];
@@ -89,6 +91,7 @@ async function main() {
       const result = await mongoose.connection.db.command({ aggregate: name, pipeline: [{ $count: 'n' }], cursor: {} });
       counts.push({ name, count: result.cursor.firstBatch.length ? result.cursor.firstBatch[0].n : 0 });
     }
+    // ownerGuard-exemption-end
     const total = counts.reduce((sum, entry) => sum + entry.count, 0);
     // The documents mongorestore says it wrote must all be readable back from the disposable database.
     if (total !== summary.restored) throw new Error(`Mismatch: mongorestore reported ${summary.restored} document(s) but ${total} are readable in ${targetDatabase}.`);
@@ -108,6 +111,7 @@ async function main() {
       catch { cleanupFailed = true; }
     }
     if (mongoose.connection.readyState === 1) {
+      // ownerGuard-exemption: drops the local disposable restore database after the drill
       try { await mongoose.connection.db.dropDatabase(); }
       catch { cleanupFailed = true; }
       finally { await mongoose.disconnect(); }

@@ -1,0 +1,37 @@
+# Dependency update PRs (FX-71). The workflows pin actions by commit SHA and the API image by digest, so
+# Dependabot is what keeps those pins moving. Grouped weekly to keep the PR count low for a solo operator.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: /server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      server-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # mongoose is pinned to an exact version in package.json; bump it by hand after reading the changelog.
+      - dependency-name: mongoose
+
+  - package-ecosystem: npm
+    directory: /client
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      client-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directory: /server
+    schedule:
+      interval: weekly

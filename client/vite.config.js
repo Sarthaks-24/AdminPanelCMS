@@ -1,5 +1,13 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
+import { SITE } from './src/content/site.js'
+
+// index.html is static, so it cannot import SITE. This fills its %SITE_URL% (canonical and social-card
+// URLs) from the same constant the app uses, keeping the public domain in one place.
+const siteHtml = () => ({
+  name: 'site-html',
+  transformIndexHtml: { order: 'pre', handler: (html) => html.replaceAll('%SITE_URL%', SITE.url) },
+})
 
 const MODES = { dev: 'dev', development: 'dev', prod: 'prod', production: 'prod' }
 
@@ -23,11 +31,13 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     envDir: import.meta.dirname,
-    plugins: [react()],
+    plugins: [react(), siteHtml()],
     // Resolved here so only the chosen URL is compiled into the bundle.
     define: { 'import.meta.env.VITE_RESOLVED_API_URL': JSON.stringify(apiUrl) },
-    // The public pages render the repo's own README, LICENSE and docs/*.md, which sit above this
-    // package. Vite inlines them at build time; the dev server needs permission to read them.
+    // The public docs render consumer docs from ../docs, which sit above this package. Vite inlines
+    // them at build time; the dev server needs permission to read them.
     server: { fs: { allow: ['..'] } },
+    // `npm test`: component tests in jsdom. e2e/ is Playwright's and runs against a live stack instead.
+    test: { environment: 'jsdom', include: ['src/**/*.test.{js,jsx}'] },
   }
 })

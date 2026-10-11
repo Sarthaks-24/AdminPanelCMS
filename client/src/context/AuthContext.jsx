@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { api } from '../api/client';
+import { api, SESSION_EXPIRED_EVENT } from '../api/client';
 
 const AuthContext = createContext();
 
@@ -16,6 +16,13 @@ export const AuthProvider = ({ children }) => {
       .catch(() => { if (active) setUser(null); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
+  }, []);
+
+  // A 401 from any dashboard request: drop the identity and let ProtectedRoute redirect.
+  useEffect(() => {
+    const onExpired = () => setUser(null);
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
   }, []);
 
   const login = async (email, password) => {

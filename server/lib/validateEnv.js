@@ -49,6 +49,13 @@ function validateEnv(env = process.env) {
     if (env.MONGODB_URI && env.DEV_MONGODB_URI && mongoTarget(env.DEV_MONGODB_URI, env) === mongoTarget(env.MONGODB_URI, env)) problems.push('MONGODB_URI for production must differ from DEV_MONGODB_URI (same cluster and database)');
     // Without a name in the path the driver falls back to a default database that development may also be using.
     if (env.MONGODB_URI && !/^mongodb(\+srv)?:\/\/[^/?]+\/[^/?]+/.test(env.MONGODB_URI)) problems.push('MONGODB_URI must include the database name in production, for example .../Portfolio_prod');
+    // Invites get their own key (SEC20) so JWT_SECRET can be rotated after an incident without killing every invite.
+    const pepper = env.INVITE_CODE_PEPPER || '';
+    if (pepper.length < 32) problems.push('INVITE_CODE_PEPPER must be set in production to a random value of at least 32 characters (it hashes invite codes; keep it stable)');
+    else if (pepper === env.JWT_SECRET) problems.push('INVITE_CODE_PEPPER must differ from JWT_SECRET');
+    // Optional by owner decision (FX-37a), but without it the dashboard has to guess the /v1 base URL tenants copy.
+    if (!env.PUBLIC_API_URL) warnings.push('PUBLIC_API_URL is NOT set: the dashboard will guess the /v1 base URL from its own API URL, and tenants copy that guess into their apps. Set PUBLIC_API_URL=https://<api host> unless the dashboard and API share one origin.');
+    if (env.TURNSTILE_SECRET_KEY && !env.TURNSTILE_SITE_KEY) warnings.push('TURNSTILE_SECRET_KEY is set but TURNSTILE_SITE_KEY is not: signup will demand a captcha the dashboard cannot render');
     // Left at the default behind a proxy, every visitor shares one IP and the rate limits lock everyone out together.
     if (env.TRUST_PROXY_HOPS === undefined || env.TRUST_PROXY_HOPS === '') problems.push('TRUST_PROXY_HOPS must be set explicitly in production (0 if Node is reached directly, 1 behind one reverse proxy)');
     // With signup open, a dead mail path silently kills every verification; with signup closed it only degrades resets.

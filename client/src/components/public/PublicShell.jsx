@@ -2,21 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { REPO_URL, SITE } from '../../content/site';
+import { SITE, supportMailto } from '../../content/site';
+import { DASHBOARD } from '../../lib/routes';
 
-function Wordmark() {
-  return (
-    <Link to="/" className="group flex items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-t-accent">
-      {/* A pool and the two narrower views drawn from it: the product's own shape, not a generic glyph. */}
-      <svg viewBox="0 0 24 24" className="h-6 w-6 shrink-0" aria-hidden="true">
-        <rect x="1" y="2" width="22" height="7" rx="2" fill="var(--theme-accent)" />
-        <rect x="1" y="12" width="13" height="4" rx="1.5" fill="var(--theme-text-dim)" />
-        <rect x="1" y="18" width="18" height="4" rx="1.5" fill="var(--theme-text-dim)" />
-      </svg>
-      <span className="font-display text-[0.9375rem] font-semibold tracking-tight text-t-text">{SITE.name}</span>
-    </Link>
-  );
-}
+// The one product mark, shared with the auth pages and the dashboard (components/Wordmark.jsx).
+import Wordmark from '../Wordmark';
 
 // The three pages a consumer of the API needs. Everything else is one click further in.
 const NAV = [
@@ -25,12 +15,16 @@ const NAV = [
   { to: '/docs/limits', label: 'Limits' },
 ];
 
+// `href` entries leave the single-page app (mail, the external status page); `to` entries stay in it.
 const FOOTER_LINKS = [
   { to: '/docs/quickstart', label: 'Quickstart' },
   { to: '/docs/api', label: 'API reference' },
   { to: '/docs/limits', label: 'Limits & errors' },
+  { to: '/docs/changelog', label: 'Changelog' },
   { to: '/legal/terms', label: 'Terms' },
   { to: '/legal/privacy', label: 'Privacy' },
+  ...(SITE.statusUrl ? [{ href: SITE.statusUrl, label: 'Status', external: true }] : []),
+  { href: supportMailto(), label: 'Contact' },
 ];
 
 export default function PublicShell({ children, wide = false }) {
@@ -68,7 +62,7 @@ export default function PublicShell({ children, wide = false }) {
 
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             {isAuthenticated ? (
-              <Link to="/admin/dashboard" className="rounded-lg bg-t-accent px-3.5 py-1.5 text-[0.8125rem] font-semibold text-t-on-accent transition hover:bg-t-accent-br">Dashboard</Link>
+              <Link to={DASHBOARD} className="rounded-lg bg-t-accent px-3.5 py-1.5 text-[0.8125rem] font-semibold text-t-on-accent transition hover:bg-t-accent-br">Dashboard</Link>
             ) : (
               <>
                 {/* Sign in moves into the menu below sm; the account button stays at every width, in
@@ -114,15 +108,16 @@ export default function PublicShell({ children, wide = false }) {
               <p className="mt-3 text-xs leading-5 text-t-dim">{SITE.status}</p>
             </div>
             <nav aria-label="Footer" className="grid grid-cols-2 gap-x-10 gap-y-2 text-[0.8125rem]">
-              {FOOTER_LINKS.map((item) => (
-                <Link key={item.to} to={item.to} className="text-t-muted hover:text-t-text">{item.label}</Link>
-              ))}
-              <a href={REPO_URL} target="_blank" rel="noreferrer noopener" className="text-t-muted hover:text-t-text">Source</a>
+              {FOOTER_LINKS.map((item) => (item.to ? (
+                <Link key={item.label} to={item.to} className="text-t-muted hover:text-t-text">{item.label}</Link>
+              ) : (
+                <a key={item.label} href={item.href} {...(item.external ? { target: '_blank', rel: 'noreferrer noopener' } : {})} className="text-t-muted hover:text-t-text">{item.label}</a>
+              )))}
             </nav>
           </div>
           <p className="mt-10 border-t border-t-border pt-6 text-xs text-t-dim">
-            © 2026 {SITE.owner}. Source available under the{' '}
-            <Link to="/license" className="text-t-muted hover:text-t-text hover:underline">MIT License</Link>.
+            © 2026 {SITE.legal.operator}. {SITE.name} is a hosted service; using it is covered by the{' '}
+            <Link to="/legal/terms" className="text-t-muted hover:text-t-text hover:underline">Terms</Link>.
           </p>
         </div>
       </footer>

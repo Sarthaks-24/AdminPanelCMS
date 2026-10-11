@@ -1,0 +1,23 @@
+# Security headers for the static site and dashboard (Netlify / Cloudflare Pages `_headers` syntax).
+# Copied into dist/ by the build; `npm run check:dist` fails if dist/_headers is missing or if the
+# script hash below no longer matches the inline theme script in index.html.
+#
+# script-src: 'self' plus the sha256 of the one inline script in index.html (the pre-paint theme
+#   loader). Changing that script by even one character changes the hash: recompute it with
+#   `node scripts/check-dist.mjs --print-hash` and paste it here.
+# connect-src: 'self' plus the public API origin. OWNER: replace https://api.[your-domain] with the
+#   real API origin (the same value as VITE_PROD_API_URL's origin and PUBLIC_API_URL). If the API is
+#   proxied on this origin under /api and /v1, 'self' alone is enough and the second entry can go.
+# font-src 'self': the typefaces are self-hosted (@fontsource), nothing is loaded from Google Fonts.
+# script-src/frame-src https://challenges.cloudflare.com: the Cloudflare Turnstile widget on signup and
+#   resend-verification. Its script loads only when the server reports a turnstileSiteKey.
+# img-src https: tenants' project thumbnails and avatars are arbitrary https URLs.
+# style-src 'unsafe-inline': index.html's first-paint <style> block and React style attributes.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://challenges.cloudflare.com 'sha256-D6YcsU0PTCM3EEMSMce1GOIPTprZBpflFyUCauqQqDQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; frame-src https://challenges.cloudflare.com; connect-src 'self' https://api.[your-domain]; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Cross-Origin-Opener-Policy: same-origin

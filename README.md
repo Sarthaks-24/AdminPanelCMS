@@ -2,14 +2,14 @@
 
 Your portfolio content, as an API. Write your profile, projects, skills, experience, education, certifications and social links once; every site you build reads them from one read-only JSON API, and each site sees only what you grant it.
 
-Portfolio Control is run as a hosted service by its author. This repository is the source of that service, published under the [MIT License](LICENSE). Repository name: `AdminPanelManager`.
+Portfolio Control is a hosted service at https://[your-domain]. **Want to use it? [Sign up there](https://[your-domain]/signup); you don't need this repository.** This repository is the service's source code, published under the [MIT License](LICENSE).
 
 ## For users of the service
 
-You don't need this repository. Create an account on the public site, add your content, create an **App** per site you build, and fetch with its key:
+Create an account on the public site, add your content, create an **App** per site you build, and fetch with its key:
 
 ```bash
-curl -H "Authorization: Bearer $CMS_SECRET_KEY" https://<api-host>/v1/projects
+curl -H "Authorization: Bearer $CONTENT_API_KEY" https://api.[your-domain]/v1/projects
 ```
 
 The docs you need are rendered on the site and live here in `docs/`:
@@ -20,6 +20,7 @@ The docs you need are rendered on the site and live here in `docs/`:
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | Every `/v1` endpoint, the `{ data }` envelope, every error code and header |
 | [docs/LIMITS_AND_ERRORS.md](docs/LIMITS_AND_ERRORS.md) | The beta limits and the error decoder |
 | [docs/CONTENT_FIELDS.md](docs/CONTENT_FIELDS.md) | What each section can serve, defaults, opt-in and never-served fields |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | Changes to the API, the limits and the legal text |
 
 ## How it works
 
@@ -27,7 +28,7 @@ The docs you need are rendered on the site and live here in `docs/`:
 - **Apps are views, not copies.** An App chooses which sections, which items and which fields one site may read. Your portfolio can get everything; a résumé page can get three featured projects and no email address.
 - **Keys per App.** A secret key (`sk_live_`) for builds and servers, or a publishable key (`pk_live_`) for browsers, limited to the origins you allow. Read-only, revocable, at most two live per App.
 - **One API.** `GET /v1/...` returns the granted content as JSON with ETags and a 60-second cache; `GET /v1/fs` returns the same content as a virtual file tree for terminal-style sites.
-- **Your data stays yours.** Export everything as JSON or delete the account from Settings; deletion revokes every key.
+- **Your data stays yours.** Export everything as JSON or delete the account from **Account** in the dashboard; deletion revokes every key.
 
 ## What's in the repository
 
@@ -39,7 +40,7 @@ The docs you need are rendered on the site and live here in `docs/`:
 
 Two deployables: the API (one long-running Node process serving `/api` for the dashboard and `/v1` for consumers) and the static dashboard bundle.
 
-## Running it locally for development
+## Contributing: running it locally
 
 You need Node.js 20.19+ and a MongoDB database. The walkthrough is [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md); in short:
 
@@ -64,8 +65,9 @@ Operator documentation (environment variables, deployment, operations, architect
 | `server/` | `npm run lint:security` | Static tenant-isolation check |
 | `server/` | `npm run setup` | Create indexes and the first account |
 | `client/` | `npm run dev` | Dashboard dev server |
-| `client/` | `npm run build` | Production bundle in `client/dist` |
-| `client/` | `npm run lint` | oxlint, then the landing-demo field parity check against the server constants |
+| `client/` | `npm run build` | Production bundle in `client/dist`, then a check that `_headers`, `_redirects` and the CSP hash are in place and no operator docs were bundled |
+| `client/` | `npm run lint` | oxlint, the landing-demo field parity check, and the public-docs check (links, base-URL paths, no HTML comments) |
+| `client/` | `npm run check:launch` | Fails while any bracketed owner placeholder from `client/src/content/site.js` (domain, operator, jurisdiction, providers) is still on the public site; run before launch |
 
 ## Security
 
@@ -74,4 +76,4 @@ Operator documentation (environment variables, deployment, operations, architect
 - Sessions live in an httpOnly cookie; writes need a custom header that cross-site requests cannot send.
 - Every content query is scoped to its owner and a guard rejects any query that is not. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#tenant-isolation).
 
-To report a security issue in the service, email [security contact email]. Please don't open a public issue for it.
+To report a security issue in the service, email security@[your-domain]. Please don't open a public issue for it. The full policy is in [SECURITY.md](SECURITY.md).

@@ -41,7 +41,7 @@ function Switch({ checked, onChange, label }) {
 
 const inputClass = 'mt-1 block h-10 w-full rounded border border-t-border-hi bg-t-bg px-3 text-sm text-t-text outline-none transition focus:border-t-accent focus:ring-2 focus:ring-t-accent/20 disabled:cursor-not-allowed disabled:opacity-60';
 
-function FieldGroup({ sectionKey, fields, chosen, optIn, onToggle }) {
+function FieldGroup({ sectionKey, fields, chosen, optIn, onToggle, disabled = false }) {
   const groups = fields.reduce((result, field) => {
     const parent = field.split('.')[0];
     (result[parent] ||= []).push(field);
@@ -52,8 +52,8 @@ function FieldGroup({ sectionKey, fields, chosen, optIn, onToggle }) {
       <legend className="px-1.5 text-xs font-semibold text-t-muted">{parent}</legend>
       <div className="grid gap-1 sm:grid-cols-2">{paths.map((path) => {
         const id = `${sectionKey}-field-${path.replace(/\W/g, '-')}`;
-        return <label key={path} htmlFor={id} className="flex min-h-10 cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 text-sm text-t-text hover:bg-t-surface-hi">
-          <input id={id} type="checkbox" checked={chosen.includes(path)} onChange={() => onToggle(path)} className="h-4 w-4 accent-[var(--theme-accent)]" />
+        return <label key={path} htmlFor={id} className="flex min-h-10 items-center gap-3 rounded-md px-2.5 py-2 text-sm text-t-text hover:bg-t-surface-hi">
+          <input id={id} type="checkbox" disabled={disabled} checked={chosen.includes(path)} onChange={() => onToggle(path)} className="h-4 w-4 accent-[var(--theme-accent)] disabled:cursor-not-allowed" />
           <span>{path.includes('.') ? path.slice(parent.length + 1) : path}{optIn.includes(path) && <span className="ml-2 text-xs text-t-muted">opt-in</span>}</span>
         </label>;
       })}</div>
@@ -80,7 +80,7 @@ function FsTree({ node, depth = 0 }) {
 export default function AppEditorPage() {
   const { id } = useParams();
   const location = useLocation();
-  const { v1Base } = useApiBase();
+  const { v1Base, resolved: baseResolved, configured: baseConfigured } = useApiBase();
   const [app, setApp] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [records, setRecords] = useState({});
@@ -201,7 +201,7 @@ export default function AppEditorPage() {
 
   if (loadError) {
     return <div className="mx-auto max-w-7xl">
-      <Link to="/admin/apps" className="inline-flex items-center gap-2 text-sm text-t-muted hover:text-t-accent"><ArrowLeft size={14} aria-hidden="true" />All Apps</Link>
+      <Link to="/dashboard/apps" className="inline-flex items-center gap-2 text-sm text-t-muted hover:text-t-accent"><ArrowLeft size={14} aria-hidden="true" />All Apps</Link>
       <div role="alert" className="mt-6 rounded border border-t-danger/40 bg-t-danger-dim p-4 text-sm text-t-danger">
         {loadError.message} <button type="button" onClick={loadApp} className="font-medium underline underline-offset-4">Retry</button>
         {loadError.fix && <> <Link to={loadError.fix.to} className="font-medium underline underline-offset-4">{loadError.fix.label}</Link></>}
@@ -209,7 +209,7 @@ export default function AppEditorPage() {
     </div>;
   }
   if (!app) {
-    return <div className="mx-auto max-w-7xl"><Link to="/admin/apps" className="inline-flex items-center gap-2 text-sm text-t-muted hover:text-t-accent"><ArrowLeft size={14} aria-hidden="true" />All Apps</Link><p role="status" className="mt-6 text-sm text-t-muted">Loading App…</p></div>;
+    return <div className="mx-auto max-w-7xl"><Link to="/dashboard/apps" className="inline-flex items-center gap-2 text-sm text-t-muted hover:text-t-accent"><ArrowLeft size={14} aria-hidden="true" />All Apps</Link><p role="status" className="mt-6 text-sm text-t-muted">Loading App…</p></div>;
   }
 
   const navButton = (key, label, Icon, enabled, extra = '') => {
@@ -224,13 +224,13 @@ export default function AppEditorPage() {
   return <div className="mx-auto max-w-7xl space-y-6 pb-12">
     <header className="flex flex-col gap-4 border-b border-t-border pb-5 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <Link to="/admin/apps" className="inline-flex items-center gap-1.5 text-sm text-t-muted hover:text-t-accent"><ArrowLeft size={13} aria-hidden="true" />All Apps</Link>
+        <Link to="/dashboard/apps" className="inline-flex items-center gap-1.5 text-sm text-t-muted hover:text-t-accent"><ArrowLeft size={13} aria-hidden="true" />All Apps</Link>
         <div className="mt-2 flex flex-wrap items-center gap-2.5">
           <h1 className="truncate text-2xl font-bold tracking-tight text-t-text">{app.name}</h1>
           <span className="rounded-full border border-t-border-hi bg-t-surface px-2.5 py-1 text-xs text-t-muted">{typeLabel(app.type)}</span>
           <span aria-live="polite" className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ${saved ? 'bg-t-accent2-dim text-t-accent2' : 'bg-t-warn/10 text-t-warn'}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{saved ? 'Saved' : 'Unsaved changes'}</span>
         </div>
-        <p className="mt-1.5 max-w-2xl text-sm text-t-muted">What this App can read. Changes take effect after saving; responses are cached for about a minute.</p>
+        <p className="mt-1.5 max-w-2xl text-sm text-t-muted">What this App can read. Changes take effect as soon as you save. The API serves the change on the next request; browsers and CDNs may keep a copy for up to a minute.</p>
       </div>
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => setShowTokens(true)} className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded border border-t-border-hi px-4 text-sm font-semibold text-t-text hover:border-t-accent hover:text-t-accent"><KeyRound size={14} aria-hidden="true" />Keys{activeTokens.length ? ` (${activeTokens.length})` : ''}</button>
@@ -239,10 +239,10 @@ export default function AppEditorPage() {
     </header>
 
     {error && <div role="alert" className="rounded border border-t-danger/40 bg-t-danger-dim px-4 py-3 text-sm text-t-danger">{error.message}{error.fix && <> <Link to={error.fix.to} className="font-medium underline underline-offset-4">{error.fix.label}</Link></>}</div>}
-    {showTokens && <TokenManagerModal app={app} v1Base={v1Base} onClose={() => { setShowTokens(false); loadTokens(); }} onChange={loadTokens} />}
+    {showTokens && <TokenManagerModal app={app} v1Base={v1Base} baseResolved={baseResolved} baseConfigured={baseConfigured} onClose={() => { setShowTokens(false); loadTokens(); }} onChange={loadTokens} />}
 
     <div ref={connectRef} tabIndex={-1} className="scroll-mt-24 outline-none">
-      <ConnectPanel app={app} v1Base={v1Base} tokens={tokens} onOpenKeys={() => setShowTokens(true)} onFix={onFix} />
+      <ConnectPanel app={app} v1Base={v1Base} baseResolved={baseResolved} baseConfigured={baseConfigured} tokens={tokens} onOpenKeys={() => setShowTokens(true)} onFix={onFix} />
     </div>
 
     <section ref={settingsRef} aria-labelledby="app-settings-title" className="scroll-mt-24 rounded-lg border border-t-border bg-t-surface p-4 sm:p-5">
@@ -308,14 +308,14 @@ export default function AppEditorPage() {
                         {index !== -1 && <span className="text-xs text-t-dim">{index + 1}</span>}
                         {index !== -1 && <div className="flex"><button type="button" aria-label={`Move ${recordName(record)} up`} disabled={index === 0} onClick={() => updateSection(activeSection, { ids: moveId(ids, index, -1) })} className="rounded p-1 text-t-muted hover:bg-t-surface-hi hover:text-t-text disabled:opacity-30"><ArrowUp size={14} aria-hidden="true" /></button><button type="button" aria-label={`Move ${recordName(record)} down`} disabled={index === ids.length - 1} onClick={() => updateSection(activeSection, { ids: moveId(ids, index, 1) })} className="rounded p-1 text-t-muted hover:bg-t-surface-hi hover:text-t-text disabled:opacity-30"><ArrowDown size={14} aria-hidden="true" /></button></div>}
                       </div>;
-                    })}{!loadingRecords && !recordErrors[activeSection] && !records[activeSection]?.length && <p className="py-5 text-center text-sm text-t-muted">Nothing in this section yet. <Link to={`/admin/${activeSection}`} className="font-medium text-t-accent underline underline-offset-4">Add some</Link></p>}</div>}
+                    })}{!loadingRecords && !recordErrors[activeSection] && !records[activeSection]?.length && <p className="py-5 text-center text-sm text-t-muted">Nothing in this section yet. <Link to={`/dashboard/${activeSection}`} className="font-medium text-t-accent underline underline-offset-4">Add some</Link></p>}</div>}
                   </div>
                 )}
                 {activeSection === 'skills' && (
                   <fieldset className="rounded border border-t-border p-4">
                     <legend className="px-1.5 text-xs font-semibold text-t-muted">Skill categories</legend>
                     <p className="mb-3 text-xs text-t-muted">Leave every category unticked to serve all of them. Categories come from your skills.</p>
-                    {skillCategories.length === 0 ? <p className="text-sm text-t-muted">No categories yet. <Link to="/admin/skills" className="font-medium text-t-accent underline underline-offset-4">Add skills</Link> and they appear here.</p> : (
+                    {skillCategories.length === 0 ? <p className="text-sm text-t-muted">No categories yet. <Link to="/dashboard/skills" className="font-medium text-t-accent underline underline-offset-4">Add skills</Link> and they appear here.</p> : (
                       <div className="grid gap-1 sm:grid-cols-2">{skillCategories.map((category) => <label key={category} className="flex min-h-9 cursor-pointer items-center gap-2.5 rounded px-2 text-sm text-t-text hover:bg-t-surface-hi"><input type="checkbox" checked={(config.categories || []).includes(category)} onChange={() => { const current = config.categories || []; updateSection(activeSection, { categories: current.includes(category) ? current.filter((value) => value !== category) : [...current, category] }); }} className="h-4 w-4 accent-[var(--theme-accent)]" />{category}</label>)}</div>
                     )}
                   </fieldset>
@@ -336,8 +336,9 @@ export default function AppEditorPage() {
                 </fieldset>
                 <div className="mt-4">
                   {fieldsMode[activeSection] === 'custom' && (config.fields || []).length === 0 && <p role="note" className="mb-3 rounded border border-t-warn/40 bg-t-warn/10 p-3 text-sm text-t-text">No fields ticked. The server serves the default set in that case, so tick at least one or switch back to Default fields.</p>}
-                  <div className={fieldsMode[activeSection] === 'custom' ? '' : 'pointer-events-none opacity-70'} aria-disabled={fieldsMode[activeSection] !== 'custom'}>
-                    <FieldGroup sectionKey={activeSection} fields={section.fields} chosen={chosenFields} optIn={OPT_IN[activeSection] || []} onToggle={toggleField} />
+                  <div className={fieldsMode[activeSection] === 'custom' ? '' : 'opacity-70'}>
+                    {/* Real `disabled`, not pointer-events: keyboard users must not edit `fields` while Default is chosen. */}
+                    <FieldGroup sectionKey={activeSection} fields={section.fields} chosen={chosenFields} optIn={OPT_IN[activeSection] || []} onToggle={toggleField} disabled={fieldsMode[activeSection] !== 'custom'} />
                   </div>
                 </div>
               </div>

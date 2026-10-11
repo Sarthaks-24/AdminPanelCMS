@@ -11,7 +11,7 @@ const pickWritable = require('../middleware/pickWritable');
 const errorHandler = require('../middleware/errorHandler');
 const { createUser, loginAs, createApp } = require('./helpers/factory');
 
-const goodEnv = { JWT_SECRET: 'x'.repeat(40) + 'randomSecretValue', NODE_ENV: 'production', CLIENT_ORIGIN: 'https://admin.example.com', MONGODB_URI: 'mongodb://127.0.0.1:27017/Test', TRUST_PROXY_HOPS: '1', RESEND_MAIL_KEY: 're_live_key', RESEND_FROM_EMAIL: 'CMS <no-reply@example.com>' };
+const goodEnv = { JWT_SECRET: 'x'.repeat(40) + 'randomSecretValue', NODE_ENV: 'production', CLIENT_ORIGIN: 'https://admin.example.com', MONGODB_URI: 'mongodb://127.0.0.1:27017/Test', TRUST_PROXY_HOPS: '1', RESEND_MAIL_KEY: 're_live_key', RESEND_FROM_EMAIL: 'CMS <no-reply@example.com>', INVITE_CODE_PEPPER: 'k'.repeat(48), PUBLIC_API_URL: 'https://api.example.com' };
 
 describe('nested writable fields', () => {
   it('saves project links and profile location through the HTTP routes', async () => {
@@ -63,6 +63,16 @@ describe('startup validation', () => {
     expect(() => validateEnv({ ...goodEnv, NODE_ENV: 'development', CLIENT_ORIGIN: 'not a url', TRUST_PROXY_HOPS: undefined })).toThrow(/bare origin/);
     expect(() => validateEnv({ ...goodEnv, CLIENT_ORIGIN: 'https://admin.example.com/' })).toThrow(/bare origin/);
     expect(() => validateEnv({ ...goodEnv, NODE_ENV: 'development', CLIENT_ORIGIN: 'http://localhost:5173/', TRUST_PROXY_HOPS: undefined })).toThrow(/bare origin/);
+  });
+
+  it('requires a separate INVITE_CODE_PEPPER in production and warns loudly without PUBLIC_API_URL', () => {
+    expect(() => validateEnv({ ...goodEnv, INVITE_CODE_PEPPER: '' })).toThrow(/INVITE_CODE_PEPPER must be set/);
+    expect(() => validateEnv({ ...goodEnv, INVITE_CODE_PEPPER: 'short' })).toThrow(/INVITE_CODE_PEPPER/);
+    expect(() => validateEnv({ ...goodEnv, INVITE_CODE_PEPPER: goodEnv.JWT_SECRET })).toThrow(/must differ from JWT_SECRET/);
+    expect(() => validateEnv({ ...goodEnv, NODE_ENV: 'development', INVITE_CODE_PEPPER: '', TRUST_PROXY_HOPS: undefined, CLIENT_ORIGIN: 'http://localhost:5173' })).not.toThrow();
+    const { warnings } = validateEnv({ ...goodEnv, PUBLIC_API_URL: '' });
+    expect(warnings).toEqual([expect.stringMatching(/PUBLIC_API_URL is NOT set/)]);
+    expect(validateEnv({ ...goodEnv, TURNSTILE_SECRET_KEY: 'secret' }).warnings[0]).toMatch(/TURNSTILE_SITE_KEY/);
   });
 
   it('warns instead of failing when production mail is not ready', () => {
@@ -127,14 +137,26 @@ describe('probes and readiness', () => {
     const spy = vi.spyOn(mongoose.connection, 'readyState', 'get').mockReturnValue(0);
     try {
       const down = await request(app).get('/readyz').expect(503);
-      expect(down.body).toMatchObject({ status: 'unavailable', reason: 'mongo_disconnected' });
+      expect(down.body).toEqual({ status: 'unavailable' }); // the internal reason is not published
     } finally { spy.mockRestore(); }
     readiness.setShuttingDown(true);
     try {
       const draining = await request(app).get('/readyz').expect(503);
-      expect(draining.body.reason).toBe('shutting_down');
+      expect(draining.body).toEqual({ status: 'unavailable' });
     } finally { readiness.setShuttingDown(false); }
     await request(app).get('/readyz').expect(200);
+  });
+
+  it('shares one Mongo ping across a burst of /readyz calls', async () => {
+    const readiness = require('../lib/readiness');
+    readiness.resetReadyCache();
+    const admin = mongoose.connection.getClient().db('admin');
+    const pingSpy = vi.spyOn(Object.getPrototypeOf(admin), 'command');
+    try {
+      const responses = await Promise.all(Array.from({ length: 100 }, () => request(app).get('/readyz')));
+      expect(responses.every((response) => response.status === 200)).toBe(true);
+      expect(pingSpy.mock.calls.filter(([command]) => command?.ping).length).toBe(1);
+    } finally { pingSpy.mockRestore(); readiness.resetReadyCache(); }
   });
 });
 

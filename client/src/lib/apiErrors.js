@@ -6,9 +6,15 @@
  *  - `/api` (this dashboard):                        `{ success:false, error, message?, details?, resource?, limit? }`
  * plus axios network errors (no `response` at all) and the browser's `TypeError: Failed to fetch`.
  *
+ * The two surfaces share some codes (`rate_limited`, `not_found`, `bad_request`, `internal`) with different
+ * meanings, so the caller says which surface the error came from: `ctx.surface` is `'api'` (the
+ * default: every dashboard request) or `'v1'` (a tenant's own app calling the public API, as shown in
+ * ConnectPanel's lookup table). Each surface's table is tried first, then the other's.
+ *
  * Every entry says what went wrong and where to fix it, in the product's own words.
  * The same table is mirrored in docs/LIMITS_AND_ERRORS.md, so keep the copy in step.
  */
+import { SITE } from '../content/site';
 
 const SECTION_LABELS = {
   profile: 'Profile', resume: 'Résumé', socials: 'Links', skills: 'Skills', projects: 'Projects',
@@ -16,12 +22,12 @@ const SECTION_LABELS = {
 };
 
 const SECTION_ROUTES = {
-  profile: '/admin/profile', resume: '/admin/resume', socials: '/admin/socials', skills: '/admin/skills',
-  projects: '/admin/projects', experience: '/admin/experience', education: '/admin/education',
-  certifications: '/admin/certifications',
+  profile: '/dashboard/profile', resume: '/dashboard/resume', socials: '/dashboard/socials', skills: '/dashboard/skills',
+  projects: '/dashboard/projects', experience: '/dashboard/experience', education: '/dashboard/education',
+  certifications: '/dashboard/certifications',
 };
 
-const appRoute = (appId) => (appId ? `/admin/apps/${appId}` : '/admin/apps');
+const appRoute = (appId) => (appId ? `/dashboard/apps/${appId}` : '/dashboard/apps');
 
 function retryAfterSeconds(headers) {
   const raw = headers?.['retry-after'] ?? headers?.get?.('retry-after');
@@ -41,15 +47,15 @@ const V1 = {
   },
   origin_not_allowed: (body, ctx) => ({
     title: 'Origin not allowed',
-    message: 'Your browser blocked the response. Usually your site’s origin isn’t on this App’s list, or the key is wrong. Check the status in the Network tab.',
+    message: 'This site’s origin isn’t on this App’s list of allowed origins. Add it (scheme and host, no path), or use a build-time fetch with a secret key.',
     fix: { label: 'Allowed origins', to: appRoute(ctx.appId) },
   }),
   token_missing: (body, ctx) => keyProblem(ctx),
   token_invalid: (body, ctx) => keyProblem(ctx),
   account_unavailable: () => ({
     title: 'Account unavailable',
-    message: 'This account is suspended or being deleted, so its keys no longer answer. Contact support if that is a surprise.',
-    fix: { label: 'Account', to: '/admin/account' },
+    message: `This account is suspended or being deleted, so its keys no longer answer. If that is a surprise, email ${SITE.support.email}.`,
+    fix: { label: 'Account', to: '/dashboard/account' },
   }),
   account_inactive: () => V1.account_unavailable(),
   token_in_query: (body, ctx) => keyProblem(ctx),
@@ -59,8 +65,8 @@ const V1 = {
     fix: { label: 'Keys', to: appRoute(ctx.appId) },
   }),
   not_configured: (body, ctx) => (ctx.path?.includes('/resume')
-    ? { title: 'No résumé yet', message: 'You haven’t saved a résumé link yet.', fix: { label: 'Résumé', to: '/admin/resume' } }
-    : { title: 'No profile yet', message: 'You haven’t saved a profile yet.', fix: { label: 'Profile', to: '/admin/profile' } }),
+    ? { title: 'No résumé yet', message: 'You haven’t saved a résumé link yet.', fix: { label: 'Résumé', to: '/dashboard/resume' } }
+    : { title: 'No profile yet', message: 'You haven’t saved a profile yet.', fix: { label: 'Profile', to: '/dashboard/profile' } }),
   not_found: () => ({
     title: 'Not found',
     message: 'No such endpoint or item. Check the URL ends in /v1/<section> and the slug matches a published item.',
@@ -94,7 +100,7 @@ const V1 = {
   }),
   internal: (body) => ({
     title: 'Something broke on our side',
-    message: `Something broke on our side. Try again; if it keeps happening, tell us the request id${body.requestId ? ` ${body.requestId}` : ''}.`,
+    message: `Something broke on our side. Try again; if it keeps happening, email ${SITE.support.email} with the request id${body.requestId ? ` ${body.requestId}` : ''}.`,
     fix: null,
   }),
 };
@@ -127,18 +133,34 @@ const API = {
   email_unverified: () => ({
     title: 'Verify your email',
     message: 'Verify your email before changing content or creating keys. Check your inbox for the link, or resend it.',
-    fix: { label: 'Account', to: '/admin/account' },
+    fix: { label: 'Account', to: '/dashboard/account' },
   }),
   conflict: (body) => ({
     title: 'Already exists',
     message: body.message || 'Something with that name or slug already exists. Pick another.',
     fix: null,
   }),
-  rate_limited: () => ({
-    title: 'Slow down',
-    message: 'Too many requests from this device. Wait a minute and try again.',
+  rate_limited: (body) => (/domain/i.test(String(body.message || ''))
+    ? { title: 'Domain limit', message: 'Too many signups from this email domain today. Try again tomorrow, or use another address.', fix: null }
+    : { title: 'Slow down', message: 'Too many requests from this device. Wait a minute and try again.', fix: null }),
+  busy: (body, ctx) => ({
+    title: 'Service busy',
+    message: `The service is busy. Try again in ${ctx.retryAfter || 'a few'} second${ctx.retryAfter === 1 ? '' : 's'}.`,
     fix: null,
   }),
+  storage_full: () => ({
+    title: 'Saving is paused',
+    message: 'The service is out of storage space, so changes cannot be saved right now. Deleting items still works. Please try again later.',
+    fix: null,
+  }),
+  invite_invalid: () => ({
+    title: 'Invite not valid',
+    message: 'That invite code is invalid or has expired. Codes are 12 characters; dashes and spaces are ignored.',
+    fix: null,
+  }),
+  captcha_required: () => ({ title: 'Verification needed', message: 'Complete the verification check, then try again.', fix: null }),
+  captcha_failed: () => ({ title: 'Verification failed', message: 'The verification check did not pass. Try it again.', fix: null }),
+  captcha_unavailable: () => ({ title: 'Verification unavailable', message: 'Verification is temporarily unavailable. Please try again in a minute.', fix: null }),
   mail_budget: () => ({
     title: 'Email paused',
     message: 'We’ve sent today’s quota of emails. Try again tomorrow, or sign in if you already have an account.',
@@ -172,6 +194,19 @@ const API = {
   internal: (body) => V1.internal(body),
 };
 
+/** A dashboard 401 without a code means the session ended, not that an API key is wrong. */
+const SESSION_ENDED = {
+  title: 'Signed out',
+  message: 'Your session ended. Sign in again to continue.',
+  fix: { label: 'Sign in', to: '/login' },
+};
+
+const BROWSER_FETCH_FAILED = (ctx) => ({
+  title: 'Request never answered',
+  message: 'The browser got no response. Usually a secret key (sk_) used in a browser, or a wrong host, or a network or DNS failure. Use a publishable key (pk_) in browsers and check the base URL.',
+  fix: { label: 'Keys', to: appRoute(ctx.appId) },
+});
+
 const NETWORK = {
   title: 'Can’t reach the service',
   message: 'We couldn’t reach the service. Check your connection and try again.',
@@ -200,7 +235,7 @@ function unwrap(input) {
 
 /**
  * @param {unknown} errOrResponse axios error, fetch Response-like, or raw error body
- * @param {{ appId?: string, path?: string, fallback?: string }} [ctx]
+ * @param {{ surface?: 'api'|'v1', appId?: string, path?: string, fallback?: string }} [ctx]
  * @returns {{ code: string|null, status: number|null, title: string, message: string, fix: {label:string,to:string}|null, requestId: string|null, section: string|null }}
  */
 export function describeApiError(errOrResponse, ctx = {}) {
@@ -209,19 +244,23 @@ export function describeApiError(errOrResponse, ctx = {}) {
   const context = { ...ctx, retryAfter };
 
   if (browserBlocked) {
-    return { code: 'origin_not_allowed', status: null, ...V1.origin_not_allowed(body, context), requestId: null, section: null };
+    // /v1 errors carry CORS headers, so a readable 403/401 arrives as a response. A bare
+    // "Failed to fetch" means the request never got an answer the browser would show.
+    return { code: 'fetch_failed', status: null, ...BROWSER_FETCH_FAILED(context), requestId: null, section: null };
   }
   if (network) {
     return { code: 'network', status: null, ...NETWORK, requestId: null, section: null };
   }
 
   const code = typeof body.error === 'string' ? body.error : null;
-  const describe = code && (V1[code] || API[code]);
+  const v1 = ctx.surface === 'v1';
+  const [first, second] = v1 ? [V1, API] : [API, V1];
+  const describe = code && (first[code] || second[code]);
   let described;
   if (describe) described = describe(body, context);
-  else if (status === 401) described = keyProblem(context);
-  else if (status === 429) described = API.rate_limited(body, context);
-  else if (status === 503) described = V1.busy(body, context);
+  else if (status === 401) described = v1 ? keyProblem(context) : SESSION_ENDED;
+  else if (status === 429) described = (v1 ? V1 : API).rate_limited(body, context);
+  else if (status === 503) described = (v1 ? V1 : API).busy(body, context);
   else if (status === 413) described = API.payload_too_large(body, context);
   else if (status >= 500) described = V1.internal(body, context);
   else described = { title: 'Something went wrong', message: body.message || ctx.fallback || 'The request failed. Try again.', fix: null };

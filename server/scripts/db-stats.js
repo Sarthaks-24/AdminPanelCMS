@@ -10,6 +10,7 @@ async function main() {
   if (!Number.isSafeInteger(CAP_BYTES) || CAP_BYTES <= 0) throw new Error('DB_STORAGE_CAP_BYTES must be a positive integer.');
   await connectMongo(process.env.MONGODB_URI, { maxPoolSize: 2 });
   try {
+    // ownerGuard-exemption-begin: database-wide size counters and the collection inventory, no documents
     const stats = await mongoose.connection.db.stats();
     const used = Number(stats.storageSize || 0) + Number(stats.indexSize || 0);
     const percent = (used / CAP_BYTES) * 100;
@@ -18,6 +19,7 @@ async function main() {
       const value = await mongoose.connection.db.command({ collStats: collection.name });
       console.log(`${collection.name.padEnd(24)} ${((value.storageSize || 0) / 1024).toFixed(0)} KB storage  ${((value.totalIndexSize || 0) / 1024).toFixed(0)} KB indexes  ${value.count || 0} docs`);
     }
+    // ownerGuard-exemption-end
     if (percent >= 70) {
       console.error('\nALERT: Storage is at or above 70%. Operator action required: set signup to invite-only (superadmin dashboard, or SIGNUP_MODE=invite) and review upgrade/cleanup options. This command does not change signup configuration.');
       process.exitCode = 2;

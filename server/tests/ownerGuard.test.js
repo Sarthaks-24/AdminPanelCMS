@@ -17,6 +17,36 @@ describe('ownerGuard', () => {
     await expect(Model.find({})).rejects.toThrow(/INVARIANT/);
   });
 
+  // Registry-wide check (SEC12): whatever model gets registered later, if its schema has an `owner` path it must
+  // carry the guard, and a model without one must be a known account/platform collection.
+  it('guards every registered model that has an owner path', async () => {
+    for (const file of fs.readdirSync(modelDirectory).filter((name) => name.endsWith('.js'))) require(path.join(modelDirectory, file));
+    const ownerless = [];
+    for (const name of mongoose.modelNames()) {
+      const Model = mongoose.model(name);
+      if (!Model.schema.path('owner')) { ownerless.push(name); continue; }
+      await expect(Model.find({}), `${name} must register ownerGuard`).rejects.toThrow(/INVARIANT/);
+      await expect(Model.aggregate([{ $match: {} }]), `${name} must guard aggregate`).rejects.toThrow(/INVARIANT/);
+    }
+    expect(ownerless.sort()).toEqual(['EmailToken', 'Invite', 'Setting', 'User']);
+  });
+
+  it('refuses aggregate stages that reach other collections, even after an owner match', async () => {
+    const owner = new mongoose.Types.ObjectId();
+    const ownerMatch = { $match: { owner } };
+    await expect(Project.aggregate([ownerMatch, { $group: { _id: null, n: { $sum: 1 } } }])).resolves.toEqual([]);
+    for (const stage of [
+      { $lookup: { from: 'projects', localField: 'slug', foreignField: 'slug', as: 'all' } },
+      { $unionWith: { coll: 'projects' } },
+      { $graphLookup: { from: 'projects', startWith: '$slug', connectFromField: 'slug', connectToField: 'slug', as: 'g' } },
+      { $out: 'stolen' },
+      { $merge: { into: 'stolen' } },
+      { $facet: { hidden: [{ $lookup: { from: 'users', pipeline: [], as: 'u' } }] } },
+    ]) {
+      await expect(Project.aggregate([ownerMatch, stage])).rejects.toThrow(/INVARIANT.*may not use/);
+    }
+  });
+
   it('rejects queries without a concrete owner and operator-based owner filters', async () => {
     await expect(Project.find({})).rejects.toThrow(/INVARIANT/);
     await expect(Project.find({ owner: { $exists: true } })).rejects.toThrow(/INVARIANT/);

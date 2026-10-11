@@ -41,11 +41,13 @@ async function setupDatabase() {
   await connectMongo(mongoUri, { maxPoolSize: 10, autoIndex: false });
   try {
     console.log(`Connected target host=${mongoose.connection.host} database=${mongoose.connection.name}`);
+    // ownerGuard-exemption: setup preflight reads index metadata only
     if (!fresh) await assertNoLegacyGlobalIndexes(mongoose.connection.db);
     if (fresh) {
       const collectionNames = ['admins', 'users', 'profiles', 'socials', 'skills', 'projects', 'experiences', 'educations', 'certifications', 'resumes', 'apps', 'apitokens', 'emailtokens', 'invites'];
       console.log(`Fresh setup confirmed for database ${confirmedDatabase}; dropping legacy content collections and indexes.`);
       for (const name of collectionNames) {
+        // ownerGuard-exemption: confirmed --fresh cleanup drops whole collections
         try { await mongoose.connection.db.dropCollection(name); }
         catch (error) { if (error.codeName !== 'NamespaceNotFound' && error.code !== 26) throw error; }
       }

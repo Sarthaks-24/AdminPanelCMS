@@ -10,13 +10,19 @@ const OWNER_MISS_UNITS_PER_SEC = 10;
 const GLOBAL_MISS_UNITS_PER_SEC = 40;
 const PRE_DB_LOOKUPS_PER_SEC = 20;
 
-const limited = (message) => (req, res) => v1Error(res, 429, 'rate_limited', message);
+// Only the per-token limiter sends RateLimit headers (the last limiter's header would otherwise win and a
+// pk would advertise the 3,000/min ceiling while tripping at 120). The silent ones still send Retry-After.
+const limited = (message) => (req, res) => {
+  const resetTime = req.rateLimit?.resetTime;
+  if (!res.getHeader('Retry-After')) res.setHeader('Retry-After', String(resetTime ? Math.max(1, Math.ceil((resetTime.getTime() - Date.now()) / 1000)) : 60));
+  return v1Error(res, 429, 'rate_limited', message);
+};
 const stores = { preAuth: new MemoryStore(), token: new MemoryStore(), ceiling: new MemoryStore() };
 
 const preAuthLimiter = rateLimit({
   windowMs: 60_000, limit: PRE_AUTH_PER_MIN, store: stores.preAuth,
   keyGenerator: (req) => ipKeyGenerator(req.ip, 48),
-  standardHeaders: 'draft-7', legacyHeaders: false, handler: limited('Too many requests'),
+  standardHeaders: false, legacyHeaders: false, handler: limited('Too many requests'),
 });
 // pk keys are public by nature, so a scraped key is limited per IP and cannot take a whole site down.
 const tokenLimiter = rateLimit({
@@ -29,7 +35,7 @@ const tokenCeilingLimiter = rateLimit({
   windowMs: 60_000, limit: PK_CEILING_PER_MIN, store: stores.ceiling,
   skip: (req) => req.tokenType !== 'pk',
   keyGenerator: (req) => `ceiling:${req.tokenId}`,
-  standardHeaders: 'draft-7', legacyHeaders: false, handler: limited('Token request ceiling exceeded'),
+  standardHeaders: false, legacyHeaders: false, handler: limited('Token request ceiling exceeded'),
 });
 
 class TokenBucket {

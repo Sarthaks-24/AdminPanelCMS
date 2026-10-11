@@ -1,4 +1,6 @@
 const Setting = require('../models/Setting');
+const logger = require('./logger');
+const { burstAlert } = require('./alerts');
 
 // Daily outbound mail budget. The counter lives in Setting key `mail:YYYY-MM-DD` and is advanced with an
 // atomic, filtered $inc so concurrent sends cannot overshoot the cap. The last MAIL_RESET_RESERVE units of
@@ -12,14 +14,33 @@ const resetReserve = () => Math.min(nonNegativeInt(process.env.MAIL_RESET_RESERV
 const dayOf = (now = new Date()) => now.toISOString().slice(0, 10);
 const keyFor = (day) => `mail:${day}`;
 
+// At most one exhaustion alert per budget kind every 10 minutes, however many requests are refused.
+const exhausted = burstAlert('mail_budget_exhausted', { threshold: 1, windowMs: 10 * 60 * 1000 });
+
+// Alerts fire on the exact unit that crosses a line, so each is logged once per day however many sends follow:
+// half of the whole cap, half of the reset reserve (the reserve starts where the non-reset budget ends).
+function alertOnThreshold(sent, day) {
+  const cap = dailyCap();
+  const reserve = resetReserve();
+  const fields = { day, sent, cap, reserve };
+  if (cap > 0 && sent === Math.max(1, Math.ceil(cap / 2))) logger.alert('mail_budget_half', fields);
+  if (reserve > 0 && sent === cap - reserve + Math.max(1, Math.ceil(reserve / 2))) logger.alert('mail_reset_reserve_half', fields);
+}
+
 // Returns true when one unit was reserved, false when the day's budget is spent.
 async function reserveMail({ reset = false, now = new Date() } = {}) {
   const limit = reset ? dailyCap() : dailyCap() - resetReserve();
   if (limit <= 0) return false;
-  const key = keyFor(dayOf(now));
+  const day = dayOf(now);
+  const key = keyFor(day);
   await Setting.updateOne({ key }, { $setOnInsert: { value: 0 } }, { upsert: true });
-  const result = await Setting.updateOne({ key, value: { $lt: limit } }, { $inc: { value: 1 } });
-  return result.modifiedCount === 1;
+  const updated = await Setting.findOneAndUpdate({ key, value: { $lt: limit } }, { $inc: { value: 1 } }, { returnDocument: 'after' }).select('value').lean();
+  if (!updated) {
+    exhausted.hit(reset ? 'reset' : 'general', { day, cap: dailyCap(), reserve: resetReserve() });
+    return false;
+  }
+  alertOnThreshold(Number(updated.value), day);
+  return true;
 }
 
 // Gives a reserved unit back when no mail ended up being sent.

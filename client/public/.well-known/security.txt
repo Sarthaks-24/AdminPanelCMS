@@ -1,0 +1,6 @@
+# Security contact for Portfolio Control (RFC 9116).
+# OWNER: replace [your-domain] with the public domain, and move Expires forward at least once a year.
+Contact: mailto:security@[your-domain]
+Expires: 2027-10-12T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://[your-domain]/.well-known/security.txt

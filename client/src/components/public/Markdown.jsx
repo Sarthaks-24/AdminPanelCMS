@@ -3,7 +3,6 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Link } from 'react-router-dom';
 import { resolveDocLink } from '../../content/docs';
-import { REPO_URL } from '../../content/site';
 
 // GitHub's own anchor rule, so a #fragment copied out of the repo still lands here.
 export const slugifyHeading = (text) => String(text)
@@ -77,12 +76,15 @@ export default function Markdown({ children, source = '' }) {
     h3: heading(3),
     h4: heading(4),
     a({ href, children: label, ...rest }) {
-      const target = resolveDocLink(href, REPO_URL, source);
-      if (target?.startsWith('/')) {
+      const target = resolveDocLink(href, source);
+      // A link to a file with no public page renders as its label alone, never as a link into the
+      // source tree. scripts/check-docs.mjs keeps this from happening in the published docs.
+      if (target == null) return <span>{label}</span>;
+      if (target.startsWith('/')) {
         const [path, hash] = target.split('#');
         return <Link to={{ pathname: path, hash: hash ? `#${hash}` : '' }} {...rest}>{label}</Link>;
       }
-      const external = /^https?:/i.test(target || '');
+      const external = /^https?:/i.test(target);
       return <a href={target} {...(external ? { target: '_blank', rel: 'noreferrer noopener' } : {})} {...rest}>{label}</a>;
     },
     // Tables in these docs are wide; let them scroll instead of breaking the column.
@@ -93,7 +95,8 @@ export default function Markdown({ children, source = '' }) {
 
   return (
     <div className="doc-prose">
-      {/* Raw HTML in the source is not rendered: react-markdown ignores it unless rehype-raw is added. */}
+      {/* Raw HTML in the source (an HTML comment included) is shown as literal text, because
+          rehype-raw is not loaded. scripts/check-docs.mjs therefore fails on `<!--` in a public doc. */}
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>{children}</ReactMarkdown>
     </div>
   );

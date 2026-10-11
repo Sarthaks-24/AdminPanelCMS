@@ -20,7 +20,7 @@ function formatDateTime(value) {
   try { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); } catch { return String(value); }
 }
 
-export default function TokenManagerModal({ app, v1Base, onClose, onChange }) {
+export default function TokenManagerModal({ app, v1Base, baseResolved = true, baseConfigured = true, onClose, onChange }) {
   const [tokens, setTokens] = useState([]);
   const [label, setLabel] = useState('');
   const [expiresInDays, setExpiresInDays] = useState('');
@@ -123,7 +123,7 @@ export default function TokenManagerModal({ app, v1Base, onClose, onChange }) {
                 </label>
               </div>
             )}
-            <ConnectPanel app={app} v1Base={v1Base} variant="post-mint" mintedToken={created} tokens={tokens} headingLevel={4} />
+            <ConnectPanel app={app} v1Base={v1Base} baseResolved={baseResolved} baseConfigured={baseConfigured} variant="post-mint" mintedToken={created} tokens={tokens} headingLevel={4} />
           </section>
         )}
 

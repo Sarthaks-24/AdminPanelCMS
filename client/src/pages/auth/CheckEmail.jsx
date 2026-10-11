@@ -2,26 +2,30 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { api } from '../../api/client';
 import AuthShell, { buttonClass, fieldClass } from './AuthShell';
+import Turnstile from '../../components/Turnstile';
+import useCaptcha, { CAPTCHA_ERRORS } from '../../lib/useCaptcha';
 
 export default function CheckEmail() {
   const location = useLocation();
   const [email, setEmail] = useState(location.state?.email || '');
   const [status, setStatus] = useState({ kind: '', text: '' });
   const [sending, setSending] = useState(false);
+  const captcha = useCaptcha();
 
   const resend = async (event) => {
     event.preventDefault();
     setStatus({ kind: '', text: '' });
     const address = email.trim();
     if (!address) { setStatus({ kind: 'error', text: 'Enter the email address you signed up with.' }); return; }
+    if (!captcha.ready) { setStatus({ kind: 'error', text: CAPTCHA_ERRORS.captcha_required }); return; }
     setSending(true);
     try {
-      await api.post('/auth/resend-verification', { email: address });
+      await api.post('/auth/resend-verification', { email: address, captchaToken: captcha.required ? captcha.token : undefined });
       setStatus({ kind: 'ok', text: 'If that address is waiting for verification, a new link is on its way.' });
     } catch (err) {
       const code = err.response?.data?.error;
-      setStatus({ kind: 'error', text: code === 'rate_limited' ? 'Too many requests. Wait a while before asking for another link.' : code === 'mail_budget' ? 'We cannot send more email today. Please try again tomorrow.' : 'We could not send another link right now. Please try again shortly.' });
-    } finally { setSending(false); }
+      setStatus({ kind: 'error', text: CAPTCHA_ERRORS[code] ? CAPTCHA_ERRORS[code] : code === 'rate_limited' ? 'Too many requests. Wait a while before asking for another link.' : code === 'mail_budget' ? 'We cannot send more email today. Please try again tomorrow.' : 'We could not send another link right now. Please try again shortly.' });
+    } finally { setSending(false); captcha.reset(); }
   };
 
   return (
@@ -35,9 +39,10 @@ export default function CheckEmail() {
       <form onSubmit={resend} className="mt-5 space-y-3">
         {status.text && <p role={status.kind === 'error' ? 'alert' : 'status'} className={`rounded-lg border p-3 text-sm ${status.kind === 'error' ? 'border-t-danger/30 bg-t-danger-dim text-t-danger' : 'border-t-accent/30 bg-t-accent/10 text-t-text'}`}>{status.text}</p>}
         {!location.state?.email && <label className="block text-sm font-medium">Email address<input className={fieldClass} type="email" autoComplete="email" maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>}
+        <Turnstile {...captcha.widgetProps} action="resend-verification" />
         <button type="submit" className={buttonClass} disabled={sending}>{sending ? 'Sending…' : 'Resend the link'}</button>
       </form>
-      <Link className="mt-6 block text-center text-sm font-medium text-t-accent hover:underline" to="/admin/login">Return to sign in</Link>
+      <Link className="mt-6 block text-center text-sm font-medium text-t-accent hover:underline" to="/login">Return to sign in</Link>
     </AuthShell>
   );
 }

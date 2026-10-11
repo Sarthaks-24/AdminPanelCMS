@@ -27,11 +27,13 @@ async function migrate() {
     if (!user) {
       // The legacy Admin stores the same bcrypt hash in `password`; preserve it during the identity model transition.
       // This read uses the same narrow native-collection exemption as the owner assignment below.
+      // ownerGuard-exemption: the legacy admins collection has no model; this reads one row by email
       const legacyAdmin = await mongoose.connection.db.collection('admins').findOne({ email });
       if (!legacyAdmin?.password) throw new Error(`No User or legacy Admin exists for ADMIN_EMAIL=${email}.`);
       user = await User.create({ email, passwordHash: legacyAdmin.password, emailVerifiedAt: new Date(), status: 'active', tokenVersion: 0 });
       console.log('Created verified User identity from the existing legacy Admin credentials.');
     }
+    // ownerGuard-exemption: legacy tenant migration requires native collection updates
     const db = mongoose.connection.db;
     let contentWasChanged = false;
     for (const name of collections) {
@@ -45,6 +47,7 @@ async function migrate() {
       console.log(`${name}: assignedOwner=${result.modifiedCount}`);
     }
     for (const [name, indexName] of [['projects', 'slug_1'], ['skills', 'name_1']]) {
+      // ownerGuard-exemption: drops the pre-tenancy global unique indexes, no documents are read
       const collection = db.collection(name);
       const indexes = await collection.indexes().catch((error) => error.codeName === 'NamespaceNotFound' || error.code === 26 ? [] : Promise.reject(error));
       if (indexes.some((index) => index.name === indexName)) {

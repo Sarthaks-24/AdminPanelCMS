@@ -1,19 +1,19 @@
 # API reference
 
-The public, read-only content API that your sites call. Base URL for this deployment:
+The read-only content API your sites call. Base URL:
 
 ```
 {{API_BASE}}
 ```
 
-Every endpoint is `GET`, needs a key, and returns JSON. Only published content is ever served, and only what the key's App grants. New here? Start with the [quickstart](QUICKSTART.md).
+Every path below starts with `/v1` and is appended to that base as written: `{{API_BASE}}` + `/v1/projects` is `{{API_BASE}}/v1/projects`. Every endpoint is `GET`, needs a key, and returns JSON. Only published content is ever served, and only what the key's App grants. New here? Start with the [quickstart](QUICKSTART.md).
 
 ## Authentication
 
 Send your key as a bearer token on every request:
 
 ```bash
-curl -H "Authorization: Bearer sk_live_…" {{API_BASE}}/projects
+curl -H "Authorization: Bearer sk_live_…" {{API_BASE}}/v1/projects
 ```
 
 | Key | Prefix | Made for | Use it from | Shown |
@@ -30,9 +30,9 @@ curl -H "Authorization: Bearer sk_live_…" {{API_BASE}}/projects
 
 A publishable key sent **with an `Origin` header** (every browser request) must come from an origin on the App's allowed list, or the App must allow `*`. Otherwise the answer is `403 origin_not_allowed`. Requests without an `Origin` header (curl, servers) are not origin-checked, which is why a publishable key is public by nature: the App's grant is the only thing protecting the content.
 
-Preflight `OPTIONS` requests are answered `204` with `Authorization`, `Content-Type` and `If-None-Match` allowed. `ETag`, `Retry-After`, `RateLimit` and `RateLimit-Policy` are exposed to browser code.
+Preflight `OPTIONS` requests are answered `204` with `Authorization`, `Content-Type`, `If-None-Match` and `X-Request-Id` allowed. `ETag`, `Retry-After`, `RateLimit`, `RateLimit-Policy` and `X-Request-Id` are exposed to browser code. Every error response to a browser request carries CORS headers for its origin, so browser code can read the error code.
 
-A secret key used from a browser gets no CORS headers, so the browser cannot read the response. Keep secret keys in build or server code.
+A secret key used from a browser gets no CORS headers on a successful response, so the browser cannot read it. Keep secret keys in build or server code.
 
 ## The envelope
 
@@ -45,10 +45,10 @@ Success:
 Error:
 
 ```json
-{ "error": "section_disabled", "message": "The projects section is not enabled for this App", "requestId": "req_8f3c1d2e", "section": "projects" }
+{ "error": "section_disabled", "message": "The projects section is not enabled for this App", "requestId": "3f2b8c1e-7a4d-4e0b-9c6a-2d5e8f1a0b7c", "section": "projects" }
 ```
 
-`data` is an array for lists and an object for singletons. `error` is a stable snake-case code; `message` is for humans and may change. `section` is present only on `section_disabled`. Every `/v1` response, success or error, has this shape, including those from the rate limiter and the `404` for an unknown path.
+`data` is an array for lists and an object for singletons. `error` is a stable snake-case code; `message` is for humans and may change. `section` is present only on `section_disabled`, and `param` (the query parameter at fault) only on `bad_request`. Every `/v1` response, success or error, has this shape, including those from the rate limiter and the `404` for an unknown path.
 
 ## Endpoints
 
@@ -60,7 +60,7 @@ Error:
 | `/v1/socials` | array | |
 | `/v1/skills` | array | `category` (one name, case-insensitive) |
 | `/v1/skills/categories` | object: category name → array of skills | |
-| `/v1/projects` | array | `stack` (one technology, case-insensitive; `tag` is an alias), `featured=true` |
+| `/v1/projects` | array | `stack` (one technology, case-insensitive; `tag` is an alias), `featured` (`true` or `false`) |
 | `/v1/projects/:slug` | one object | |
 | `/v1/experience` | array | |
 | `/v1/education` | array | |
@@ -69,7 +69,7 @@ Error:
 
 Each endpoint except `/v1/app` needs its section enabled in the App; otherwise `403 section_disabled`. Any other path under `/v1` answers `404 not_found`.
 
-`/v1/app` always works for a valid key and tells you what the App can read. It is the simplest way to confirm a key from a script; the dashboard's **Check this App** does the same without spending a request.
+`/v1/app` always works for a valid key and tells you what the App can read. `type` is `protected` for an App of type **Build or server** (secret keys) and `static` for **Visitors' browsers** (publishable keys). `enabledSections` lists every section that is on, and includes `fs` when the filesystem view is enabled (the `/v1/fs` tree itself is built from the other sections only). It is the simplest way to confirm a key from a script; the dashboard's **Check this App** does the same without spending a request.
 
 ### Singletons
 
@@ -85,7 +85,7 @@ Each list section in an App has a mode:
 | `featured` | published items with `featured: true` | by `order` |
 | `selected` | the published items picked in the App | the order they were picked in |
 
-The query parameters filter within that set. Skills can additionally be restricted to chosen categories in the App.
+The query parameters filter within that set; each may be given once, and `featured` must be `true` or `false`, or the answer is `400 bad_request` with `param` naming it. Unknown parameters are ignored. Skills can additionally be restricted to chosen categories in the App. Filters work on the stored values, so `stack`, `featured` and `category` filter correctly even when the App does not serve those fields.
 
 ### Which fields each item carries
 
@@ -170,13 +170,13 @@ The same granted content as a tree, for terminal-style sites. Enable **Filesyste
 | Header | On | Meaning |
 | :--- | :--- | :--- |
 | `X-Request-Id` | every response | The id also found in error bodies. Send your own `X-Request-Id` and it is echoed back. |
-| `ETag` | every `200` | Changes whenever the body changes. Send it back as `If-None-Match` to get `304 Not Modified`, which is free. |
+| `ETag` | every `200` | Changes whenever the body changes. Send it back as `If-None-Match` to get `304 Not Modified`, which is free while the response is cached (see [Limits & errors](LIMITS_AND_ERRORS.md#rate-limits)). |
 | `Cache-Control: private, max-age=60` | every `200` | Your own HTTP cache may keep the response for a minute; shared caches must not. |
 | `Vary: Authorization, Origin` | every `200` | A cache must key on the key and the origin. |
-| `RateLimit`, `RateLimit-Policy` | every response | Draft-7 rate-limit headers for the per-key limit: remaining requests and the window. |
+| `RateLimit`, `RateLimit-Policy` | every response to a valid key | Draft-7 rate-limit headers for the key's own limit (600/min for a secret key, 120/min per visitor for a publishable key): remaining requests and the window. |
 | `Retry-After` | `429`, `503` | Seconds to wait before retrying. |
 
-The service also keeps each response for about 60 seconds and drops it the moment the content or the App changes, so an edit is visible within a minute at most, and usually at once.
+The service keeps each response until the content or the App changes and serves the edit on the very next request; only your own HTTP cache (`max-age=60` above) can hold an older copy, for up to a minute.
 
 ## Status codes and error codes
 
@@ -185,7 +185,7 @@ The service also keeps each response for about 60 seconds and drops it the momen
 | 200 | | Success; the body is `{ data }`. |
 | 304 | | Not modified; your `If-None-Match` matched. No body. |
 | 400 | `token_in_query` | The key was sent as `?token=`. |
-| 400 | `bad_request` | A query parameter has the wrong shape. |
+| 400 | `bad_request` | A query parameter has the wrong shape; `param` names it. |
 | 401 | `token_missing` | No `Authorization: Bearer` header. |
 | 401 | `token_invalid` | Malformed, unknown, expired or revoked key, or its App is gone. |
 | 401 | `account_unavailable` | The owning account is suspended or deleted. |
@@ -200,6 +200,14 @@ The service also keeps each response for about 60 seconds and drops it the momen
 
 What each one means for your code, and the limits themselves, are in [Limits & errors](LIMITS_AND_ERRORS.md).
 
+## Stability
+
+- **Inside `/v1`, changes are additive only.** New endpoints, new optional query parameters, new fields and new error codes can appear at any time, so ignore fields and codes you don't recognise rather than failing on them.
+- **Nothing documented here is removed or renamed inside `/v1`.** A breaking change ships as a new version (`/v2`), and `/v1` keeps answering for at least 90 days after `/v2` is announced.
+- A field that is going away is announced before it goes: in the [changelog](CHANGELOG.md), and by email to accounts whose Apps serve it.
+- Error `message` strings are for humans and may change at any time. Match on `error`, never on `message`.
+- The limits in [Limits & errors](LIMITS_AND_ERRORS.md) may change during the beta; changes are posted in the [changelog](CHANGELOG.md).
+
 ## Dashboard API
 
-The dashboard you sign into talks to a separate, session-authenticated API under `/api`. It is not for your sites: it can write, it needs a cookie and a CSRF header, and its shapes may change between releases. It is documented alongside the server code in the repository for anyone running or contributing to the service.
+The dashboard you sign into uses a separate, private API. It is not for your sites: it can write, needs a session cookie, and changes without notice.

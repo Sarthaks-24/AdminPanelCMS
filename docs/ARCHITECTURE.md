@@ -88,12 +88,12 @@ Order is set in `server/app.js`:
 | 7 | `tokenLimiter` | `pk_`: 120/min per key + IP and 3,000/min per key; `sk_`: 600/min per key |
 | 8 | cache lookup | key = owner version + App + path + normalised query; a hit answers here with `ETag` (or `304`) and is **not** charged below |
 | 9 | section check | `403 section_disabled` (with `section`) when the App has not enabled it |
-| 10 | owner miss limiter | 10 units/s per owner, token bucket with burst; `/fs` costs one unit per enabled section |
+| 10 | owner miss limiter | 10 units/s per owner, fixed 1 s window; `/fs` costs one unit per enabled section |
 | 11 | global miss bucket | 40 units/s across the process → `503 busy`, `Retry-After: 1` |
 | 12 | single-flight load | concurrent misses for the same key share one `loadOwnerData` promise |
 | 13 | `applyInclude` | projects the owner's published documents through the App's `include` |
-| 14 | size check | responses over 1 MB are refused; bodies over 256 KB are served but not cached |
-| 15 | cache set | serialised body stored by bytes (64 MB bound), ~60 s TTL |
+| 14 | size check | published content is capped at 512 KB per account at write time (`403 quota_exceeded`, `resource: content_bytes`); bodies over 1 MB are served but not cached |
+| 15 | cache set | serialised body stored by bytes (64 MB bound), 15 min TTL, invalidated on every write; an expired entry is served when the miss budget refuses a reload (stale-if-busy) |
 | 16 | response | `{data}` envelope, `ETag`, `Cache-Control: private, max-age=60`, `Vary: Authorization, Origin` |
 
 The router has its own 404 (`404 not_found`, v1 shape, CORS headers) and error handler (`500 internal`, request id, no stack).
@@ -173,7 +173,7 @@ A single `MODE` variable selects development or production values and sets `NODE
 
 A Vite-built React single-page app using React Router, Tailwind CSS and Axios, served statically.
 
-- `AuthContext` asks `/api/auth/verify` on load to learn whether a session exists; `ProtectedRoute` guards `/admin/*`. All dashboard and auth pages are lazy-loaded behind a `RouteErrorBoundary`, so landing visitors do not download the dashboard.
+- `AuthContext` asks `/api/auth/verify` on load to learn whether a session exists; `ProtectedRoute` guards `/dashboard/*` (old `/admin/*` links redirect there, keeping the query string). All dashboard and auth pages are lazy-loaded behind a `RouteErrorBoundary`, so landing visitors do not download the dashboard.
 - `api/client.js` sends credentials and the CSRF header on every request and redirects to the login page on `401`.
 - `lib/apiBase.js` reads `publicApiBase` from `/api/auth/config` and derives the `/v1` base shown in every snippet; the client never hardcodes the public host.
 - The App editor's Connect panel shows the base URL and a build-time `sk_` snippet first; `POST /api/apps/:id/check` replaces any in-browser "test connection".

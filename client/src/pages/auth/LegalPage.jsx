@@ -1,17 +1,17 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import AuthShell from './AuthShell';
+import { SITE } from '../../content/site';
 
-// Keep these in step with server/lib/legal.js. Bump a version whenever the matching text changes.
-export const TERMS_VERSION = '2026-10-11';
-export const PRIVACY_VERSION = '2026-10-11';
+// Keep these in step with server/lib/legal.js. Bump a version whenever the matching text changes,
+// including when a fact in SITE.legal changes.
+export const TERMS_VERSION = '2026-10-12';
+export const PRIVACY_VERSION = '2026-10-12';
 
-// Square-bracket placeholders are deliberate: the operator fills them in before signup opens.
-const OPERATOR = '[Operator legal name]';
-const JURISDICTION = '[Jurisdiction]';
-const ABUSE_EMAIL = 'abuse@[your-domain]';
-const PRIVACY_EMAIL = 'privacy@[your-domain]';
-const HOSTING_PROVIDER = '[Hosting provider]';
+// Every operator fact comes from SITE.legal (src/content/site.js), the one place the owner fills them in.
+const { operator: OPERATOR, jurisdiction: JURISDICTION, abuseEmail: ABUSE_EMAIL, privacyEmail: PRIVACY_EMAIL,
+  securityEmail: SECURITY_EMAIL, hostingProvider: HOSTING_PROVIDER, backupProvider: BACKUP_PROVIDER, logSink: LOG_SINK } = SITE.legal;
+const SUPPORT_EMAIL = SITE.support.email;
 
 const h2 = 'mt-8 text-base font-semibold text-t-text';
 const p = 'mt-3 text-sm leading-6 text-t-muted';
@@ -20,7 +20,7 @@ const ul = 'mt-3 list-disc space-y-1.5 pl-5 text-sm leading-6 text-t-muted';
 function Terms() {
   return (
     <div>
-      <p className={p}>These Terms of Service (the “Terms”) are an agreement between you and {OPERATOR} (“we”, “us”, the “Operator”), who runs Portfolio Control (the “Service”). By creating an account or using the Service you accept these Terms. If you do not agree, do not use the Service.</p>
+      <p className={p}>These Terms of Service (the “Terms”) are an agreement between you and {OPERATOR} (“we”, “us”, the “Operator”), who runs {SITE.name} (the “Service”). By creating an account or using the Service you accept these Terms. If you do not agree, do not use the Service.</p>
 
       <h2 className={h2}>1. What the Service is</h2>
       <p className={p}>The Service lets you store professional profile content (profile, résumé link, social links, skills, projects, experience, education and certifications), define one or more “Apps” that each see a chosen subset of that content, and read that subset over an HTTP API using keys you create. It is offered as a hosted service run by a single operator.</p>
@@ -59,11 +59,11 @@ function Terms() {
       <p className={p}>Free accounts are subject to published limits, currently 10 Apps, 100 items per content section, 2 live keys per App, per-key and per-account request rates, and a daily email budget shared by all users. Requests beyond the limits are refused with an error, not silently dropped. We may adjust the limits to keep the Service working for everyone.</p>
 
       <h2 className={h2}>7. API keys</h2>
-      <p className={p}>Secret keys are shown once and are meant for servers and build steps. Publishable keys are intended for browsers and are not secret. You may revoke any key at any time; revocation takes effect within about a minute because responses are cached.</p>
+      <p className={p}>Secret keys are shown once and are meant for servers and build steps. Publishable keys are intended for browsers and are not secret. You may revoke any key at any time; revocation takes effect on the next request.</p>
 
       <h2 className={h2}>8. Export, deletion and suspension</h2>
       <ul className={ul}>
-        <li>You can export all your data as JSON and delete your account from Settings at any time. Deletion is immediate for sign-in and the API; stored data is removed by a cleanup job and leaves backups within 30 days.</li>
+        <li>You can export all your data as JSON and delete your account from <strong className="text-t-text">Account</strong> in the dashboard at any time. Deletion is immediate for sign-in and the API; stored data is removed by a cleanup job and leaves backups within 30 days.</li>
         <li>Accounts that never verify their email address are removed automatically after 48 hours.</li>
         <li>If we suspend your account for a suspected breach, sign-in and all keys stop working at once. You may contact us to contest the decision; we may delete suspended accounts after 30 days.</li>
       </ul>
@@ -72,13 +72,13 @@ function Terms() {
       <p className={p}>To the fullest extent permitted by law, the Service is provided without warranties of any kind, express or implied, including merchantability, fitness for a particular purpose and non-infringement. We are not liable for lost profits, lost data, business interruption or any indirect, incidental, special or consequential damages arising from the Service, and our total liability for any claim is limited to the greater of the amount you paid us in the preceding 12 months and 50 units of the currency of {JURISDICTION}. Nothing in these Terms excludes liability that cannot be excluded by law.</p>
 
       <h2 className={h2}>10. Changes to these Terms</h2>
-      <p className={p}>We may update these Terms. The version date at the top of this page changes when we do, and material changes will be announced by email or in the dashboard at least 14 days before they take effect. Continuing to use the Service after that date means you accept the new Terms.</p>
+      <p className={p}>We may update these Terms. The version date at the top of this page changes when we do, and material changes will be announced by email and in the <Link className="text-t-accent hover:underline" to="/docs/changelog">changelog</Link> at least 14 days before they take effect. Continuing to use the Service after that date means you accept the new Terms.</p>
 
       <h2 className={h2}>11. Governing law</h2>
       <p className={p}>These Terms are governed by the laws of {JURISDICTION}, and its courts have exclusive jurisdiction over any dispute, without prejudice to mandatory consumer-protection rules in your country of residence.</p>
 
       <h2 className={h2}>12. Contact</h2>
-      <p className={p}>{OPERATOR} · abuse and takedown requests: <span className="text-t-text">{ABUSE_EMAIL}</span> · privacy requests: <span className="text-t-text">{PRIVACY_EMAIL}</span>.</p>
+      <p className={p}>{OPERATOR}, {JURISDICTION} · support: <span className="text-t-text">{SUPPORT_EMAIL}</span> · abuse and takedown requests: <span className="text-t-text">{ABUSE_EMAIL}</span> · privacy requests: <span className="text-t-text">{PRIVACY_EMAIL}</span> · security reports: <span className="text-t-text">{SECURITY_EMAIL}</span>.</p>
     </div>
   );
 }
@@ -86,7 +86,7 @@ function Terms() {
 function Privacy() {
   return (
     <div>
-      <p className={p}>This policy explains what {OPERATOR} (“we”, the “Operator”) collects when you use Portfolio Control (the “Service”), why, how long we keep it, and what you can do about it. We are the data controller for your account data.</p>
+      <p className={p}>This policy explains what {OPERATOR} (“we”, the “Operator”) collects when you use {SITE.name} (the “Service”), why, how long we keep it, and what you can do about it. We are the data controller for your account data.</p>
 
       <h2 className={h2}>1. What we collect</h2>
       <ul className={ul}>
@@ -96,7 +96,7 @@ function Privacy() {
         <li><strong className="text-t-text">Technical logs:</strong> for every request to the dashboard and the API, the IP address, request path, status, timing, a request id and, when authenticated, the account, App or key id. Logs are kept for about 30 days.</li>
         <li><strong className="text-t-text">Email events:</strong> which transactional emails we sent you and whether sending failed.</li>
       </ul>
-      <p className={p}>We do not use analytics trackers, advertising cookies or third-party scripts in the dashboard. The only cookie is the session cookie that keeps you signed in.</p>
+      <p className={p}>We use no analytics, advertising or tracking scripts, on the public site or in the dashboard, and the site’s typefaces are served from our own servers. The only cookie is the session cookie that keeps you signed in.</p>
 
       <h2 className={h2}>2. Why we use it</h2>
       <ul className={ul}>
@@ -114,7 +114,8 @@ function Privacy() {
         <li><strong className="text-t-text">MongoDB Atlas</strong> (MongoDB, Inc.) hosts the database that stores your account, content and configuration.</li>
         <li><strong className="text-t-text">Resend</strong> (Resend, Inc.) delivers transactional email; it receives your email address and the message content.</li>
         <li><strong className="text-t-text">{HOSTING_PROVIDER}</strong> runs the API and dashboard servers and therefore processes request logs, including IP addresses.</li>
-        <li>Encrypted backups are stored with <strong className="text-t-text">[Backup storage provider]</strong>; the provider cannot read them.</li>
+        <li><strong className="text-t-text">{LOG_SINK}</strong> stores request logs (including IP addresses) for about 30 days.</li>
+        <li>Encrypted backups are stored with <strong className="text-t-text">{BACKUP_PROVIDER}</strong>; the provider cannot read them.</li>
       </ul>
       <p className={p}>Data may be processed in the countries where these providers operate, which may be outside your own. We rely on their standard contractual safeguards.</p>
 
@@ -129,8 +130,8 @@ function Privacy() {
 
       <h2 className={h2}>6. Your rights and controls</h2>
       <ul className={ul}>
-        <li>You can export all your data as JSON and delete your account from Settings at any time, without asking us.</li>
-        <li>You can change your email’s content, your password and your Apps yourself in the dashboard.</li>
+        <li>You can export all your data as JSON and delete your account from <strong className="text-t-text">Account</strong> in the dashboard at any time, without asking us.</li>
+        <li>You can change your content, your password and your Apps yourself in the dashboard.</li>
         <li>Depending on where you live you may also have rights to access, correct, restrict or object to processing, to data portability, and to complain to a supervisory authority. Write to <span className="text-t-text">{PRIVACY_EMAIL}</span>; we answer within 30 days.</li>
       </ul>
 
@@ -141,15 +142,15 @@ function Privacy() {
       <p className={p}>The Service is not directed at children under 16, and we do not knowingly collect their data. If you believe a child has created an account, contact <span className="text-t-text">{PRIVACY_EMAIL}</span> and we will remove it.</p>
 
       <h2 className={h2}>9. Changes to this policy</h2>
-      <p className={p}>The version date at the top of this page changes when the policy does. Material changes are announced by email or in the dashboard at least 14 days before they apply.</p>
+      <p className={p}>The version date at the top of this page changes when the policy does. Material changes are announced by email and in the <Link className="text-t-accent hover:underline" to="/docs/changelog">changelog</Link> at least 14 days before they apply.</p>
 
       <h2 className={h2}>10. Contact</h2>
-      <p className={p}>{OPERATOR}, {JURISDICTION} · <span className="text-t-text">{PRIVACY_EMAIL}</span> · abuse reports: <span className="text-t-text">{ABUSE_EMAIL}</span>.</p>
+      <p className={p}>{OPERATOR}, {JURISDICTION} · <span className="text-t-text">{PRIVACY_EMAIL}</span> · abuse reports: <span className="text-t-text">{ABUSE_EMAIL}</span> · security reports: <span className="text-t-text">{SECURITY_EMAIL}</span>.</p>
     </div>
   );
 }
 
-export default function LegalPreview() {
+export default function LegalPage() {
   const isPrivacy = useLocation().pathname.endsWith('privacy');
   const version = isPrivacy ? PRIVACY_VERSION : TERMS_VERSION;
   return (

@@ -9,12 +9,8 @@ const { digest, inviteDigest, issueEmailToken } = require('../lib/emailTokens');
 const { TERMS_VERSION, PRIVACY_VERSION } = require('../lib/legal');
 const mailer = require('../lib/mailer');
 const { resetRecipientCooldowns } = require('../lib/mailBudget');
-const { signupRateLimiters, resendVerificationRateLimiters, recoveryRateLimiters, verificationRateLimiter } = require('../middleware/authRateLimiters');
+const { resetAuthRateLimiters } = require('../middleware/authRateLimiters');
 
-const LOCAL_KEYS = ['127.0.0.1', '::ffff:127.0.0.1', '::1'];
-const resetLimiters = (limiters) => Promise.all(limiters.flatMap((limiter) => LOCAL_KEYS.map((key) => limiter.resetKey(key))));
-// verify-email and reset-password share one 5/h per-IP limiter; every suite that uses them clears it first.
-const PUBLIC_MAIL_LIMITERS = [...signupRateLimiters, ...resendVerificationRateLimiters, ...recoveryRateLimiters, verificationRateLimiter];
 const tokenFrom = (message) => new URL(message.url).searchParams.get('token');
 
 describe('session compatibility', () => {
@@ -133,7 +129,7 @@ describe('email-first registration', () => {
     mailer.setMailTransport({ send: async (message) => { messages.push(message); } });
     process.env.SIGNUP_MODE = 'invite';
     resetRecipientCooldowns();
-    await resetLimiters(PUBLIC_MAIL_LIMITERS);
+    await resetAuthRateLimiters();
   });
   afterEach(() => { mailer.setMailTransport(null); delete process.env.SIGNUP_MODE; });
 
@@ -213,7 +209,7 @@ describe('email-first registration', () => {
   it('supports explicitly configured open signup without consuming an invite', async () => {
     process.env.SIGNUP_MODE = 'open';
     const config = await request(app).get('/api/auth/config').expect(200);
-    expect(config.body).toEqual({ success: true, signupEnabled: true, signupMode: 'open', publicApiBase: null });
+    expect(config.body).toEqual({ success: true, signupEnabled: true, signupMode: 'open', publicApiBase: null, turnstileSiteKey: null });
     await signup({ email: 'open-signup@test.com' }).expect(200, { success: true, message: 'Check your email to complete registration' });
     expect(await User.exists({ email: 'open-signup@test.com' })).toBeTruthy();
     expect(await Invite.countDocuments()).toBe(0);
@@ -285,12 +281,12 @@ describe('email-first registration', () => {
     process.env.SIGNUP_MODE = 'anything-else';
     const response = await signup({}).expect(503);
     expect(response.body).toMatchObject({ success: false, error: 'signup_unavailable' });
-    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: false, signupMode: 'closed', publicApiBase: null });
+    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: false, signupMode: 'closed', publicApiBase: null, turnstileSiteKey: null });
   });
 
   it('defaults to closed when SIGNUP_MODE is unset', async () => {
     delete process.env.SIGNUP_MODE;
-    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: false, signupMode: 'closed', publicApiBase: null });
+    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: false, signupMode: 'closed', publicApiBase: null, turnstileSiteKey: null });
   });
 });
 
@@ -300,13 +296,13 @@ describe('password recovery', () => {
     messages = [];
     mailer.setMailTransport({ send: async (message) => { messages.push(message); } });
     resetRecipientCooldowns();
-    await resetLimiters(PUBLIC_MAIL_LIMITERS);
+    await resetAuthRateLimiters();
   });
   afterEach(() => mailer.setMailTransport(null));
 
-  it('uses a generic forgot-password result, revokes sessions on reset, and marks the address verified', async () => {
+  it('uses a generic forgot-password result and revokes sessions on reset', async () => {
     const passwordHash = await bcrypt.hash('old-secure-password', 4);
-    const user = await User.create({ email: 'reset@test.com', passwordHash, tokenVersion: 2, emailVerifiedAt: null });
+    const user = await User.create({ email: 'reset@test.com', passwordHash, tokenVersion: 2, emailVerifiedAt: new Date() });
     const unknown = await request(app).post('/api/auth/forgot-password').send({ email: 'missing@test.com' }).expect(200);
     const known = await request(app).post('/api/auth/forgot-password').send({ email: user.email }).expect(200);
     expect(known.body).toEqual(unknown.body);
@@ -383,16 +379,19 @@ describe('invite guessing protection', () => {
     inviteGuard.reset();
     process.env.SIGNUP_MODE = 'invite';
     mailer.setMailTransport({ send: async () => {} });
-    await resetLimiters(signupRateLimiters);
+    await resetAuthRateLimiters();
   });
   afterEach(() => { inviteGuard.reset(); mailer.setMailTransport(null); delete process.env.SIGNUP_MODE; delete process.env.INVITE_FAILURE_LIMIT; delete process.env.INVITE_IP_FAILURE_LIMIT; app.set('trust proxy', 0); });
 
   const body = (email, inviteCode) => ({ email, inviteCode, acceptedTerms: true, acceptedPrivacy: true });
 
-  it('still accepts a legacy six-digit code pasted with spaces or dashes', async () => {
-    await Invite.create({ codeHash: inviteDigest('123456'), expiresAt: new Date(Date.now() + 86400000), maxUses: 1 });
-    await request(app).post('/api/auth/signup').send(body('spaces@test.com', '123 456')).expect(200);
+  it('accepts a 12-character code pasted with spaces, dashes or lower case, and no longer accepts six digits', async () => {
+    await Invite.create({ codeHash: inviteDigest('ABCDEFGHJKLM'), expiresAt: new Date(Date.now() + 86400000), maxUses: 1 });
+    await request(app).post('/api/auth/signup').send(body('spaces@test.com', 'abcd-efgh jklm')).expect(200);
     expect(await User.countDocuments({ email: 'spaces@test.com' })).toBe(1);
+    await Invite.create({ codeHash: inviteDigest('123456'), expiresAt: new Date(Date.now() + 86400000), maxUses: 1 });
+    const legacy = await request(app).post('/api/auth/signup').send(body('digits@test.com', '123 456')).expect(400);
+    expect(legacy.body.error).toBe('invite_invalid');
   });
 
   it('rejects an invalid code before touching accounts or mail', async () => {
@@ -411,8 +410,8 @@ describe('invite guessing protection', () => {
     const from = (ip) => request(app).post('/api/auth/signup').set('X-Forwarded-For', ip);
     for (let i = 0; i < 100; i += 1) {
       // The signup limiter (5/h per IP) sits in front of the invite guard; clear it so the guard itself is what trips.
-      await Promise.all(signupRateLimiters.map((limiter) => limiter.resetKey('203.0.113.50')));
-      const response = await from('203.0.113.50').send(body(`guess${i}@test.com`, '000000'));
+      await resetAuthRateLimiters();
+      const response = await from('203.0.113.50').send(body(`guess${i}@test.com`, 'WRONGWRONGWR'));
       expect(response.status).toBe(i < 10 ? 400 : 429);
       expect(response.body.error).toBe(i < 10 ? 'invite_invalid' : 'invite_locked');
     }
@@ -422,12 +421,37 @@ describe('invite guessing protection', () => {
     expect(await User.countDocuments({ email: 'late@test.com' })).toBe(1);
   });
 
-  it('pauses invite signups for everyone once the global guard trips', async () => {
-    process.env.INVITE_FAILURE_LIMIT = '3';
-    for (let i = 0; i < 3; i += 1) await request(app).post('/api/auth/signup').send(body(`wrong${i}@test.com`, '000000')).expect(400);
-    await Invite.create({ codeHash: inviteDigest('654321'), expiresAt: new Date(Date.now() + 86400000), maxUses: 1 });
-    const locked = await request(app).post('/api/auth/signup').send(body('late@test.com', '654321'));
+  it('groups IPv6 guessers by /48, so rotating addresses inside one allocation does not reset the lock', async () => {
+    app.set('trust proxy', 1);
+    const from = (ip) => request(app).post('/api/auth/signup').set('X-Forwarded-For', ip);
+    for (let i = 0; i < 10; i += 1) {
+      await resetAuthRateLimiters();
+      // Each guess comes from a different /64 (and a different /56) inside 2001:db8:abcd::/48.
+      await from(`2001:db8:abcd:${(i * 256).toString(16)}::${i + 1}`).send(body(`v6-${i}@test.com`, 'WRONGWRONGWR')).expect(400);
+    }
+    await resetAuthRateLimiters();
+    const locked = await from('2001:db8:abcd:ff00::99').send(body('v6-late@test.com', 'WRONGWRONGWR'));
     expect(locked.status).toBe(429);
     expect(locked.body.error).toBe('invite_locked');
+    await resetAuthRateLimiters();
+    await from('2001:db8:abce::1').send(body('v6-other@test.com', 'WRONGWRONGWR')).expect(400);
+  });
+
+  it('never locks invites for everyone: distributed failures raise an alert instead', async () => {
+    const logger = require('../lib/logger');
+    const warn = vi.spyOn(logger, 'warn');
+    app.set('trust proxy', 1);
+    try {
+      // Wrong codes from many sources, past INVITE_FAILURE_LIMIT: the old global lock would trip here.
+      process.env.INVITE_FAILURE_LIMIT = '3';
+      for (let i = 0; i < 5; i += 1) {
+        await resetAuthRateLimiters();
+        await request(app).post('/api/auth/signup').set('X-Forwarded-For', `198.18.0.${i + 1}`).send(body(`spray${i}@test.com`, 'WRONGWRONGWR')).expect(400);
+      }
+      expect(warn.mock.calls.some(([fields]) => fields?.alert === 'invite_failures_high')).toBe(true);
+      await Invite.create({ codeHash: inviteDigest('ABCDEFGHJKMN'), expiresAt: new Date(Date.now() + 86400000), maxUses: 1 });
+      await resetAuthRateLimiters();
+      await request(app).post('/api/auth/signup').set('X-Forwarded-For', '192.0.2.200').send(body('late@test.com', 'ABCDEFGHJKMN')).expect(200);
+    } finally { warn.mockRestore(); }
   });
 });

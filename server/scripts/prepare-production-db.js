@@ -71,6 +71,7 @@ async function main() {
   await connectMongo(process.env.MONGODB_URI, { maxPoolSize: 5, autoIndex: false });
   try {
     console.log(`Connected to ${mongoose.connection.name}. Checking existing indexes and preparing indexes…`);
+    // ownerGuard-exemption: production setup preflight reads index metadata only
     await assertNoLegacyGlobalIndexes(mongoose.connection.db);
     for (const Model of models) await Model.createIndexes();
     console.log('Indexes are ready. No collections were dropped.');
