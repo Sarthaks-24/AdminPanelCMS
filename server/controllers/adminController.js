@@ -4,7 +4,7 @@ const Invite = require('../models/Invite');
 const User = require('../models/User');
 const App = require('../models/App');
 const ApiToken = require('../models/ApiToken');
-const { inviteDigest } = require('../lib/emailTokens');
+const { inviteDigest, invitePepperFingerprint } = require('../lib/emailTokens');
 const { getSignupSetting, setSignupMode, legalBlocked, MODES } = require('../lib/signupMode');
 const { mailReadinessProblems } = require('../lib/mailReadiness');
 const { capacityFilter, usableInviteFilter, inviteUsage } = require('../lib/inviteUses');
@@ -89,7 +89,7 @@ async function revokeInvite(req, res, next) {
 async function settingsPayload() {
   const { dashboard, env, effective } = await getSignupSetting();
   const mailProblems = process.env.NODE_ENV === 'production' ? mailReadinessProblems() : [];
-  return { signupMode: effective || 'closed', source: dashboard ? 'dashboard' : 'environment', environmentDefault: env || 'closed', blockedByLegalApproval: legalBlocked(), blockedByMail: mailProblems.length > 0, mailProblems };
+  return { signupMode: effective || 'closed', source: dashboard ? 'dashboard' : 'environment', environmentDefault: env || 'closed', blockedByLegalApproval: legalBlocked(), blockedByMail: mailProblems.length > 0, mailProblems, invitePepperFingerprint: invitePepperFingerprint() };
 }
 
 async function getSettings(_req, res, next) {

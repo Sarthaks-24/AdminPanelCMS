@@ -81,7 +81,7 @@ Order is set in `server/app.js`:
 | :--- | :--- | :--- |
 | 1 | request id | `X-Request-Id` echoed or generated; present on every `/v1` response including errors |
 | 2 | `v1Cors` | Preflight and CORS headers for publishable keys |
-| 3 | preAuth IP limiter | 300/min per IP (IPv6 /48) → `429 rate_limited` |
+| 3 | preAuth IP limiter | 1,200/min per IP (IPv6 /48) → `429 rate_limited` |
 | 4 | sanitize query | strips Mongo operators from the query string (`/v1` has **no JSON body parser**) |
 | 5 | token format + active-hash set | rejects a key in the query string (`400 token_in_query`), a malformed key, and any key whose SHA-256 is not in the in-memory **active-token set** (`401 token_invalid`) with zero database calls |
 | 6 | `requireToken` with pre-DB bucket | token cache lookup; a miss that needs Mongo passes a 20/s global bucket first (`503 busy`), then loads the token, App and owner; checks owner status (`401 account_unavailable` for suspended or deleted), key type vs App type (`403 token_type_mismatch`) and, for `pk_`, the `Origin` allowlist (`403 origin_not_allowed`) |

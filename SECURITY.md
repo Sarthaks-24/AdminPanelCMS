@@ -14,7 +14,7 @@ What to expect:
 - an assessment, and a fix or a plan, within 14 days for anything serious;
 - credit in the [changelog](docs/CHANGELOG.md) once it is fixed, if you want it.
 
-The same contact is published at `/.well-known/security.txt`.
+The same contact is published at `/.well-known/security.txt`, generated at build time for the site's domain.
 
 ## Scope and rules
 

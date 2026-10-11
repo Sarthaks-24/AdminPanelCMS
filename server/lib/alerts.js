@@ -1,4 +1,5 @@
 const logger = require('./logger');
+const { envNumber } = require('./envNumber');
 
 // Burst alerts: count events per key in a fixed window and log one `alert` line when a key reaches the
 // threshold, then stay quiet for the rest of that window. A flood therefore produces one line per minute per
@@ -24,15 +25,10 @@ function burstAlert(alert, { threshold = 1, windowMs = 60_000, maxKeys = 10_000 
   return { hit, reset: () => windows.clear() };
 }
 
-const positiveInt = (value, fallback) => {
-  const number = Number(value);
-  return Number.isInteger(number) && number > 0 ? number : fallback;
-};
-
 // The response-status watchers that app.js wires on every request.
 const busy = burstAlert('busy_503', { threshold: 1 });
-const rateLimited = burstAlert('rate_limited_429', { threshold: () => positiveInt(process.env.ALERT_429_PER_MINUTE, 100) });
-const tokenInvalid = burstAlert('token_invalid_burst', { threshold: () => positiveInt(process.env.ALERT_TOKEN_INVALID_PER_MINUTE, 30) });
+const rateLimited = burstAlert('rate_limited_429', { threshold: () => envNumber('ALERT_429_PER_MINUTE') });
+const tokenInvalid = burstAlert('token_invalid_burst', { threshold: () => envNumber('ALERT_TOKEN_INVALID_PER_MINUTE') });
 
 // The pk_/sk_ prefix (first 12 characters) is not secret: the dashboard shows it. It is the only handle a 401
 // has on "which App's keys are failing", because a rejected token never resolves to an App.
@@ -56,4 +52,4 @@ function watchResponses(req, res, next) {
 
 function resetAlerts() { busy.reset(); rateLimited.reset(); tokenInvalid.reset(); }
 
-module.exports = { burstAlert, watchResponses, resetAlerts, positiveInt };
+module.exports = { burstAlert, watchResponses, resetAlerts };

@@ -21,26 +21,26 @@ Arguments go after `--`, for example `npm run invite -- --count 5`.
 | Job | Steps | Must stay green |
 | :--- | :--- | :--- |
 | `server` | Node 22, `npm ci`, `npm test` (Vitest + Supertest against `mongodb-memory-server`; the MongoDB binary is cached under `~/.cache/mongodb-binaries`), `npm run lint:security` | before any deploy |
-| `client` | Node 22, `npm ci`, `npm run lint` (oxlint), `npm run build` with `VITE_MODE=prod` | before any deploy |
+| `client` | Node 22, the server's runtime deps (for the parity check), `npm ci`, `npm run lint` (oxlint, field parity, public-docs check), `npm test`, `npm run build` (with the dist check) with `VITE_MODE=prod` and example `VITE_SITE_*` values, then `npm run check:launch` as a non-blocking step | before any deploy |
 
 Every action in both workflows is pinned to a full commit SHA (the tag is in the trailing comment). `.github/dependabot.yml` opens weekly grouped PRs for the actions, the server and client npm packages, and the `node:22-alpine` image digest in `server/Dockerfile`; review and merge them like any other change.
 
-Nothing in CI touches a real database or needs a secret. A red `server` job means a test or the owner-scope lint failed; a red `client` job means a lint error or a broken build.
+Nothing in CI touches a real database or needs a secret. A red `server` job means a test or the owner-scope lint failed; a red `client` job means a lint error, a failed test or a broken build. The `check:launch` step reports the example identity values by design until launch.
 
 ## Setup and accounts
 
 | Command | What it does | Writes |
 | :--- | :--- | :--- |
-| `npm run setup` | Creates indexes. Creates a verified account for `ADMIN_EMAIL` with `ADMIN_PASSWORD`, or resets that account's password and re-activates it. This is the only way to get a usable account in dev without working email. | Yes |
+| `npm run setup` | Creates indexes. Creates a verified account for `ADMIN_EMAIL` with `ADMIN_PASSWORD`, or resets that account's password and re-activates it. The quickest way to a usable account in dev. With `MODE=prod` it refuses unless you add `-- --confirm-db <database>`; use `production:prepare` there. | Yes |
 | `npm run setup:fresh -- --confirm <database>` | Drops the user, content, App, token and invite collections, then runs setup. Requires the exact database name. | **Destroys data** |
 | `npm run production:prepare` | Interactive, `MODE=prod` only. Confirms the database name, creates indexes without dropping anything, then creates or promotes a superadmin. | Yes |
-| `npm run admin` | Sets the password of `ADMIN_EMAIL` (or `npm run admin -- <email> <password>`) and marks it verified and active. Ends that account's sessions. Reads the password from `ADMIN_PASSWORD` or stdin and asks for confirmation. | Yes |
+| `npm run admin` | Sets the password of `ADMIN_EMAIL` (or `npm run admin -- <email>`) and marks it verified and active. Ends that account's sessions. Reads the password from `ADMIN_PASSWORD` or stdin, never from the command line (a second argument is refused), and asks you to type the email to confirm (`--yes` for a non-interactive run). | Yes |
 | `npm run superadmin:grant -- --email <email> --confirm-db <database>` | Gives an existing verified account the superadmin role. | Yes |
 | `npm run invite -- --count <1-100>` | Prints new single-use, 30-day invite codes (12 characters, `A-Z` and `2-7`). Codes cannot be shown again. | Yes |
-| `npm run seed` | Replaces **all content** of the `ADMIN_EMAIL` account with published sample content and resets its password. Requires `--confirm-db <database>` and refuses `MODE=prod`. | **Destroys data** |
+| `npm run seed -- --confirm-db <database>` | Replaces **all content** of the `ADMIN_EMAIL` account with published sample content and resets its password. Refuses `MODE=prod`. | **Destroys data** |
 | `npm run update-resume -- <url>` | Sets the resume URL for `ADMIN_EMAIL` (or uses `RESUME_DRIVE_URL`). | Yes |
 
-Passwords passed on the command line end up in shell history; prefer the `.env` values or `production:prepare`, which asks without echo.
+Under `MODE=prod`, `production:prepare`, `setup`, `admin`, `superadmin:grant` and `invite` first run the server's data-safety checks (production database differs from dev and is named in the URI; `INVITE_CODE_PEPPER` set and different from `JWT_SECRET`) and refuse to run while one fails. No script takes a password on the command line.
 
 ## Inspection
 
@@ -64,9 +64,9 @@ Atlas M0 has no managed backups. The nightly workflow is the backup.
 
 ### Nightly workflow
 
-`.github/workflows/backup.yml` runs at **03:00 UTC** every day and on demand (Actions, "Nightly backup", "Run workflow"). It installs `mongodump`, `rclone` and `gpg` on the runner, writes the passphrase and the rclone config from secrets to 600 files, runs `npm run backup` with `MODE=prod`, then `npm run stats`, and deletes the local files at the end whatever happened.
+`.github/workflows/backup.yml` runs at **03:00 UTC** every day and on demand (Actions, "Nightly backup", "Run workflow"). It installs `mongodump`, `rclone` and `gpg` on the runner, writes the passphrase and the rclone config from secrets to 600 files, runs `npm run backup` with `MODE=prod`, then `npm run stats`, then pings `BACKUP_HEARTBEAT_URL` if that secret is set, and deletes the local files at the end whatever happened.
 
-Secrets it needs: `PROD_MONGODB_URI` (the **backup** database user, see [DEPLOYMENT.md](DEPLOYMENT.md#1-prepare-the-production-database)), `BACKUP_PASSPHRASE`, `BACKUP_REMOTE_DESTINATION`, `RCLONE_CONFIG`. Optional variable: `BACKUP_RETENTION_DAYS`. See [ENVIRONMENT.md](ENVIRONMENT.md#backup-workflow-secrets-github-actions).
+Secrets it needs: `PROD_MONGODB_URI` (the **backup** database user, see [DEPLOYMENT.md](DEPLOYMENT.md#production-database)), `BACKUP_PASSPHRASE`, `BACKUP_REMOTE_DESTINATION`, `RCLONE_CONFIG`. Optional secret: `BACKUP_HEARTBEAT_URL`, a dead-man's-switch monitor (healthchecks.io, Better Stack, Cronitor) pinged only after a successful run; its alert also catches a schedule that never fires (GitHub disables cron after 60 days without repository activity). Optional variable: `BACKUP_RETENTION_DAYS`. See [ENVIRONMENT.md](ENVIRONMENT.md#backup-workflow-secrets-github-actions).
 
 Keep a copy of the passphrase somewhere that is not GitHub and not the backup bucket. Without it the archives are noise.
 
@@ -178,7 +178,7 @@ printf 'uri: "%s"\n' 'mongodb+srv://api_user:<password>@<cluster>.mongodb.net/Po
    ```
 
    Marking an account `deleted` is enough: the running server's sweep (one minute after boot, then every `SWEEP_DELETED_INTERVAL_HOURS`) cascades its content, Apps, keys and email tokens, or run `npm run sweep:deleted` now.
-6. **Start the API**, run `npm run db:audit` and the smoke test from [DEPLOYMENT.md](DEPLOYMENT.md#6-smoke-test). The active-token set and the response cache start empty, so nothing stale is served.
+6. **Start the API**, run `npm run db:audit` and the smoke test from [DEPLOYMENT.md](DEPLOYMENT.md#smoke-test). The active-token set and the response cache start empty, so nothing stale is served.
 7. **Reopen signup**, drop `Portfolio_snapshot`, delete `~/prod-restore.yaml`, and write down what happened (date, archive, counts from step 3).
 
 #### Rolling back one tenant
@@ -218,21 +218,34 @@ A superadmin sees an extra dashboard page (`/dashboard/superadmin`, labelled "Pl
 | Endpoint | What it does |
 | :--- | :--- |
 | `GET /api/admin/overview` | Totals, process memory, uptime |
-| `GET /api/admin/settings`, `PUT` (needs a recent re-auth) | Signup mode `closed` / `invite` / `open`; `closed` is the kill switch and the default |
+| `GET /api/admin/settings`, `PUT` (needs a recent re-auth) | Signup mode `closed` / `invite` / `open`; `closed` is the kill switch and the default. In production, `invite` or `open` answers `409 mail_not_ready` with the `reasons` while account mail cannot work; `GET` reports `blockedByMail`, `mailProblems` and `blockedByLegalApproval` |
 | `GET /api/admin/invites`, `POST` (needs a recent re-auth), `DELETE /:id` | Invite codes: 12 characters, `maxUses` 1 to 50, expiry up to 90 days. 6-digit codes are no longer accepted |
 | `GET /api/admin/users?q=&status=&cursor=` | User list, 50 per page: email, created, verified, status, role, App count, last token use |
-| `POST /api/admin/users/:id/suspend` | Status `suspended`: every session and every API token of that account stops at once (`/v1` answers `401 account_unavailable`); content is kept |
-| `POST /api/admin/users/:id/unsuspend` | Back to `active`; tokens work again without being re-issued |
-| `DELETE /api/admin/users/:id` | Force delete: the same cascade as self-service deletion (tokens, Apps, content, email tokens, then the user) |
+| `POST /api/admin/users/:id/suspend` (needs a recent re-auth) | Status `suspended`: every session and every API token of that account stops within a minute (`/v1` answers `401 account_unavailable`; browsers may keep a copy for up to 60 s); content is kept |
+| `POST /api/admin/users/:id/unsuspend` (needs a recent re-auth) | Back to `active`; tokens work again without being re-issued |
+| `DELETE /api/admin/users/:id` (needs a recent re-auth) | Force delete: the same cascade as self-service deletion (tokens, Apps, content, email tokens, then the user) |
 | `GET /api/admin/mail-budget` | Today's outbound mail: `sent`, `cap` (`MAIL_DAILY_CAP`), `reserve` (`MAIL_RESET_RESERVE`) |
 
 ### Abuse playbook
 
-1. Suspend first, ask later. Suspension is reversible and instant; deletion is neither.
+1. Suspend first, ask later. Suspension is reversible and takes effect within a minute; deletion is neither.
 2. If signups are being abused, set the signup mode to `closed` from the panel. Existing accounts are unaffected.
-3. If one source is hammering invites it is already locked for an hour (`INVITE_IP_FAILURE_LIMIT`, per IPv4 address or IPv6 /48; `invite_locked` alert). There is no global lock any more: many sources failing raises `invite_failures_high`. Codes have 60 bits, so guessing is not the risk; the alert usually means a code leaked or a bot found the form. Turn on Turnstile (`TURNSTILE_SECRET_KEY`) and, if needed, set signup to `closed`.
+3. If one source is hammering invites it is already locked for an hour (`INVITE_IP_FAILURE_LIMIT`, per IPv4 address or IPv6 /48; `invite_locked` alert). There is no global lock any more: many sources failing raises `invite_failures_high`. Codes have 60 bits, so guessing is not the risk; the alert usually means a code leaked or a bot found the form. Turn on Turnstile: set **both** keys (`TURNSTILE_SECRET_KEY` and `TURNSTILE_SITE_KEY`, from your own widget, not Cloudflare's test keys), add the dashboard hostname to the widget, and restart; one key alone refuses to boot. If needed, set signup to `closed` first.
 4. If `mail-budget` shows `sent` near `cap` before noon, something is minting signups: close signup and look at the `signup` log events.
 5. Keep a note of what you did and why; there is no audit collection yet, so the structured log (`LOG_LEVEL=info`) is the record.
+
+## Abort invite #1
+
+If anything breaks after the first invites go out (a security bug, data shown to the wrong tenant, mail failing, a bad release), stop in this order. Rehearse steps 1 and 2 once before minting invite #1: signup `closed` → `invite`, and revoke a spare invite.
+
+1. **Close signup.** In the Superadmin panel, set signup to `closed`; the dashboard setting wins over `SIGNUP_MODE`. It needs a recent re-auth: a mistyped password there only fails the re-auth, it does not sign you out. For a hard stop that the panel cannot undo, set `LEGAL_POLICIES_APPROVED=false` in the API environment and restart.
+2. **Revoke unused invites**: Superadmin panel, invite list, revoke (`DELETE /api/admin/invites/:id`).
+3. **Suspend the affected account(s)**: Superadmin panel, Users (re-auth). Sessions and keys stop within a minute; content is kept.
+4. **Roll back the dashboard** to the previous deploy in the static host's UI (Pages, Netlify, Render), or rebuild the previous commit.
+5. **Redeploy the previous API image digest** (the platform's deploy history, or the previous commit on the VPS).
+6. **Restore the database only through the tested restore**: [Production restore](#production-restore), never by hand.
+
+Then write down what happened and what was rolled back, and leave signup `closed` until the cause is fixed.
 
 ## Routine checklist
 

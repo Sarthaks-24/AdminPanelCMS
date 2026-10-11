@@ -1,9 +1,9 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { provablyCrossSite } = require('../lib/sameSite');
-const { envNumber, numericEnvProblems, disabledGuards } = require('../lib/envNumber');
+const { envNumber, envNumberInvalid, numericEnvProblems, disabledGuards } = require('../lib/envNumber');
 const { mailReadinessProblems } = require('../lib/mailReadiness');
-const { inviteDigest } = require('../lib/emailTokens');
+const { inviteDigest, invitePepperFingerprint, pepperFingerprintProblem } = require('../lib/emailTokens');
 const mailer = require('../lib/mailer');
 
 describe('same-site check (FE-09)', () => {
@@ -34,6 +34,14 @@ describe('numeric env settings (CB-14)', () => {
       expect.stringMatching(/^MAX_ACCOUNTS/), expect.stringMatching(/^SWEEP_DELETED_INTERVAL_HOURS/),
     ]);
     expect(disabledGuards({ SWEEP_DELETED_INTERVAL_HOURS: '0', STORAGE_CHECK_INTERVAL_MINUTES: '' })).toEqual([expect.stringMatching(/deleted-account sweep is DISABLED/)]);
+    // C7: the former ad-hoc readers keep their defaults and reject 0 where 0 was never allowed.
+    expect(envNumber('BCRYPT_MAX_CONCURRENT', { BCRYPT_MAX_CONCURRENT: '0' })).toBe(4);
+    expect(envNumber('INVITE_IP_FAILURE_LIMIT', {})).toBe(10);
+    expect(envNumber('SIGNUP_DOMAIN_DAILY_CAP', { SIGNUP_DOMAIN_DAILY_CAP: '0' })).toBe(0);
+    expect(envNumber('DB_STORAGE_CAP_BYTES', {})).toBe(512 * 1024 * 1024);
+    expect(envNumberInvalid('TRUST_PROXY_HOPS', { TRUST_PROXY_HOPS: '' })).toBe(false);
+    expect(envNumberInvalid('TRUST_PROXY_HOPS', { TRUST_PROXY_HOPS: '-1' })).toBe(true);
+    expect(envNumberInvalid('TRUST_PROXY_HOPS', { TRUST_PROXY_HOPS: '1.5' })).toBe(true);
   });
 
   it('keeps the guards running when a value is blank or invalid', () => {
@@ -83,6 +91,24 @@ describe('invite pepper (BE-03)', () => {
     process.env.NODE_ENV = 'test';
     // Same pepper, same digest: a script and the server agree whenever they share the pepper.
     expect(inviteDigest('ABCDEFGHJKLM')).toBe(production);
+  });
+
+  it('fingerprints the pepper and makes the CLI prove it matches in production (C1)', () => {
+    const prod = { NODE_ENV: 'production', INVITE_CODE_PEPPER: 'p'.repeat(48), JWT_SECRET: 'j'.repeat(48) };
+    const fp = invitePepperFingerprint(prod);
+    expect(fp).toMatch(/^[0-9a-f]{8}$/);
+    expect(fp).not.toBe(invitePepperFingerprint({ ...prod, INVITE_CODE_PEPPER: 'q'.repeat(48) }));
+    expect(invitePepperFingerprint({ NODE_ENV: 'production', JWT_SECRET: 'j'.repeat(48) })).toBeNull();
+    // Development falls back to JWT_SECRET exactly like inviteDigest.
+    expect(invitePepperFingerprint({ NODE_ENV: 'development', JWT_SECRET: 'j'.repeat(48) })).toMatch(/^[0-9a-f]{8}$/);
+
+    expect(pepperFingerprintProblem(undefined, prod)).toMatch(/--pepper-fp is required[\s\S]*boot log[\s\S]*Superadmin panel/);
+    expect(pepperFingerprintProblem('deadbeef', prod)).toMatch(/does not match[\s\S]*Superadmin panel/);
+    expect(pepperFingerprintProblem(fp, prod)).toBeNull();
+    expect(pepperFingerprintProblem(` ${fp.toUpperCase()} `, prod)).toBeNull();
+    const dev = { ...prod, NODE_ENV: 'development' };
+    expect(pepperFingerprintProblem(undefined, dev)).toBeNull();
+    expect(pepperFingerprintProblem('deadbeef', dev)).toMatch(/does not match/);
   });
 });
 

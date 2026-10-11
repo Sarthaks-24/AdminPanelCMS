@@ -110,7 +110,13 @@ describe('Apps dashboard API', () => {
     const user = await createUser(User);
     const project = await Project.create({ owner: user._id, title: 'Selected project', slug: 'selected-project', shortDescription: 'Selected', caseStudyBody: 'Project body' });
     const appDoc = await App.create({ owner: user._id, quotaSlot: 0, name: 'Selected', type: 'protected', include: { projects: { enabled: true, mode: 'selected', ids: [project._id] } } });
+    const { tokenGen } = require('../lib/cache');
+    const before = tokenGen();
+    await pullContentFromApps(user._id, 'Project', new mongoose.Types.ObjectId().toString());
+    expect(tokenGen()).toBe(before);
     await pullContentFromApps(user._id, 'Project', project._id.toString());
+    // C9: the affected App's cached token resolutions are evicted, like an App edit.
+    expect(tokenGen()).toBeGreaterThan(before);
     const updated = await App.findOne({ owner: user._id, _id: appDoc._id });
     expect(updated.include.projects.ids).toHaveLength(0);
   });

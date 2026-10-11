@@ -17,6 +17,9 @@ services:
       context: ../../server
     env_file: ../../server/.env
     environment:
+      # This file is production. MODE here beats the MODE=dev a copied server/.env starts with, so the
+      # container always uses the PROD_* values and runs every production boot check.
+      MODE: prod
       # Caddy is the one proxy in front of Node.
       PROD_TRUST_PROXY_HOPS: "1"
     restart: unless-stopped
@@ -35,6 +38,9 @@ services:
     build:
       context: ../..
       dockerfile: deploy/web.Dockerfile
+      args:
+        # Beats VITE_MODE=dev in a copied client/.env: this image is always a production build.
+        VITE_MODE: prod
     env_file: ../../client/.env
     depends_on:
       - api

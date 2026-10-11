@@ -41,7 +41,9 @@ describe('superadmin controls', () => {
     expect(invite.body.error).toBe('reauth_required');
     expect(await Invite.countDocuments()).toBe(0);
     // Reads and revocation stay available without the re-check.
-    await request(app).get('/api/admin/settings').set('Authorization', auth).expect(200);
+    const settingsRead = await request(app).get('/api/admin/settings').set('Authorization', auth).expect(200);
+    // C1: superadmins see the pepper fingerprint (never the pepper) to check against create-invites.
+    expect(settingsRead.body.settings.invitePepperFingerprint).toMatch(/^[0-9a-f]{8}$/);
     await request(app).get('/api/admin/invites').set('Authorization', auth).expect(200);
     await User.updateOne({ _id: admin._id }, { $set: { adminReauthAt: new Date() } });
     await request(app).post('/api/admin/invites').set('Authorization', auth).send({}).expect(201);

@@ -10,6 +10,7 @@ const errorHandler = require('./middleware/errorHandler');
 const sanitizeMongoInput = require('./middleware/sanitizeMongoInput');
 const { watchResponses } = require('./lib/alerts');
 const { rejectWritesWhenFull } = require('./lib/storageGuard');
+const { envNumber, envNumberInvalid } = require('./lib/envNumber');
 
 const authRoutes = require('./routes/auth');
 const accountRoutes = require('./routes/account');
@@ -27,10 +28,10 @@ const v1Routes = require('./routes/v1');
 
 const app = express();
 
-const trustProxyHops = process.env.TRUST_PROXY_HOPS === undefined ? 0 : Number(process.env.TRUST_PROXY_HOPS);
-if (!Number.isSafeInteger(trustProxyHops) || trustProxyHops < 0) {
-  throw new Error('TRUST_PROXY_HOPS must be a non-negative integer');
-}
+// Blank means 0 here; validateEnv separately refuses a blank value in production (it must be explicit there).
+// A malformed value is refused outright instead of falling back, because the wrong hop count misattributes client IPs.
+if (envNumberInvalid('TRUST_PROXY_HOPS')) throw new Error('TRUST_PROXY_HOPS must be a non-negative integer');
+const trustProxyHops = envNumber('TRUST_PROXY_HOPS');
 app.set('trust proxy', trustProxyHops);
 app.set('etag', false);
 

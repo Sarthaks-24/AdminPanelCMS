@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const app = require('./app');
 const logger = require('./lib/logger');
+const { invitePepperFingerprint } = require('./lib/emailTokens');
 const readiness = require('./lib/readiness');
 const { startDeletedSweep } = require('./lib/sweepDeleted');
 const { startExpiryNotices } = require('./lib/tokenExpiryNotice');
@@ -40,6 +41,8 @@ async function start() {
   }
   server = app.listen(PORT, () => {
     console.log(`[Server] Running on port ${PORT} in ${mode} mode`);
+    // C1: never the pepper itself; scripts/create-invites.js needs this value as --pepper-fp in production.
+    if (process.env.NODE_ENV === 'production') console.log(`[Server] invite pepper fingerprint ${invitePepperFingerprint() || '(none)'}`);
     sweep = startDeletedSweep();
     tokenResync = startActiveTokenResync();
     expiryNotices = startExpiryNotices();

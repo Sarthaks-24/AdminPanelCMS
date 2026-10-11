@@ -99,7 +99,7 @@ At most one per account, unique on `owner`. `/v1/resume` answers `404 not_config
 | `lastUpdated` | Date | set on save |
 | `summaryText` | String | 500, `''` |
 
-`driveUrl` is a virtual alias of `resumeUrl`.
+`driveUrl` is a deprecated, read-only virtual alias of `resumeUrl`: never stored, not writable (`PUT /api/resume` requires `resumeUrl`), and still grantable to Apps that opted in.
 
 ### Project
 

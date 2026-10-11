@@ -36,6 +36,9 @@ function parse(name, env) {
 // The value to use: the setting, or its default when blank or invalid.
 function envNumber(name, env = process.env) { return parse(name, env).value; }
 
+// True when the setting is present but not an acceptable number, for callers that must refuse rather than fall back.
+function envNumberInvalid(name, env = process.env) { return Boolean(parse(name, env).invalid); }
+
 function numericEnvProblems(env = process.env) {
   const problems = [];
   for (const [name, rule] of Object.entries(NUMERIC_ENV)) {
@@ -54,4 +57,4 @@ function disabledGuards(env = process.env) {
     .map(([name, rule]) => `${name}=0: ${rule.guard} is DISABLED`);
 }
 
-module.exports = { NUMERIC_ENV, envNumber, numericEnvProblems, disabledGuards };
+module.exports = { NUMERIC_ENV, envNumber, envNumberInvalid, numericEnvProblems, disabledGuards };

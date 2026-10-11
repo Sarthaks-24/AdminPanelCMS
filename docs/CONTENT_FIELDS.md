@@ -61,7 +61,7 @@ The dashboard's App editor is a checklist over the same columns.
 | Field | Default | Notes |
 | :--- | :---: | :--- |
 | `resumeUrl` | yes | the public link to your résumé |
-| `driveUrl` | **opt-in** | a second, usually private, link; falls back to `resumeUrl` when empty |
+| `driveUrl` | **opt-in** | **deprecated**: always the same value as `resumeUrl`, never a second link. Still served to Apps that opted in; use `resumeUrl` |
 | `fileName` | yes | |
 | `version` | yes | |
 | `lastUpdated` | yes | ISO date |

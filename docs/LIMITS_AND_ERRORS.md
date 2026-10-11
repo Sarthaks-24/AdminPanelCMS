@@ -22,7 +22,7 @@ Limits are per minute or per second, and every limited response says so.
 
 | Scope | Limit | When exceeded |
 | :--- | :--- | :--- |
-| Per IP address, before the key is checked | 300 requests / minute | `429 rate_limited` |
+| Per IP address, before the key is checked | 1,200 requests / minute | `429 rate_limited` |
 | Per secret key (`sk_live_`) | 600 requests / minute | `429 rate_limited` |
 | Per publishable key (`pk_live_`) | 120 requests / minute **per key and visitor IP**, and 3,000 / minute per key in total | `429 rate_limited` |
 | Per account, uncached requests only | 10 per one-second window (a fixed window: there is no burst allowance on top) | `429 rate_limited` + `Retry-After` |

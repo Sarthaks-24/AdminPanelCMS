@@ -34,7 +34,7 @@ The docs you need are rendered on the site and live here in `docs/`:
 
 | Part | Technology |
 | :--- | :--- |
-| API (`server/`) | Node.js 20.19+, Express 5, Mongoose 9, MongoDB, JWT sessions in httpOnly cookies, bcrypt, Helmet, express-rate-limit, Resend, pino |
+| API (`server/`) | Node.js 22+, Express 5, Mongoose 9, MongoDB, JWT sessions in httpOnly cookies, bcrypt, Helmet, express-rate-limit, Resend, pino |
 | Dashboard and public site (`client/`) | React 19, Vite 8, Tailwind CSS 3, React Router 7, Axios |
 | Tests | Vitest, Supertest, mongodb-memory-server (server); oxlint and a demo/field parity check (client) |
 
@@ -42,7 +42,7 @@ Two deployables: the API (one long-running Node process serving `/api` for the d
 
 ## Contributing: running it locally
 
-You need Node.js 20.19+ and a MongoDB database. The walkthrough is [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md); in short:
+You need Node.js 22+ and a MongoDB database; no mail provider (without a Resend key, every email and its links are printed in the API's log, so the signup can be walked locally). The walkthrough is [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md); in short:
 
 ```bash
 # API
@@ -54,7 +54,7 @@ cd client && npm install && cp .env.example .env
 npm run dev                                        # http://localhost:5173
 ```
 
-Operator documentation (environment variables, deployment, operations, architecture, data model) is in `docs/` and is not published on the site: [ENVIRONMENT.md](docs/ENVIRONMENT.md), [DEPLOYMENT.md](docs/DEPLOYMENT.md), [OPERATIONS.md](docs/OPERATIONS.md), [ARCHITECTURE.md](docs/ARCHITECTURE.md), [DATA_MODEL.md](docs/DATA_MODEL.md).
+Deploying the service: the step-by-step guide is [DEPLOYMENT.md](DEPLOYMENT.md) (Render, Railway, or one VPS with Docker and Caddy). Operator reference (environment variables, deployment, operations, architecture, data model) is in `docs/` and is not published on the site: [ENVIRONMENT.md](docs/ENVIRONMENT.md), [DEPLOYMENT.md](docs/DEPLOYMENT.md), [OPERATIONS.md](docs/OPERATIONS.md), [ARCHITECTURE.md](docs/ARCHITECTURE.md), [DATA_MODEL.md](docs/DATA_MODEL.md).
 
 ## Scripts
 
@@ -65,9 +65,10 @@ Operator documentation (environment variables, deployment, operations, architect
 | `server/` | `npm run lint:security` | Static tenant-isolation check |
 | `server/` | `npm run setup` | Create indexes and the first account |
 | `client/` | `npm run dev` | Dashboard dev server |
-| `client/` | `npm run build` | Production bundle in `client/dist`, then a check that `_headers`, `_redirects` and the CSP hash are in place and no operator docs were bundled |
+| `client/` | `npm run build` | Production bundle in `client/dist` with the generated `_headers`, CSP `<meta>` and `security.txt`; fails on an invalid `VITE_*` input, then checks the CSP, the SPA fallback (no `404.html`) and that no operator docs were bundled |
 | `client/` | `npm run lint` | oxlint, the landing-demo field parity check, and the public-docs check (links, base-URL paths, no HTML comments) |
-| `client/` | `npm run check:launch` | Fails while any bracketed owner placeholder from `client/src/content/site.js` (domain, operator, jurisdiction, providers) is still on the public site; run before launch |
+| `client/` | `npm run check:launch` | Fails while any `VITE_SITE_*` identity value (domain, operator, jurisdiction, providers) is unset or an example, or an owner placeholder is left in the public files; run before launch |
+| `client/` | `npm run smoke -- <dashboardUrl> <apiUrl>` | Checks a deployed pair: CSP allows the API, CORS, SPA deep links, same site, `/v1` answers 401 without a key |
 
 ## Security
 

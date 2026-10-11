@@ -18,7 +18,9 @@ COPY docs docs
 COPY client client
 COPY deploy/headers-to-caddy.mjs deploy/
 
-ARG VITE_MODE
+# Always a production build: a VITE_MODE=dev left in client/.env would otherwise ship a bundle that
+# calls localhost. Build arguments override client/.env.
+ARG VITE_MODE=prod
 ARG VITE_PROD_API_URL
 ARG VITE_DEV_API_URL
 ARG VITE_SITE_DOMAIN
@@ -32,6 +34,7 @@ ARG VITE_SITE_LOG_PROVIDER
 ARG VITE_SITE_STATUS_URL
 # Empty build arguments are dropped so they never mask a value in client/.env.
 RUN cd client \
+ && case "$VITE_MODE" in prod|production) ;; *) echo "web.Dockerfile builds production only (VITE_MODE=$VITE_MODE)"; exit 1;; esac \
  && for v in $(env | grep -o '^VITE_[A-Z_]*=$' | tr -d '='); do unset "$v"; done \
  && npm run build \
  && node ../deploy/headers-to-caddy.mjs dist/_headers > /repo/headers.caddy

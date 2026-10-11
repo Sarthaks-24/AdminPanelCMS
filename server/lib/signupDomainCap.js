@@ -1,11 +1,9 @@
 // Per-email-domain daily signup cap (SEC5). Scripted signups of random addresses tend to share a domain (or a
 // handful of throwaway ones); capping each domain per UTC day bounds how much of the mail budget one domain can
 // take. SIGNUP_DOMAIN_DAILY_CAP=0 disables it. In process memory, so a restart resets the day's counts.
-const nonNegativeInt = (value, fallback) => {
-  const number = Number(value);
-  return value !== undefined && value !== '' && Number.isInteger(number) && number >= 0 ? number : fallback;
-};
-const dailyCap = () => nonNegativeInt(process.env.SIGNUP_DOMAIN_DAILY_CAP, 50);
+const { envNumber } = require('./envNumber');
+
+const dailyCap = () => envNumber('SIGNUP_DOMAIN_DAILY_CAP');
 
 let day = null;
 const counts = new Map();

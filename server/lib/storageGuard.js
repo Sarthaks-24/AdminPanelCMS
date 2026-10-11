@@ -6,13 +6,9 @@ const { envNumber } = require('./envNumber');
 // minutes; at STORAGE_BLOCK_PERCENT of DB_STORAGE_CAP_BYTES it closes signup and refuses content writes with a
 // clear 503 `storage_full` (deletes still work, they free space), so the database never reaches the hard wall.
 // State is in process memory and refreshed by the timer; a failed check keeps the last known state.
-const positiveNumber = (value, fallback) => {
-  const number = Number(value);
-  return value !== undefined && value !== '' && Number.isFinite(number) && number > 0 ? number : fallback;
-};
-const capBytes = () => positiveNumber(process.env.DB_STORAGE_CAP_BYTES, 512 * 1024 * 1024);
-const blockPercent = () => Math.min(positiveNumber(process.env.STORAGE_BLOCK_PERCENT, 90), 100);
-const warnPercent = () => Math.min(positiveNumber(process.env.STORAGE_WARN_PERCENT, 70), blockPercent());
+const capBytes = () => envNumber('DB_STORAGE_CAP_BYTES');
+const blockPercent = () => Math.min(envNumber('STORAGE_BLOCK_PERCENT'), 100);
+const warnPercent = () => Math.min(envNumber('STORAGE_WARN_PERCENT'), blockPercent());
 
 const state = { full: false, percent: null, usedBytes: null, checkedAt: null };
 

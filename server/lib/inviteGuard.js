@@ -6,11 +6,9 @@
 const WINDOW_MS = 60 * 60 * 1000;
 const byIp = new Map();
 
-const positiveInt = (value, fallback) => {
-  const number = Number(value);
-  return Number.isInteger(number) && number > 0 ? number : fallback;
-};
-const ipLimit = () => positiveInt(process.env.INVITE_IP_FAILURE_LIMIT, 10);
+const { envNumber } = require('./envNumber');
+
+const ipLimit = () => envNumber('INVITE_IP_FAILURE_LIMIT');
 
 function prune(list, now) {
   while (list.length && now - list[0].at > WINDOW_MS) list.shift();

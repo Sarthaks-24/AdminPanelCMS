@@ -1,15 +1,18 @@
 # Render Blueprint: the API (Docker web service) and the dashboard (static site) in one file.
 # Render dashboard → New → Blueprint → pick this repository. Render asks for every `sync: false`
-# value on first creation; DEPLOYMENT.md (repository root) explains each one.
+# value on first creation; DEPLOYMENT.md at the repository root (§6, §8.1) explains each one.
 # Afterwards add the custom domains: <apex> on the static site, api.<apex> on the API.
 
 services:
   - type: web
     name: portfolio-api
     runtime: docker
-    rootDir: server
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    # Paths from the repository root (no rootDir), so there is no doubt what they resolve against.
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    buildFilter:
+      paths:
+        - server/**
     # Free instances sleep after 15 idle minutes and lose every in-memory limit and cache; the
     # service must be always-on, so use a paid instance type.
     plan: starter
@@ -24,10 +27,13 @@ services:
         value: "1"
       - key: SESSION_COOKIE_SAMESITE
         value: lax
+      # Signup is opened later from the Superadmin panel (the panel's choice wins over this value).
       - key: SIGNUP_MODE
         value: closed
+      # Asked on creation: type false. Change it to true in the service's Environment tab once the
+      # legal pages are final (DEPLOYMENT.md §12).
       - key: LEGAL_POLICIES_APPROVED
-        value: "false"
+        sync: false
       - key: LOG_LEVEL
         value: info
       - key: JWT_SECRET
@@ -54,10 +60,15 @@ services:
   - type: web
     name: portfolio-web
     runtime: static
-    rootDir: client
-    buildCommand: npm ci && npm run build
-    staticPublishPath: dist
-    # The build reads ../server/contract and ../docs, which Render's checkout includes.
+    # No rootDir: the build also reads server/contract and docs, outside client/.
+    buildCommand: cd client && npm ci && npm run build
+    staticPublishPath: client/dist
+    # A legal-version bump in server/contract must rebuild the dashboard too.
+    buildFilter:
+      paths:
+        - client/**
+        - server/contract/**
+        - docs/**
     envVars:
       - key: NODE_VERSION
         value: "22"
@@ -76,7 +87,7 @@ services:
       - key: VITE_SITE_SUPPORT_EMAIL
         sync: false
       - key: VITE_SITE_HOSTING_PROVIDER
-        value: Render
+        value: Render Services, Inc.
       - key: VITE_SITE_BACKUP_PROVIDER
         sync: false
       - key: VITE_SITE_LOG_PROVIDER

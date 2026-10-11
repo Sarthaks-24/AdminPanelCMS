@@ -17,6 +17,28 @@ function inviteDigest(value) {
   return crypto.createHmac('sha256', pepper).update(`portfolio-invite:v1:${value}`).digest('hex');
 }
 
+// C1: a short, non-reversible fingerprint of the key invite codes are hashed with (the pepper, or JWT_SECRET where
+// the server would fall back to it). The server prints it at boot and shows it to superadmins; scripts/create-invites.js
+// compares it so a CLI run with a different pepper (e.g. a platform-generated one) cannot mint dead codes.
+function invitePepperFingerprint(env = process.env) {
+  const pepper = env.INVITE_CODE_PEPPER || (env.NODE_ENV === 'production' ? '' : env.JWT_SECRET);
+  if (!pepper) return null;
+  return crypto.createHash('sha256').update(`invite-pepper-fp:${pepper}`).digest('hex').slice(0, 8);
+}
+
+// Null when the CLI may mint, otherwise the reason it must not. Production requires --pepper-fp to match.
+function pepperFingerprintProblem(rawGiven, env = process.env) {
+  const actual = invitePepperFingerprint(env);
+  const given = rawGiven === undefined || rawGiven === null ? '' : String(rawGiven).trim().toLowerCase();
+  if (env.NODE_ENV !== 'production') {
+    return given && given !== actual ? `--pepper-fp ${given} does not match this environment's fingerprint ${actual}` : null;
+  }
+  const advice = 'Copy the fingerprint from the server\'s boot log line ("invite pepper fingerprint ...") and pass it as --pepper-fp <fp>, or mint invites from the Superadmin panel instead (recommended: it uses the server\'s own pepper).';
+  if (!given) return `In production, --pepper-fp is required. ${advice}`;
+  if (given !== actual) return `--pepper-fp ${given} does not match this environment's INVITE_CODE_PEPPER (fingerprint ${actual}): codes minted here would never be accepted by that server. ${advice}`;
+  return null;
+}
+
 async function issueEmailToken(userId, type) {
   if (!['verify', 'reset'].includes(type)) throw new TypeError('Unsupported email token type');
   const token = crypto.randomBytes(32).toString('base64url');
@@ -41,4 +63,4 @@ async function consumeEmailToken(token, type) {
   return consumed;
 }
 
-module.exports = { digest, inviteDigest, issueEmailToken, consumeEmailToken, MAX_OUTSTANDING };
+module.exports = { digest, inviteDigest, invitePepperFingerprint, pepperFingerprintProblem, issueEmailToken, consumeEmailToken, MAX_OUTSTANDING };

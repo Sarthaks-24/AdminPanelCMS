@@ -1,11 +1,9 @@
 // bcryptjs is pure JavaScript on the main thread. A login flood that rotates emails turns into a queue of
 // cost-10 compares that stalls every request in the process, /v1 included. This semaphore caps how many run at
 // once; a caller that finds it full gets `null` back and answers 503 `busy` instead of queueing more CPU work.
-const positiveInt = (value, fallback) => {
-  const number = Number(value);
-  return Number.isInteger(number) && number > 0 ? number : fallback;
-};
-const limit = () => positiveInt(process.env.BCRYPT_MAX_CONCURRENT, 4);
+const { envNumber } = require('./envNumber');
+
+const limit = () => envNumber('BCRYPT_MAX_CONCURRENT');
 
 let active = 0;
 

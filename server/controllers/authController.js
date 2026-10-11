@@ -16,7 +16,7 @@ const { withBcryptSlot } = require('../lib/bcryptGate');
 const { takeSignupSlot, releaseSignupSlot } = require('../lib/signupDomainCap');
 const { isStorageFull } = require('../lib/storageGuard');
 const turnstile = require('../lib/turnstile');
-const { burstAlert, positiveInt } = require('../lib/alerts');
+const { burstAlert } = require('../lib/alerts');
 const { ipKeyGenerator } = require('express-rate-limit');
 const logger = require('../lib/logger');
 const { envNumber } = require('../lib/envNumber');
@@ -38,7 +38,7 @@ const SIGNUP_CLOSED = { success: false, error: 'signup_unavailable', message: 'R
 // so a global lock protects nothing and only hands an attacker a switch. Crossing INVITE_FAILURE_LIMIT per hour
 // raises an alert instead, and the per-/48 guard in lib/inviteGuard.js still stops any one source.
 const inviteFailures = burstAlert('invite_failures_high', {
-  threshold: () => positiveInt(process.env.INVITE_FAILURE_LIMIT, 2000),
+  threshold: () => envNumber('INVITE_FAILURE_LIMIT'),
   windowMs: 60 * 60 * 1000,
 });
 const inviteSource = (req) => ipKeyGenerator(req.ip, 48);

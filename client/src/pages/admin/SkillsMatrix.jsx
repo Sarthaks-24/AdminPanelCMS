@@ -343,11 +343,11 @@ export default function SkillsMatrix() {
       if (editingId) {
         const res = await api.put(`/skills/${editingId}`, { ...form, visibility });
         setSkills((prev) => prev.map((s) => (s._id === editingId ? res.data : s)));
-        setSuccessMsg(`Skill "${form.name}" updated.`);
+        setSuccessMsg(`Skill "${form.name}" updated${visibility === 'draft' ? ' as a draft' : ''}.`);
       } else {
         const res = await api.post('/skills', { ...form, visibility });
         setSkills((prev) => [...prev, res.data]);
-        setSuccessMsg(`Skill "${form.name}" created.`);
+        setSuccessMsg(`Skill "${form.name}" created${visibility === 'draft' ? ' as a draft' : ''}.`);
       }
       setShowModal(false);
       setTimeout(() => setSuccessMsg(null), 3000);
@@ -391,7 +391,7 @@ export default function SkillsMatrix() {
       const added = Array.isArray(res.data) ? res.data : [res.data];
       setSkills((prev) => [...prev, ...added]);
       setBatchInput('');
-      setSuccessMsg(`Added ${added.length} ${added.length === 1 ? 'skill' : 'skills'} to “${batchCategory}”${visibility === 'published' ? ', published' : ' as drafts'}.`);
+      setSuccessMsg(`Added ${added.length} ${added.length === 1 ? 'skill' : 'skills'} to “${batchCategory}”${visibility === 'published' ? ', published' : added.length === 1 ? ' as a draft' : ' as drafts'}.`);
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err) {
       setErrorMsg(apiErrorMessage(err, 'Could not add those skills.'));
