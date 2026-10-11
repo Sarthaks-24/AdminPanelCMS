@@ -11,11 +11,6 @@ const ENDPOINTS = [
   { key: 'fs', path: '/v1/fs' },
 ];
 
-const TOKEN_KINDS = [
-  { value: 'pk', label: 'pk_live', title: 'A publishable key: safe to ship in a browser bundle, limited to origins you allow.' },
-  { value: 'sk', label: 'sk_live', title: 'A secret key: for your own server only, never shipped to a browser.' },
-];
-
 function Checkbox({ checked, onChange, children, dim = false, id }) {
   return (
     <label htmlFor={id} className="group flex cursor-pointer items-center gap-2.5 rounded-md py-[0.1875rem] pl-0.5 pr-2 hover:bg-t-surface-hi/60">
@@ -76,7 +71,6 @@ function firstFile(node) {
 export default function ScopeDemo() {
   const [scope, setScope] = useState(buildDefaultScope);
   const [endpoint, setEndpoint] = useState('projects');
-  const [tokenType, setTokenType] = useState('pk');
   const [openFile, setOpenFile] = useState(null);
 
   const response = useMemo(() => scopedResponse(endpoint, scope), [endpoint, scope]);
@@ -103,12 +97,12 @@ export default function ScopeDemo() {
   }, 0);
   const isDefault = JSON.stringify(scope) === JSON.stringify(buildDefaultScope());
 
-  const fsTree = endpoint === 'fs' && response.status === 200 ? response.body : null;
+  const fsTree = endpoint === 'fs' && response.status === 200 ? response.body.data : null;
   const shownFile = fsTree ? (openFile && findByPath(fsTree, openFile)) || firstFile(fsTree) : null;
 
   return (
     <section aria-labelledby="demo-title" className="overflow-hidden rounded-xl border border-t-border bg-t-surface">
-      {/* The app whose grant is being edited, and which of its two token kinds is calling. */}
+      {/* The App whose grant is being edited. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-t-border bg-t-surface-hi/50 px-4 py-3">
         <h2 id="demo-title" className="text-[0.875rem] font-semibold text-t-text">
           App <span className="font-mono-code font-medium text-t-accent">portfolio-site</span>
@@ -124,35 +118,16 @@ export default function ScopeDemo() {
               <RotateCcw size={13} aria-hidden="true" />Reset
             </button>
           )}
-          {/* Plain toggle buttons: a radiogroup role would promise arrow-key navigation this does not implement. */}
-          <div className="flex items-center gap-2">
-            <span id="token-kind-label" className="text-[0.75rem] text-t-dim">Called with</span>
-            <div className="flex rounded-lg border border-t-border p-0.5">
-              {TOKEN_KINDS.map(({ value, label, title }) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={tokenType === value}
-                  aria-describedby="token-kind-label"
-                  title={title}
-                  onClick={() => setTokenType(value)}
-                  className={`rounded-md px-2.5 py-1 font-mono-code text-[0.75rem] transition ${tokenType === value ? 'bg-t-accent text-t-on-accent' : 'text-t-muted hover:text-t-text'}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
       <div className="grid lg:grid-cols-[17rem_1fr]">
         {/* ── The grant ─────────────────────────────────────────────── */}
         <div className="border-b border-t-border p-4 lg:border-b-0 lg:border-r">
-          <h3 className="text-[0.8125rem] font-semibold text-t-text">What this app may read</h3>
+          <h3 className="text-[0.8125rem] font-semibold text-t-text">What this App may read</h3>
           <p className="mt-1.5 mb-3 text-[0.8125rem] leading-5 text-t-muted">
-            Untick a field and watch it vanish from the response on the right — that response is everything the
-            website holding this key can ever see.
+            Untick a field and watch it vanish from the response on the right. That response is everything the
+            site holding this App&rsquo;s key can ever see.
           </p>
           <div className="space-y-3">
             {SECTIONS.map((section) => (
@@ -208,7 +183,7 @@ export default function ScopeDemo() {
             <span className={response.status === 200 ? 'text-t-accent2' : 'text-t-danger'}>
               {response.status} {response.status === 200 ? 'OK' : 'Forbidden'}
             </span>
-            {response.status === 200 && responseHeaders(tokenType, etag).map(([name, value]) => (
+            {response.status === 200 && responseHeaders(etag).map(([name, value]) => (
               <span key={name} className="text-t-dim"><span className="text-t-muted">{name}:</span> {value}</span>
             ))}
           </div>
@@ -224,7 +199,7 @@ export default function ScopeDemo() {
           {response.status !== 200 ? (
             <div className="px-4 pb-4">
               <p className="mb-2 text-[0.8125rem] leading-6 text-t-muted">
-                The section is off, so the endpoint is closed to this app. Not an empty array — a refusal, with the reason in it.
+                The section is off, so the endpoint is closed to this App. Not an empty array: a refusal, with the reason and a request id in it.
               </p>
               <JsonBlock value={response.body} className="rounded-lg border border-t-danger/30" />
             </div>
@@ -260,9 +235,9 @@ export default function ScopeDemo() {
       </div>
 
       <p className="border-t border-t-border px-4 py-2.5 text-[0.75rem] leading-5 text-t-dim">
-        A demo, not a live API: the content is invented, and the scoping and file tree are a faithful
-        reimplementation of the server&rsquo;s rules rather than the server itself. Field names, the 403 body and the
-        cache headers are the real ones; the ETag is a stand-in. The{' '}
+        A demo, not a live call: the content is invented, and the scoping and file tree are a faithful
+        reimplementation of the server&rsquo;s rules rather than the server itself. Field names, the response
+        envelope, the 403 body and the cache headers are the real ones; the ETag and request id are stand-ins. The{' '}
         <Link to="/docs/api" className="text-t-muted underline decoration-t-dim underline-offset-2 hover:text-t-text">API reference</Link>{' '}
         documents what a real call returns.
       </p>

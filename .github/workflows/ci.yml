@@ -1,0 +1,79 @@
+# Runs on every push and pull request. Council 2026-10-11, backend A1 / master plan Phase 0 item 3.
+# server: npm ci, npm test (vitest + mongodb-memory-server), npm run lint:security
+# client: npm ci, npm run lint (oxlint), npm run build with VITE_MODE=prod
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    name: server (test + lint:security)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      # mongodb-memory-server downloads a MongoDB binary on first run. Pin the download
+      # directory so the cache below always covers it (without this it may land in node_modules/.cache).
+      - name: Point mongodb-memory-server at a cacheable directory
+        run: echo "MONGOMS_DOWNLOAD_DIR=$HOME/.cache/mongodb-binaries" >> "$GITHUB_ENV"
+
+      - name: Cache MongoDB binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('server/package-lock.json') }}
+          restore-keys: |
+            mongodb-binaries-${{ runner.os }}-
+
+      - run: npm ci
+
+      - name: Tests (in-memory MongoDB, never a real database)
+        run: npm test
+
+      - name: Owner-scope lint
+        run: npm run lint:security
+
+  client:
+    name: client (lint + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: client
+    env:
+      # A prod-mode build is what gets deployed; without VITE_PROD_API_URL it falls back to /api,
+      # which is fine for a build check (the deploy host sets the real value).
+      VITE_MODE: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run build

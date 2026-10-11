@@ -98,6 +98,7 @@ async function seedContent(models, user) {
     terminalHost: 'workstation',
     bootGreeting: 'PORTFOLIO POST INIT',
     metrics: [{ label: 'Latency', value: '<10ms', description: 'Global p99' }],
+    configured: true,
   });
 
   const project = await models.Project.create({

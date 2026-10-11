@@ -4,20 +4,67 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%232563eb%27/%3E%3Cpath d=%27M9 22V10h7a4 4 0 010 8h-4%27 fill=%27none%27 stroke=%27white%27 stroke-width=%273%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Portfolio Control</title>
+    <!-- The product name here is a static copy of SITE.name in src/content/site.js; keep them in step. -->
+    <title>Portfolio Control: your portfolio content as an API</title>
     <script>
       // Apply the saved theme before first paint so the page never flashes the default one.
       try { var t = localStorage.getItem('admin_dashboard_theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}
     </script>
-    <meta name="description" content="A self-hosted headless CMS for developer-portfolio content. Write your profile, projects and skills once, then give each site a read-only key scoped to the sections and fields you grant it." />
+    <meta name="description" content="Write your profile, projects and skills once. Every site you build reads them from one JSON API, and each site sees only what you grant it." />
+    <!-- Social cards. OWNER: replace [your-domain] with the public host once it exists. The image is an
+         SVG because no raster asset exists yet; some unfurlers (notably Facebook and LinkedIn) ignore SVG
+         and will show a text-only card until a PNG is added at the same path. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Portfolio Control" />
+    <meta property="og:title" content="Portfolio Control: your portfolio content as an API" />
+    <meta property="og:description" content="Write your profile, projects and skills once. Every site you build reads them from one JSON API, and each site sees only what you grant it." />
+    <meta property="og:url" content="https://[your-domain]/" />
+    <meta property="og:image" content="https://[your-domain]/og.svg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Portfolio Control: one content pool; every site you build reads only the slice you grant it." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Portfolio Control: your portfolio content as an API" />
+    <meta name="twitter:description" content="Write your profile, projects and skills once. Every site you build reads them from one JSON API, and each site sees only what you grant it." />
+    <meta name="twitter:image" content="https://[your-domain]/og.svg" />
     <meta name="theme-color" content="#0c1017" />
     <!-- Fonts: Bricolage Grotesque (titles), Geist (interface), Geist Mono (slugs and keys) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+      /* The default theme's values, on a selector weaker than the real theme blocks in index.css,
+         so the static shell below is painted in the right colours before the stylesheet arrives and
+         is overridden the moment it does. */
+      html {
+        --theme-bg: #0c1017;
+        --theme-accent: #2563eb;
+        --theme-accent-bright: #3b82f6;
+        --theme-on-accent: #ffffff;
+        --theme-text: #f1f5f9;
+        --theme-text-muted: #94a3b8;
+        --theme-text-dim: #758398;
+      }
+      #root > .static-hero { max-width: 48rem; margin: 0 auto; padding: 5rem 1rem 2.5rem; font-family: Geist, "Segoe UI", system-ui, sans-serif; }
+      #root > .static-hero p { margin: 0; color: var(--theme-text-muted); line-height: 1.6; }
+      #root > .static-hero h1 { margin: 0.75rem 0 0; font-family: "Bricolage Grotesque", Geist, "Segoe UI", system-ui, sans-serif; font-size: clamp(2.25rem, 6vw, 3.25rem); line-height: 1.03; letter-spacing: -0.03em; font-weight: 600; color: var(--theme-text); text-wrap: balance; }
+      #root > .static-hero h1 span { display: block; color: var(--theme-text-muted); }
+      #root > .static-hero .lede { margin-top: 1.25rem; max-width: 36rem; font-size: 1.0625rem; }
+      #root > .static-hero a { display: inline-block; margin-top: 1.75rem; padding: 0.625rem 1.25rem; border-radius: 0.5rem; background: var(--theme-accent); color: var(--theme-on-accent); font-size: 0.875rem; font-weight: 600; text-decoration: none; }
+      #root > .static-hero a:hover { background: var(--theme-accent-bright); }
+    </style>
   </head>
   <body class="antialiased" style="background-color: var(--theme-bg); color: var(--theme-text);">
-    <div id="root"></div>
+    <!-- A static copy of the hero for crawlers, unfurlers and the first paint. React replaces it on
+         mount (src/main.jsx); the copy mirrors src/content/site.js and src/pages/public/Landing.jsx. -->
+    <div id="root">
+      <main class="static-hero">
+        <p>Your portfolio content, as an API</p>
+        <h1>One content pool.<span>Every site you build reads only the slice you grant it.</span></h1>
+        <p class="lede">Add your profile, projects and experience once. Each site you build gets its own key, and each key reads only the sections and fields you choose.</p>
+        <a href="/signup">Create a free account</a>
+      </main>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

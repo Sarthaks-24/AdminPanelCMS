@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "oxlint",
+    "lint": "oxlint && node scripts/check-field-parity.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

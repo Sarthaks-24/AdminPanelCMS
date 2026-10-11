@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../../api/client';
+import { apiErrorMessage } from '../../lib/apiErrors';
 import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import {
   Plus,
@@ -18,8 +19,8 @@ import {
   ListChecks,
 } from 'lucide-react';
 
-const CATEGORIES = [
-  'All',
+// Suggestions only: categories are free text (≤60 chars). The server lists the owner's own.
+const SUGGESTED_CATEGORIES = [
   'Languages',
   'Frontend',
   'Backend & Systems',
@@ -35,6 +36,7 @@ export default function SkillsMatrix() {
   const [skills, setSkills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
+  const [knownCategories, setKnownCategories] = useState(SUGGESTED_CATEGORIES);
   const [searchQuery, setSearchQuery] = useState('');
   const [successMsg, setSuccessMsg] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -46,7 +48,7 @@ export default function SkillsMatrix() {
   const [bulkSaving, setBulkSaving] = useState(false);
 
   // Batch Override Form State
-  const [bulkCategory, setBulkCategory] = useState('KEEP');
+  const [bulkCategory, setBulkCategory] = useState('');
   const [bulkProficiency, setBulkProficiency] = useState('KEEP');
   const [bulkApplyExp, setBulkApplyExp] = useState(false);
   const [bulkExpValue, setBulkExpValue] = useState(1);
@@ -56,7 +58,7 @@ export default function SkillsMatrix() {
   const [editableSkills, setEditableSkills] = useState([]);
 
   // Quick Batch Entry State
-  const [batchCategory, setBatchCategory] = useState('Backend & Systems');
+  const [batchCategory, setBatchCategory] = useState('');
   const [batchInput, setBatchInput] = useState('');
   const [batchSaving, setBatchSaving] = useState(false);
 
@@ -66,7 +68,7 @@ export default function SkillsMatrix() {
   const [modalSaving, setModalSaving] = useState(false);
   const [form, setForm] = useState({
     name: '',
-    category: 'Backend & Systems',
+    category: '',
     proficiency: 'Proficient',
     yearsOfExperience: 1,
     featured: false,
@@ -79,7 +81,7 @@ export default function SkillsMatrix() {
       const list = Array.isArray(res.data) ? res.data : res.data.skills || [];
       setSkills(list);
     } catch (err) {
-      setErrorMsg('Failed to load skills matrix: ' + (err.response?.data?.message || err.message));
+      setErrorMsg(apiErrorMessage(err, 'Failed to load skills matrix.'));
     } finally {
       setLoading(false);
     }
@@ -87,7 +89,14 @@ export default function SkillsMatrix() {
 
   useEffect(() => {
     fetchSkills();
+    api.get('/skills/categories')
+      .then(({ data }) => { if (Array.isArray(data?.categories) && data.categories.length) setKnownCategories(data.categories); })
+      .catch(() => {});
   }, []);
+
+  // Tabs show the categories you actually use; the datalist also suggests ones you might.
+  const CATEGORIES = useMemo(() => ['All', ...Array.from(new Set(skills.map((s) => s.category).filter(Boolean))).sort((a, b) => a.localeCompare(b))], [skills]);
+  const categoryOptions = useMemo(() => Array.from(new Set([...knownCategories, ...skills.map((s) => s.category).filter(Boolean)])).sort((a, b) => a.localeCompare(b)), [knownCategories, skills]);
 
   // Multi-Selection Handlers
   const toggleSelectSkill = (id, e) => {
@@ -147,7 +156,7 @@ export default function SkillsMatrix() {
     try {
       if (bulkTab === 'batch') {
         const updates = {};
-        if (bulkCategory !== 'KEEP') updates.category = bulkCategory;
+        if (bulkCategory.trim()) updates.category = bulkCategory.trim();
         if (bulkProficiency !== 'KEEP') updates.proficiency = bulkProficiency;
         if (bulkApplyExp) updates.yearsOfExperience = Number(bulkExpValue);
         if (bulkFeatured === 'FEATURE') updates.featured = true;
@@ -184,7 +193,7 @@ export default function SkillsMatrix() {
       setSelectedIds([]);
       setTimeout(() => setSuccessMsg(null), 3500);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error updating selected skills');
+      setErrorMsg(apiErrorMessage(err, 'Error updating selected skills'));
     } finally {
       setBulkSaving(false);
     }
@@ -206,7 +215,7 @@ export default function SkillsMatrix() {
       setSuccessMsg(`${featured ? 'Featured' : 'Unfeatured'} ${updatedList.length} skills.`);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error updating featured status');
+      setErrorMsg(apiErrorMessage(err, 'Error updating featured status'));
     } finally {
       setBulkSaving(false);
     }
@@ -222,7 +231,7 @@ export default function SkillsMatrix() {
       setSuccessMsg(`Published ${selectedIds.length} skills.`);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error publishing selected skills');
+      setErrorMsg(apiErrorMessage(err, 'Error publishing selected skills'));
     } finally {
       setBulkSaving(false);
     }
@@ -236,7 +245,7 @@ export default function SkillsMatrix() {
       setSuccessMsg(`${skill.name} moved to ${visibility}.`);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error changing visibility');
+      setErrorMsg(apiErrorMessage(err, 'Error changing visibility'));
     }
   };
 
@@ -254,7 +263,7 @@ export default function SkillsMatrix() {
       setSelectedIds([]);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error deleting selected skills');
+      setErrorMsg(apiErrorMessage(err, 'Error deleting selected skills'));
     } finally {
       setBulkSaving(false);
     }
@@ -278,7 +287,7 @@ export default function SkillsMatrix() {
     setEditingId(null);
     setForm({
       name: '',
-      category: cat && cat !== 'All' ? cat : 'Backend & Systems',
+      category: cat && cat !== 'All' ? cat : '',
       proficiency: 'Proficient',
       yearsOfExperience: 1,
       featured: false,
@@ -302,24 +311,25 @@ export default function SkillsMatrix() {
 
   const handleModalSubmit = async (e) => {
     e.preventDefault();
+    const visibility = e.nativeEvent?.submitter?.value === 'draft' ? 'draft' : 'published';
     setModalSaving(true);
     setErrorMsg(null);
     setSuccessMsg(null);
 
     try {
       if (editingId) {
-        const res = await api.put(`/skills/${editingId}`, form);
+        const res = await api.put(`/skills/${editingId}`, { ...form, visibility });
         setSkills((prev) => prev.map((s) => (s._id === editingId ? res.data : s)));
         setSuccessMsg(`Skill "${form.name}" updated.`);
       } else {
-        const res = await api.post('/skills', form);
+        const res = await api.post('/skills', { ...form, visibility });
         setSkills((prev) => [...prev, res.data]);
         setSuccessMsg(`Skill "${form.name}" created.`);
       }
       setShowModal(false);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error saving skill');
+      setErrorMsg(apiErrorMessage(err, 'Error saving skill'));
     } finally {
       setModalSaving(false);
     }
@@ -327,6 +337,7 @@ export default function SkillsMatrix() {
 
   const handleBatchSubmit = async (e) => {
     e.preventDefault();
+    const visibility = e.nativeEvent?.submitter?.value === 'draft' ? 'draft' : 'published';
     if (!batchInput.trim()) return;
     setBatchSaving(true);
     setErrorMsg(null);
@@ -348,6 +359,7 @@ export default function SkillsMatrix() {
       proficiency: 'Proficient',
       yearsOfExperience: 1,
       featured: false,
+      visibility,
       order: skills.length + i,
     }));
 
@@ -356,10 +368,10 @@ export default function SkillsMatrix() {
       const added = Array.isArray(res.data) ? res.data : [res.data];
       setSkills((prev) => [...prev, ...added]);
       setBatchInput('');
-      setSuccessMsg(`Batch created ${added.length} skills in category "${batchCategory}".`);
+      setSuccessMsg(`Added ${added.length} ${added.length === 1 ? 'skill' : 'skills'} to “${batchCategory}”${visibility === 'published' ? ', published' : ' as drafts'}.`);
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error batch inserting skills');
+      setErrorMsg(apiErrorMessage(err, 'Error batch inserting skills'));
     } finally {
       setBatchSaving(false);
     }
@@ -374,7 +386,7 @@ export default function SkillsMatrix() {
       setSuccessMsg(`Skill "${name}" deleted.`);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error deleting skill');
+      setErrorMsg(apiErrorMessage(err, 'Error deleting skill'));
     }
   };
 
@@ -441,6 +453,8 @@ export default function SkillsMatrix() {
         </div>
       )}
 
+      <datalist id="skill-category-options">{categoryOptions.map((c) => <option key={c} value={c} />)}</datalist>
+
       {/* Quick Batch Entry Strip */}
       <div className="p-4 rounded bg-t-surface border border-t-border">
         <div className="flex items-center gap-2 mb-2">
@@ -448,22 +462,22 @@ export default function SkillsMatrix() {
           <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted">
             Add several skills at once
           </span>
-          <span className="text-[10px] font-mono text-t-dim">
+          <span className="text-xs font-mono text-t-dim">
             (separate with commas)
           </span>
         </div>
         <form onSubmit={handleBatchSubmit} className="flex flex-col sm:flex-row gap-3">
-          <select
+          <input
+            list="skill-category-options"
+            required
+            maxLength={60}
             value={batchCategory}
             onChange={(e) => setBatchCategory(e.target.value)}
+            placeholder="Category, e.g. Frontend"
+            aria-label="Category"
+            autoComplete="off"
             className="px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none sm:w-56"
-          >
-            {CATEGORIES.filter((c) => c !== 'All').map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
+          />
           <input
             type="text"
             value={batchInput}
@@ -473,10 +487,21 @@ export default function SkillsMatrix() {
           />
           <button
             type="submit"
+            name="visibility"
+            value="draft"
             disabled={batchSaving || !batchInput.trim()}
-            className="px-4 py-2 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs shadow-sm disabled:opacity-40 cursor-pointer"
+            className="px-3 py-2 rounded border border-t-border-hi text-t-text font-semibold text-xs hover:bg-t-surface-hi disabled:opacity-40"
           >
-            {batchSaving ? 'Adding...' : 'Batch Add'}
+            Add as drafts
+          </button>
+          <button
+            type="submit"
+            name="visibility"
+            value="published"
+            disabled={batchSaving || !batchInput.trim()}
+            className="px-4 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs shadow-sm disabled:opacity-40"
+          >
+            {batchSaving ? 'Adding…' : 'Add and publish'}
           </button>
         </form>
       </div>
@@ -524,7 +549,7 @@ export default function SkillsMatrix() {
               {isAllFilteredSelected ? (
                 <CheckSquare size={16} className="text-t-accent" />
               ) : isSomeFilteredSelected ? (
-                <div className="w-4 h-4 rounded bg-t-accent flex items-center justify-center text-t-on-accent text-[10px] font-bold leading-none">
+                <div className="w-4 h-4 rounded bg-t-accent flex items-center justify-center text-t-on-accent text-xs font-bold leading-none">
                   -
                 </div>
               ) : (
@@ -538,7 +563,7 @@ export default function SkillsMatrix() {
             </button>
 
             {selectedIds.length > 0 && (
-              <span className="text-[11px] font-mono text-t-accent ml-2 pl-2 border-l border-t-border-hi">
+              <span className="text-xs font-mono text-t-accent ml-2 pl-2 border-l border-t-border-hi">
                 {selectedIds.length} skill{selectedIds.length > 1 ? 's' : ''} selected
               </span>
             )}
@@ -608,6 +633,8 @@ export default function SkillsMatrix() {
       {/* Skills Grid */}
       {loading ? (
         <ListSkeleton label="Loading skills" />
+      ) : skills.length === 0 ? (
+        <EmptyState title="No skills yet" hint="Add a few above, separated by commas. They are published as you save, so Apps see them straight away." />
       ) : filteredSkills.length === 0 ? (
         <EmptyState title="No skills match" hint="Adjust the category or search filters to see more." />
       ) : (
@@ -638,7 +665,7 @@ export default function SkillsMatrix() {
                         <span className="text-sm font-bold text-t-text block truncate">
                           {skill.name}
                         </span>
-                        <span className="text-[10px] font-mono text-t-muted">
+                        <span className="text-xs font-mono text-t-muted">
                           {skill.category}
                         </span>
                       </div>
@@ -660,7 +687,7 @@ export default function SkillsMatrix() {
                     </button>
                   </div>
 
-                  <div className="mt-3 flex items-center gap-2 text-[11px] font-mono pl-6">
+                  <div className="mt-3 flex items-center gap-2 text-xs font-mono pl-6">
                     <span className="px-2 py-0.5 rounded bg-t-bg border border-t-border-hi text-t-accent-br">
                       {skill.proficiency}
                     </span>
@@ -671,13 +698,13 @@ export default function SkillsMatrix() {
                 </div>
 
                 <div className="mt-3 pt-2.5 border-t border-t-border flex items-center justify-between pl-6">
-                  <span className="text-[10px] font-mono text-t-dim">
+                  <span className="text-xs font-mono text-t-dim">
                     {skill.featured ? 'Featured' : 'Not featured'} · {skill.visibility || 'draft'}
                   </span>
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleVisibilityToggle(skill)}
-                      className="px-1.5 py-1 text-[9px] uppercase font-mono border border-t-border-hi rounded text-t-muted hover:text-t-accent cursor-pointer"
+                      className="px-1.5 py-1 text-xs uppercase font-mono border border-t-border-hi rounded text-t-muted hover:text-t-accent cursor-pointer"
                       title={`Move to ${skill.visibility === 'published' ? 'draft' : 'published'}`}
                     >
                       {skill.visibility === 'published' ? 'Unpublish' : 'Publish'}
@@ -754,7 +781,7 @@ export default function SkillsMatrix() {
 
             {/* Selected Skills Chips */}
             <div className="p-3 bg-t-bg/60 border-b border-t-border">
-              <div className="text-[11px] font-mono text-t-muted mb-1.5 flex items-center justify-between">
+              <div className="text-xs font-mono text-t-muted mb-1.5 flex items-center justify-between">
                 <span>Selected Skills in Batch:</span>
                 <span className="text-t-dim">Click &times; to deselect</span>
               </div>
@@ -764,7 +791,7 @@ export default function SkillsMatrix() {
                   .map((skill) => (
                     <span
                       key={skill._id}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-t-surface-hi border border-t-border-hi text-t-muted text-[11px] font-mono"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-t-surface-hi border border-t-border-hi text-t-muted text-xs font-mono"
                     >
                       <span>{skill.name}</span>
                       <button
@@ -793,18 +820,16 @@ export default function SkillsMatrix() {
                       <label className="block text-xs font-mono text-t-muted mb-1">
                         Category
                       </label>
-                      <select
+                      <input
+                        list="skill-category-options"
+                        maxLength={60}
                         value={bulkCategory}
                         onChange={(e) => setBulkCategory(e.target.value)}
+                        placeholder="Keep existing category"
+                        aria-label="Category (leave empty to keep)"
+                        autoComplete="off"
                         className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
-                      >
-                        <option value="KEEP">[ Keep Existing Category ]</option>
-                        {CATEGORIES.filter((c) => c !== 'All').map((cat) => (
-                          <option key={cat} value={cat}>
-                            Set to: {cat}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
 
                     <div>
@@ -851,7 +876,7 @@ export default function SkillsMatrix() {
                         value={bulkExpValue}
                         onChange={(e) => setBulkExpValue(parseFloat(e.target.value) || 0)}
                         placeholder="e.g. 2.5"
-                        className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none disabled:opacity-30 disabled:bg-[#111]"
+                        className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none disabled:opacity-30 disabled:bg-t-surface-hi"
                       />
                     </div>
 
@@ -885,7 +910,7 @@ export default function SkillsMatrix() {
                       >
                         <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                           <div className="sm:col-span-4">
-                            <label className="text-[10px] text-t-dim block mb-0.5">Skill Name</label>
+                            <label className="text-xs text-t-dim block mb-0.5">Skill Name</label>
                             <input
                               type="text"
                               value={item.name}
@@ -897,24 +922,21 @@ export default function SkillsMatrix() {
                           </div>
 
                           <div className="sm:col-span-3">
-                            <label className="text-[10px] text-t-dim block mb-0.5">Category</label>
-                            <select
+                            <label className="text-xs text-t-dim block mb-0.5">Category</label>
+                            <input
+                              list="skill-category-options"
+                              required
+                              maxLength={60}
                               value={item.category}
-                              onChange={(e) =>
-                                handleEditableSkillChange(item._id, 'category', e.target.value)
-                              }
+                              onChange={(e) => handleEditableSkillChange(item._id, 'category', e.target.value)}
+                              aria-label={`Category for ${item.name}`}
+                              autoComplete="off"
                               className="w-full px-2 py-1.5 rounded bg-t-surface border border-t-border-hi text-t-text text-xs outline-none focus:border-t-accent"
-                            >
-                              {CATEGORIES.filter((c) => c !== 'All').map((cat) => (
-                                <option key={cat} value={cat}>
-                                  {cat}
-                                </option>
-                              ))}
-                            </select>
+                            />
                           </div>
 
                           <div className="sm:col-span-2">
-                            <label className="text-[10px] text-t-dim block mb-0.5">Proficiency</label>
+                            <label className="text-xs text-t-dim block mb-0.5">Proficiency</label>
                             <select
                               value={item.proficiency}
                               onChange={(e) =>
@@ -931,7 +953,7 @@ export default function SkillsMatrix() {
                           </div>
 
                           <div className="sm:col-span-2">
-                            <label className="text-[10px] text-t-dim block mb-0.5">Exp (Yrs)</label>
+                            <label className="text-xs text-t-dim block mb-0.5">Exp (Yrs)</label>
                             <input
                               type="number"
                               min="0"
@@ -1009,7 +1031,7 @@ export default function SkillsMatrix() {
       {/* Modal for Add / Edit Single Skill */}
       {showModal && (
         <div className="fixed inset-0 bg-t-bg/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded bg-t-surface border border-t-border shadow-2xl overflow-hidden">
+          <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded bg-t-surface border border-t-border shadow-2xl">
             <div className="p-4 border-b border-t-border flex items-center justify-between bg-t-bg">
               <span className="text-xs font-mono font-bold text-t-text uppercase tracking-wider">
                 {editingId ? 'Edit Skill Competency' : 'Add New Skill Competency'}
@@ -1036,18 +1058,18 @@ export default function SkillsMatrix() {
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-t-muted mb-1">Category *</label>
-                <select
+                <label htmlFor="skill-category" className="block text-xs font-mono text-t-muted mb-1">Category *</label>
+                <input
+                  id="skill-category"
+                  list="skill-category-options"
+                  required
+                  maxLength={60}
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  placeholder="e.g. Frontend"
+                  autoComplete="off"
                   className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
-                >
-                  {CATEGORIES.filter((c) => c !== 'All').map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1101,12 +1123,23 @@ export default function SkillsMatrix() {
                 </button>
                 <button
                   type="submit"
+                  name="visibility"
+                  value="draft"
                   disabled={modalSaving}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs shadow cursor-pointer disabled:opacity-50"
-                >
-                  <Save size={13} />
-                  <span>{modalSaving ? 'Saving...' : 'Save Skill'}</span>
-                </button>
+                  className="px-3.5 py-1.5 rounded border border-t-border-hi text-xs font-semibold text-t-text hover:bg-t-surface-hi disabled:opacity-50"
+                  >
+                    Save as draft
+                  </button>
+                  <button
+                  type="submit"
+                  name="visibility"
+                  value="published"
+                  disabled={modalSaving}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs shadow disabled:opacity-50"
+                  >
+                    <Save size={13} aria-hidden="true" />
+                    <span>{modalSaving ? 'Saving…' : 'Save and publish'}</span>
+                  </button>
               </div>
             </form>
           </div>

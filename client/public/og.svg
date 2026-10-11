@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Portfolio Control: your portfolio content as an API</title>
+  <desc id="desc">Write your profile, projects and skills once. Every site you build reads them from one JSON API, and each site sees only what you grant it.</desc>
+  <rect width="1200" height="630" fill="#0c1017"/>
+  <!-- The wordmark: a pool and the two narrower views drawn from it. -->
+  <g transform="translate(96 96)">
+    <rect x="0" y="0" width="88" height="28" rx="8" fill="#2563eb"/>
+    <rect x="0" y="40" width="52" height="16" rx="6" fill="#758398"/>
+    <rect x="0" y="64" width="72" height="16" rx="6" fill="#758398"/>
+  </g>
+  <text x="96" y="268" fill="#94a3b8" font-family="Geist, 'Segoe UI', system-ui, sans-serif" font-size="30">Your portfolio content, as an API</text>
+  <text x="96" y="352" fill="#f1f5f9" font-family="'Bricolage Grotesque', Geist, 'Segoe UI', system-ui, sans-serif" font-size="72" font-weight="600" letter-spacing="-2">One content pool.</text>
+  <text x="96" y="432" fill="#94a3b8" font-family="'Bricolage Grotesque', Geist, 'Segoe UI', system-ui, sans-serif" font-size="46" font-weight="500" letter-spacing="-1">Every site you build reads only the slice you grant it.</text>
+  <text x="96" y="534" fill="#758398" font-family="Geist, 'Segoe UI', system-ui, sans-serif" font-size="26">Free during the beta · read-only JSON API · export or delete your data any time</text>
+  <text x="1104" y="534" text-anchor="end" fill="#f1f5f9" font-family="Geist, 'Segoe UI', system-ui, sans-serif" font-size="28" font-weight="600">Portfolio Control</text>
+</svg>

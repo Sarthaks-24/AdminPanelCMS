@@ -2,16 +2,16 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import PublicShell from '../../components/public/PublicShell';
 import { LICENSE } from '../../content/docs';
-import { REPO_URL } from '../../content/site';
+import { REPO_URL, SITE } from '../../content/site';
 
 // Plain-language notes beside the text. The licence itself is the authority; these are a reading aid.
 const PERMITS = [
-  'Use it for anything, including commercially.',
+  'Use the source for anything, including commercially.',
   'Change it, fork it, rename it, keep your changes private.',
   'Bundle it into something you sell.',
 ];
 const REQUIRES = ['Keep the copyright line and this licence text in copies you distribute.'];
-const WITHHOLDS = ['Any warranty. If it loses your data, that is on you.', 'Any liability on the author.'];
+const WITHHOLDS = ['Any warranty on the source. The hosted service has its own terms.', 'Any liability on the author.'];
 
 function Column({ title, items, tone }) {
   return (
@@ -31,10 +31,11 @@ export default function LicensePage() {
     <PublicShell>
       <div className="mx-auto max-w-4xl px-4 pb-8 pt-14 sm:px-6">
         <div className="page-enter">
-          <h1 className="font-display text-[2.25rem] leading-[1.05] tracking-[-0.03em] sm:text-[2.75rem]">{LICENSE.name}</h1>
+          <h1 className="text-balance font-display text-[2.25rem] leading-[1.05] tracking-[-0.03em] sm:text-[2.75rem]">{LICENSE.name}</h1>
           <p className="mt-4 max-w-2xl text-[1.0625rem] leading-7 text-t-muted">
-            The whole project is under one permissive licence. You may run it, change it and ship it; you keep the
-            notice, and you get no warranty.
+            {SITE.name} is run as a service by {SITE.owner}. Its source is published under one permissive licence:
+            you may read it, change it and ship it; you keep the notice, and you get no warranty. Your use of the
+            hosted service is covered by the <Link to="/legal/terms" className="text-t-accent hover:underline">terms</Link>, not by this licence.
           </p>
 
           <div className="mt-10 grid gap-8 sm:grid-cols-3">
@@ -54,7 +55,7 @@ export default function LicensePage() {
               the LICENSE file
             </a>{' '}
             itself, so it cannot disagree with the repository. The{' '}
-            <Link to="/readme" className="text-t-accent hover:underline">readme</Link> covers what the project does.
+            <Link to="/" className="text-t-accent hover:underline">front page</Link> covers what the service does.
           </p>
         </div>
       </div>

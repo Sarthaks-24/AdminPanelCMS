@@ -1,4 +1,5 @@
 const request = require('supertest');
+const mongoose = require('mongoose');
 const app = require('../app');
 const User = require('../models/User');
 const Project = require('../models/Project');
@@ -72,16 +73,68 @@ describe('startup validation', () => {
 });
 
 describe('error responses', () => {
-  it('hides internal messages for 500s in production only', () => {
-    const run = (env) => {
-      const previous = process.env.NODE_ENV; process.env.NODE_ENV = env;
-      let body; const res = { statusCode: 200, status(c) { this.statusCode = c; return this; }, json(b) { body = b; } };
-      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      errorHandler(new Error('MongoServerError: secret detail'), {}, res, () => {});
-      spy.mockRestore(); process.env.NODE_ENV = previous; return body;
-    };
-    expect(run('production').message).toBe('Internal Server Error');
-    expect(run('development').message).toMatch(/secret detail/);
+  const run = (env, err) => {
+    const previous = process.env.NODE_ENV; process.env.NODE_ENV = env;
+    let body; const res = { statusCode: 200, status(c) { this.statusCode = c; return this; }, json(b) { body = b; } };
+    errorHandler(err, { id: 'req-1' }, res, () => {});
+    process.env.NODE_ENV = previous; return { status: res.statusCode, body };
+  };
+
+  it('hides internal messages for 500s in production only and never emits a stack', () => {
+    const production = run('production', new Error('MongoServerError: secret detail'));
+    expect(production).toEqual({ status: 500, body: { success: false, error: 'internal', message: 'Internal Server Error', requestId: 'req-1' } });
+    const development = run('development', new Error('MongoServerError: secret detail'));
+    expect(development.body.message).toMatch(/secret detail/);
+    expect(development.body).not.toHaveProperty('stack');
+  });
+
+  it('honours err.status and err.statusCode instead of turning every error into a 500', () => {
+    expect(run('production', Object.assign(new Error('teapot'), { status: 418, expose: true })).body).toMatchObject({ error: 'bad_request', message: 'teapot' });
+    expect(run('production', Object.assign(new Error('teapot'), { status: 418 }))).toMatchObject({ status: 418, body: { message: 'Bad request' } });
+    expect(run('production', Object.assign(new Error('gateway'), { statusCode: 502 }))).toMatchObject({ status: 502, body: { error: 'internal' } });
+    expect(run('production', Object.assign(new Error('x'), { status: 999 })).status).toBe(500);
+  });
+
+  it('turns malformed and oversized JSON bodies into 400 and 413 instead of 500', async () => {
+    const malformed = await request(app).post('/api/auth/login').set('Content-Type', 'application/json').send('{bad').expect(400);
+    expect(malformed.body).toMatchObject({ success: false, error: 'bad_request', requestId: expect.any(String) });
+    expect(malformed.body).not.toHaveProperty('stack');
+    const oversized = await request(app).post('/api/auth/login').set('Content-Type', 'application/json')
+      .send(JSON.stringify({ email: 'a@b.co', password: 'x'.repeat(300 * 1024) })).expect(413);
+    expect(oversized.body).toMatchObject({ success: false, error: 'payload_too_large', requestId: expect.any(String) });
+  });
+
+  it('defaults req.body to an object so body-less dashboard writes fail with 400, not 500', async () => {
+    const user = await createUser(User);
+    const response = await request(app).patch('/api/projects/reorder').set('Authorization', loginAs(user));
+    expect(response.status).toBe(400);
+  });
+});
+
+describe('probes and readiness', () => {
+  it('serves /livez and the /api/health alias as liveness, and /readyz pings Mongo', async () => {
+    await request(app).get('/livez').expect(200).expect((res) => expect(res.body.status).toBe('ok'));
+    await request(app).get('/api/health').expect(200).expect((res) => expect(res.body.status).toBe('ok'));
+    const ready = await request(app).get('/readyz').expect(200);
+    expect(ready.body.status).toBe('ready');
+  });
+
+  it('reports 503 from /readyz when Mongo is down or the process is draining', async () => {
+    const readiness = require('../lib/readiness');
+    expect(await readiness.checkReady({ connection: { readyState: 0 } })).toEqual({ ok: false, reason: 'mongo_disconnected' });
+    expect(await readiness.checkReady({ connection: { readyState: 1, getClient: () => ({ db: () => ({ command: () => Promise.reject(new Error('down')) }) }) } }))
+      .toEqual({ ok: false, reason: 'mongo_ping_failed' });
+    const spy = vi.spyOn(mongoose.connection, 'readyState', 'get').mockReturnValue(0);
+    try {
+      const down = await request(app).get('/readyz').expect(503);
+      expect(down.body).toMatchObject({ status: 'unavailable', reason: 'mongo_disconnected' });
+    } finally { spy.mockRestore(); }
+    readiness.setShuttingDown(true);
+    try {
+      const draining = await request(app).get('/readyz').expect(503);
+      expect(draining.body.reason).toBe('shutting_down');
+    } finally { readiness.setShuttingDown(false); }
+    await request(app).get('/readyz').expect(200);
   });
 });
 

@@ -78,11 +78,13 @@ function applyInclude(app, rawData = {}, options = {}) {
       if (typeof options.category === 'string') items = items.filter((item) => String(item.category || '').toLowerCase() === options.category.toLowerCase());
       if (Array.isArray(config.categories) && config.categories.length) items = items.filter((item) => config.categories.includes(item.category));
     }
+    // Every collection (certifications included, B13) is ordered by `order` in `all` and `featured` mode;
+    // `selected` mode keeps the App's own id order (D14).
     if (config.mode === 'featured') items = items.filter((item) => item.featured === true).sort(byOrder);
     else if (config.mode === 'selected') {
       const byId = new Map(items.map((item) => [String(item._id), item]));
       items = (config.ids || []).map((id) => byId.get(String(id))).filter(Boolean);
-    } else items.sort(key === 'certifications' ? byIssueDateDesc : byOrder);
+    } else items.sort(byOrder);
     result[key] = items.map((item) => sanitizeFields(item, config.fields, DEFAULT_FIELDS[model], PUBLIC_FIELDS[model]));
   }
   return result;

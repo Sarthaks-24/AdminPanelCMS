@@ -1,19 +1,23 @@
 import { useEffect, useState } from 'react';
-import { api } from '../api/client';
+import { loadPublicConfig } from '../lib/apiBase';
 
 /**
  * The server decides whether anyone may register: closed, invite-only or open.
- * The public pages ask once and hide the registration link rather than offer a dead end.
- * An unreachable API is treated as closed, which is the safe direction to be wrong in.
+ * The public pages ask once (sharing the fetch with useApiBase) and only use the answer to word
+ * the account button. The button itself renders in every state, including while the answer is
+ * in flight and when the API cannot be reached: an unreachable API is 'unknown', not 'closed',
+ * and the signup page explains the real mode once it loads.
  */
 export function useSignupMode() {
   const [mode, setMode] = useState(null);
 
   useEffect(() => {
     let active = true;
-    api.get('/auth/config', { skipAuthRedirect: true })
-      .then(({ data }) => { if (active) setMode(data.signupMode || (data.signupEnabled ? 'open' : 'closed')); })
-      .catch(() => { if (active) setMode('closed'); });
+    loadPublicConfig().then((data) => {
+      if (!active) return;
+      if (!data) { setMode('unknown'); return; }
+      setMode(data.signupMode || (data.signupEnabled ? 'open' : 'closed'));
+    });
     return () => { active = false; };
   }, []);
 
@@ -23,6 +27,8 @@ export function useSignupMode() {
     isOpen: mode === 'open',
     isInviteOnly: mode === 'invite',
     isClosed: mode === 'closed',
+    // The request failed. Treated like 'open' wherever a CTA is rendered: a dead button beats no button.
+    isUnknown: mode === 'unknown',
     // Null while the answer is in flight, so nothing flashes in and out of the nav.
     resolved: mode !== null,
   };

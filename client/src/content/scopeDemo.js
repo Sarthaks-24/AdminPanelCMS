@@ -3,12 +3,17 @@
  * The field lists come from server/lib/modelConstants.js and the two functions below mirror
  * server/lib/applyInclude.js and server/lib/buildFsTree.js, so what a visitor sees on the
  * page is what the API would actually return for the scope they built.
+ *
+ * `npm run lint` runs scripts/check-field-parity.mjs, which fails the build if these lists or
+ * the sample values stop matching the server's constants and models.
  */
 
-// PUBLIC_FIELDS, trimmed to the sections the demo shows.
+// PUBLIC_FIELDS, trimmed to the sections the demo shows. `withheldByDefault` must equal the
+// subset of these fields that is in PUBLIC_FIELDS but not DEFAULT_FIELDS on the server.
 export const SECTIONS = [
   {
     key: 'profile',
+    model: 'Profile',
     label: 'Profile',
     note: 'Who you are. One record.',
     fields: ['name', 'headline', 'shortBio', 'email', 'location.city', 'location.country', 'statusText', 'isAvailableForHire'],
@@ -17,13 +22,17 @@ export const SECTIONS = [
   },
   {
     key: 'projects',
+    model: 'Project',
     label: 'Projects',
     note: 'Many records. Each one draft or published.',
     fields: ['title', 'slug', 'role', 'shortDescription', 'keyMetric', 'highlights', 'caseStudyBody', 'stack', 'links.github', 'links.live', 'featured'],
-    withheldByDefault: ['caseStudyBody'],
+    // The case study is served by default. Only `teammates` and `lastUpdated` are opt-in, and the
+    // demo does not list those.
+    withheldByDefault: [],
   },
   {
     key: 'skills',
+    model: 'Skill',
     label: 'Skills',
     note: 'Grouped by category.',
     fields: ['name', 'category', 'proficiency', 'yearsOfExperience', 'featured'],
@@ -31,6 +40,7 @@ export const SECTIONS = [
   },
   {
     key: 'fs',
+    model: null,
     label: 'Filesystem view',
     note: 'The same granted content as a file tree, for terminal-style sites.',
     fields: null,
@@ -38,7 +48,7 @@ export const SECTIONS = [
   },
 ];
 
-// A sample pool. Not anyone's real content; the shapes and field names are the real ones.
+// A sample pool. Not anyone's real content; the shapes, field names and value types are the real ones.
 export const POOL = {
   profile: {
     _id: '6708a1f4c2b19e0001a3f201',
@@ -79,10 +89,11 @@ export const POOL = {
       featured: false,
     },
   ],
+  // `proficiency` is one of the server's five levels, not a number.
   skills: [
-    { _id: '6708a1f4c2b19e0001a3f220', name: 'Go', category: 'Languages', proficiency: 5, yearsOfExperience: 6, featured: true },
-    { _id: '6708a1f4c2b19e0001a3f221', name: 'TypeScript', category: 'Languages', proficiency: 4, yearsOfExperience: 8, featured: true },
-    { _id: '6708a1f4c2b19e0001a3f222', name: 'Kafka', category: 'Infrastructure', proficiency: 4, yearsOfExperience: 5, featured: false },
+    { _id: '6708a1f4c2b19e0001a3f220', name: 'Go', category: 'Languages', proficiency: 'Expert', yearsOfExperience: 6, featured: true },
+    { _id: '6708a1f4c2b19e0001a3f221', name: 'TypeScript', category: 'Languages', proficiency: 'Advanced', yearsOfExperience: 8, featured: true },
+    { _id: '6708a1f4c2b19e0001a3f222', name: 'Kafka', category: 'Infrastructure', proficiency: 'Advanced', yearsOfExperience: 5, featured: false },
   ],
 };
 
@@ -130,22 +141,30 @@ function effectiveFields(sectionKey, scope) {
   return { fields: defaultFieldsFor(SECTION_BY_KEY[sectionKey]) || [], usedDefaults: true };
 }
 
+// A stand-in for the id the server puts in `X-Request-Id` and in every error body.
+export const DEMO_REQUEST_ID = 'req_8f3c1d2e';
+
+/**
+ * The response for one endpoint under one scope. Success bodies use the `{ data }` envelope and
+ * errors use `{ error, message, requestId }` (plus `section` for a disabled section), exactly as
+ * the real API answers.
+ */
 export function scopedResponse(sectionKey, scope) {
   const grant = scope[sectionKey];
   if (!grant?.enabled) {
-    const label = sectionKey === 'fs' ? 'Virtual filesystem' : `The ${sectionKey} section`;
+    const label = sectionKey === 'fs' ? 'The virtual filesystem' : `The ${sectionKey} section`;
     return {
       status: 403,
       usedDefaults: false,
-      body: { success: false, error: 'section_disabled', message: `${label} is not enabled for this app`, section: sectionKey },
+      body: { error: 'section_disabled', message: `${label} is not enabled for this App`, requestId: DEMO_REQUEST_ID, section: sectionKey },
     };
   }
-  if (sectionKey === 'fs') return { status: 200, usedDefaults: false, body: buildFsTree(scopedView(scope)) };
+  if (sectionKey === 'fs') return { status: 200, usedDefaults: false, body: { data: buildFsTree(scopedView(scope)) } };
   const { fields, usedDefaults } = effectiveFields(sectionKey, scope);
-  const body = sectionKey === 'profile'
+  const data = sectionKey === 'profile'
     ? sanitize(POOL.profile, fields)
     : POOL[sectionKey].map((item) => sanitize(item, fields));
-  return { status: 200, usedDefaults, body };
+  return { status: 200, usedDefaults, body: { data } };
 }
 
 function scopedView(scope) {
@@ -195,11 +214,13 @@ function buildFsTree(view = {}) {
   return dir('/', root);
 }
 
-// Mirrors setHeaders in server/routes/v1.js: the token type decides whether a proxy may cache.
-export const responseHeaders = (tokenType, etag) => [
+// Mirrors setHeaders in server/routes/v1.js. Every response, whichever kind of key called, is
+// private to that key, so a shared cache never serves one App's view to another.
+export const responseHeaders = (etag) => [
   ['ETag', etag],
-  ['Cache-Control', tokenType === 'pk' ? 'public, max-age=60' : 'private, max-age=60'],
+  ['Cache-Control', 'private, max-age=60'],
   ['Vary', 'Authorization, Origin'],
+  ['X-Request-Id', DEMO_REQUEST_ID],
 ];
 
 // A stable short digest so the ETag line changes whenever the scoped body changes.

@@ -9,19 +9,12 @@ const SkillSchema = new mongoose.Schema(
       maxlength: 120,
       trim: true,
     },
+    // Free string per owner (contract §2.6). LEGACY_SKILL_CATEGORIES in lib/modelConstants.js are suggestions only.
     category: {
       type: String,
       required: [true, 'Category is required'],
-      enum: [
-        'Languages',
-        'Frontend',
-        'Backend & Systems',
-        'Databases & Caching',
-        'DevOps & Cloud',
-        'Hardware & Electronics',
-        'Tools & Frameworks',
-      ],
-      default: 'Backend & Systems',
+      maxlength: 60,
+      trim: true,
     },
     proficiency: {
       type: String,

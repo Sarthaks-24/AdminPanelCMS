@@ -5,6 +5,33 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { pipeline } = require('node:stream/promises');
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Runs a tool, swallowing stdin and stderr, optionally capturing stdout. Resolves { code, stdout }; never rejects on ENOENT.
+function run(command, args, capture = false) {
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn(command, args, { stdio: ['ignore', capture ? 'pipe' : 'ignore', 'ignore'], windowsHide: true });
+    } catch (error) {
+      resolve({ code: null, stdout: '', error });
+      return;
+    }
+    let stdout = '';
+    if (capture) child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.once('error', (error) => resolve({ code: null, stdout, error }));
+    child.once('close', (code) => resolve({ code, stdout }));
+  });
+}
+
+function retentionDays() {
+  const raw = process.env.BACKUP_RETENTION_DAYS;
+  if (raw === undefined || String(raw).trim() === '') return 30;
+  const days = Number(raw);
+  if (!Number.isInteger(days) || days < 1 || days > 3650) throw new Error('BACKUP_RETENTION_DAYS must be a whole number of days between 1 and 3650.');
+  return days;
+}
+
 async function main() {
   process.umask(0o077);
   const uri = process.env.MONGODB_URI;
@@ -18,14 +45,17 @@ async function main() {
   if (process.platform !== 'win32' && (fs.statSync(passphraseFile).mode & 0o077) !== 0) {
     throw new Error('BACKUP_PASSPHRASE_FILE must not be accessible by group or other users (chmod 600).');
   }
+  const keepDays = retentionDays();
   const dbName = decodeURIComponent(new URL(uri).pathname.replace(/^\//, '').split('/')[0]);
   if (!dbName) throw new Error('MONGODB_URI must identify a database.');
   const backupDir = path.resolve(process.env.BACKUP_DIR || path.join(os.homedir(), 'cms-backups'));
   fs.mkdirSync(backupDir, { recursive: true, mode: 0o700 });
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const archivePrefix = `backup_${dbName.replace(/[^A-Za-z0-9_-]/g, '_')}_`;
+  const isArchiveName = (name) => name.startsWith(archivePrefix) && /^\d{4}-\d{2}-\d{2}T[\d-]+Z\.gz\.gpg$/.test(name.slice(archivePrefix.length));
   const destination = path.join(backupDir, `${archivePrefix}${timestamp}.gz.gpg`);
   const partial = `${destination}.partial`;
+  const rclone = process.env.RCLONE_BINARY || 'rclone';
   const candidates = ['mongodump', path.join(process.env.ProgramFiles || 'C:\\Program Files', 'MongoDB', 'Tools', '100', 'bin', 'mongodump.exe')];
   let dump;
   for (const executable of candidates) {
@@ -46,6 +76,7 @@ async function main() {
   if (!dump) throw new Error('mongodump is unavailable; install MongoDB Database Tools.');
   const gpgArgs = ['--batch', '--yes', '--pinentry-mode', 'loopback', '--passphrase-file', passphraseFile, '--symmetric', '--cipher-algo', 'AES256', '--output', partial];
   let gpg;
+  let size;
   try {
     gpg = spawn(process.env.GPG_BINARY || 'gpg', gpgArgs, { stdio: ['pipe', 'ignore', 'ignore'], windowsHide: true });
     const gpgExit = new Promise((resolve) => gpg.once('close', resolve));
@@ -56,31 +87,46 @@ async function main() {
     await pipeline(dump.stdout, gpg.stdin);
     const [dumpCode, gpgCode] = await Promise.all([dump.exitCodePromise, gpgExit]);
     if (dumpCode !== 0 || gpgCode !== 0) throw new Error('Encrypted backup pipeline failed.');
-    const size = fs.statSync(partial).size;
+    size = fs.statSync(partial).size;
     if (!size) throw new Error('Encrypted backup is empty.');
     fs.renameSync(partial, destination);
     if (remoteDestination) {
       const remotePath = `${remoteDestination}/${path.basename(destination)}`;
-      const uploader = spawn(process.env.RCLONE_BINARY || 'rclone', ['copyto', destination, remotePath], { stdio: 'ignore', windowsHide: true });
-      const remoteCode = await new Promise((resolve, reject) => {
-        uploader.once('error', reject);
-        uploader.once('close', resolve);
-      });
-      if (remoteCode !== 0) throw new Error('Off-host encrypted backup upload failed.');
+      const upload = await run(rclone, ['copyto', destination, remotePath]);
+      if (upload.code !== 0) throw new Error('Off-host encrypted backup upload failed.');
     }
-    const backups = fs.readdirSync(backupDir)
-      // Rotation is per database, so development runs never evict production archives.
-      // The timestamp must follow the prefix directly, so `Portfolio` never matches `Portfolio_dev` archives.
-      .filter((name) => name.startsWith(archivePrefix) && /^\d{4}-\d{2}-\d{2}T[\d-]+Z\.gz\.gpg$/.test(name.slice(archivePrefix.length)))
-      .map((name) => ({ name, mtime: fs.statSync(path.join(backupDir, name)).mtimeMs }))
-      .sort((a, b) => b.mtime - a.mtime);
-    for (const old of backups.slice(14)) fs.unlinkSync(path.join(backupDir, old.name));
-    console.log(`Encrypted backup complete: ${destination} (${size} bytes)${remoteDestination ? '; off-host copy verified by rclone' : ''}`);
   } catch {
     dump.kill();
     if (gpg) gpg.kill();
     try { fs.unlinkSync(partial); } catch { /* No partial output to clean up. */ }
     throw new Error('Backup failed; no plaintext archive was written. A local encrypted archive may remain if the off-host upload failed.');
+  }
+  console.log(`Encrypted backup complete: ${destination} (${size} bytes)${remoteDestination ? '; off-host copy verified by rclone' : ''}`);
+
+  // Retention runs only after the new archive is safely written (and uploaded), so a prune failure never costs a backup.
+  // Rotation is per database, so development runs never evict production archives, and the timestamp must follow the
+  // prefix directly, so `Portfolio` never matches `Portfolio_dev` archives.
+  const cutoff = Date.now() - keepDays * DAY_MS;
+  const local = fs.readdirSync(backupDir)
+    .filter(isArchiveName)
+    .map((name) => ({ name, mtime: fs.statSync(path.join(backupDir, name)).mtimeMs }))
+    .sort((a, b) => b.mtime - a.mtime);
+  // Never prune the newest archive, whatever its age (clock skew, a restored machine, a long gap between runs).
+  const localPruned = local.slice(1).filter((entry) => entry.mtime < cutoff);
+  for (const old of localPruned) fs.unlinkSync(path.join(backupDir, old.name));
+  console.log(`Local retention ${keepDays} d: kept ${local.length - localPruned.length}, pruned ${localPruned.length}${localPruned.length ? ` (${localPruned.map((entry) => entry.name).join(', ')})` : ''}`);
+
+  if (remoteDestination) {
+    // Off-host retention is the GDPR erasure answer for backups (A26): nothing older than the window survives anywhere.
+    const filter = ['--min-age', `${keepDays}d`, '--include', `${archivePrefix}*.gz.gpg`];
+    const listing = await run(rclone, ['lsf', remoteDestination, ...filter], true);
+    if (listing.code !== 0) throw new Error(`Backup and upload succeeded, but listing ${remoteDestination} for pruning failed; archives older than ${keepDays} days were NOT removed.`);
+    const remotePruned = listing.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (remotePruned.length) {
+      const removal = await run(rclone, ['delete', remoteDestination, ...filter]);
+      if (removal.code !== 0) throw new Error(`Backup and upload succeeded, but pruning ${remotePruned.length} archive(s) older than ${keepDays} days from ${remoteDestination} failed.`);
+    }
+    console.log(`Off-host retention ${keepDays} d on ${remoteDestination}: pruned ${remotePruned.length}${remotePruned.length ? ` (${remotePruned.join(', ')})` : ''}`);
   }
 }
 

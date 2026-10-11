@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getSkills,
+  getCategories,
   createSkill,
   updateSkill,
   deleteSkill,
@@ -16,6 +17,8 @@ const requireSession = require('../middleware/requireSession');
 
 // Dashboard read; external consumers use the scoped /v1 API.
 router.get('/', requireSession, getSkills);
+// Owner's distinct categories (or the legacy suggestions when none exist yet).
+router.get('/categories', requireSession, getCategories);
 
 // Protected routes (Admin only)
 router.post('/', requireVerifiedSession, createSkill);

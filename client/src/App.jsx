@@ -1,46 +1,57 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
-
-// Admin CMS pages
-import AdminLogin from './pages/admin/AdminLogin';
-import AdminLayout from './pages/admin/AdminLayout';
-import DashboardHome from './pages/admin/DashboardHome';
-import ProfileEditor from './pages/admin/ProfileEditor';
-import SocialsManager from './pages/admin/SocialsManager';
-import SkillsMatrix from './pages/admin/SkillsMatrix';
-import ProjectList from './pages/admin/ProjectList';
-import ProjectForm from './pages/admin/ProjectForm';
-import ExperienceList from './pages/admin/ExperienceList';
-import EducationManager from './pages/admin/EducationManager';
-import CertificationsManager from './pages/admin/CertificationsManager';
-import ResumeManager from './pages/admin/ResumeManager';
-import ProtectedRoute from './components/admin/ProtectedRoute';
-import AppsPage from './pages/admin/AppsPage';
-import AppEditorPage from './pages/admin/AppEditorPage';
-import AccountSettings from './pages/admin/AccountSettings';
-import SuperadminPanel from './pages/admin/SuperadminPanel';
-import Signup from './pages/auth/Signup';
-import CheckEmail from './pages/auth/CheckEmail';
-import VerifyEmail from './pages/auth/VerifyEmail';
-import ForgotPassword from './pages/auth/ForgotPassword';
-import ResetPassword from './pages/auth/ResetPassword';
-import LegalPreview from './pages/auth/LegalPreview';
-
-import NotFound from './pages/NotFound';
 import { ToastProvider } from './components/admin/Toast';
+import ProtectedRoute from './components/admin/ProtectedRoute';
+import RouteErrorBoundary from './components/admin/RouteErrorBoundary';
+import { SITE } from './content/site';
 
-// Public pages. Split out so a visitor who only reads the landing page or the docs never
-// downloads the dashboard, and so the bundled markdown stays out of the admin chunk.
+// Every page is its own chunk. A visitor who only reads the landing page never downloads the
+// dashboard, and a signed-in owner never downloads the docs' inlined Markdown.
 const Landing = lazy(() => import('./pages/public/Landing'));
 const DocsIndex = lazy(() => import('./pages/public/DocsIndex'));
 const DocPage = lazy(() => import('./pages/public/DocPage'));
 const LicensePage = lazy(() => import('./pages/public/LicensePage'));
 
-// Shown only for the moment a split chunk is in flight; deliberately quiet rather than a spinner.
-function PublicFallback() {
-  return <div className="min-h-dvh bg-t-bg" />;
+const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
+const Signup = lazy(() => import('./pages/auth/Signup'));
+const CheckEmail = lazy(() => import('./pages/auth/CheckEmail'));
+const VerifyEmail = lazy(() => import('./pages/auth/VerifyEmail'));
+const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'));
+const LegalPreview = lazy(() => import('./pages/auth/LegalPreview'));
+
+const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
+const DashboardHome = lazy(() => import('./pages/admin/DashboardHome'));
+const ProfileEditor = lazy(() => import('./pages/admin/ProfileEditor'));
+const SocialsManager = lazy(() => import('./pages/admin/SocialsManager'));
+const SkillsMatrix = lazy(() => import('./pages/admin/SkillsMatrix'));
+const ProjectList = lazy(() => import('./pages/admin/ProjectList'));
+const ProjectForm = lazy(() => import('./pages/admin/ProjectForm'));
+const ExperienceList = lazy(() => import('./pages/admin/ExperienceList'));
+const EducationManager = lazy(() => import('./pages/admin/EducationManager'));
+const CertificationsManager = lazy(() => import('./pages/admin/CertificationsManager'));
+const ResumeManager = lazy(() => import('./pages/admin/ResumeManager'));
+const AppsPage = lazy(() => import('./pages/admin/AppsPage'));
+const AppEditorPage = lazy(() => import('./pages/admin/AppEditorPage'));
+const AccountSettings = lazy(() => import('./pages/admin/AccountSettings'));
+const SuperadminPanel = lazy(() => import('./pages/admin/SuperadminPanel'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+
+// Shown while a chunk is in flight: the wordmark on the page background, so a slow network never looks blank.
+function RouteFallback() {
+  return (
+    <div role="status" aria-label="Loading" className="grid min-h-dvh place-items-center bg-t-bg">
+      <span className="font-display text-lg font-semibold tracking-tight text-t-muted">{SITE.name}</span>
+    </div>
+  );
+}
+
+// Keyed by path, so a later navigation remounts the boundary and clears a caught error.
+function BoundaryWithLocation({ children }) {
+  const location = useLocation();
+  return <RouteErrorBoundary key={location.pathname}>{children}</RouteErrorBoundary>;
 }
 
 export default function App() {
@@ -49,16 +60,18 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
         <BrowserRouter>
-          <Suspense fallback={<PublicFallback />}>
+          <Suspense fallback={<RouteFallback />}>
+          <BoundaryWithLocation>
           <Routes>
             {/* Public pages */}
             <Route path="/" element={<Landing />} />
             <Route path="/docs" element={<DocsIndex />} />
             <Route path="/docs/:slug" element={<DocPage />} />
-            <Route path="/readme" element={<DocPage slug="readme" />} />
             <Route path="/license" element={<LicensePage />} />
 
-            {/* Admin Authentication */}
+            {/* Account creation and sign-in. The short paths are the ones we print; the /admin ones stay valid. */}
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/login" element={<AdminLogin />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/signup" element={<Signup />} />
             <Route path="/admin/check-email" element={<CheckEmail />} />
@@ -68,7 +81,7 @@ export default function App() {
             <Route path="/legal/terms" element={<LegalPreview />} />
             <Route path="/legal/privacy" element={<LegalPreview />} />
 
-            {/* Admin CMS Protected Routes */}
+            {/* Dashboard */}
             <Route
               path="/admin"
               element={
@@ -98,6 +111,7 @@ export default function App() {
             {/* Fallback */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </BoundaryWithLocation>
           </Suspense>
         </BrowserRouter>
         </ToastProvider>

@@ -23,7 +23,7 @@ async function updateSocial(req, res, next) {
 
 async function reorderSocials(req, res, next) {
   try {
-    const ops = buildReorderOps(req.body.items, req.userId);
+    const ops = buildReorderOps(req.body?.items, req.userId);
     if (!ops) return res.status(400).json({ success: false, message: `Items array required (max ${MAX_BULK_ITEMS})` });
     if (!ops.length) return res.json({ success: true, matchedCount: 0 });
     const result = await applyReorder(Social, req.userId, ops, scopedBulkWrite);

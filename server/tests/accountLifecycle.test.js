@@ -61,4 +61,20 @@ describe('account export and deletion lifecycle', () => {
     expect(await Invite.exists({ usedBy: owner._id })).toBeFalsy();
     await cascadeDeletedOwner(owner._id);
   });
+
+  it('refuses to delete the last superadmin and accounts without a password', async () => {
+    const passwordHash = await bcrypt.hash('a-long-secure-password', 4);
+    const admin = await User.create({ email: 'last-admin@test.com', passwordHash, emailVerifiedAt: new Date(), role: 'superadmin' });
+    const refused = await request(app).delete('/api/account').set('Authorization', loginAs(admin)).send({ password: 'a-long-secure-password' });
+    expect(refused.status).toBe(400);
+    expect(refused.body.error).toBe('last_superadmin');
+    expect(await User.exists({ _id: admin._id })).toBeTruthy();
+
+    await User.create({ email: 'second-admin@test.com', passwordHash, emailVerifiedAt: new Date(), role: 'superadmin' });
+    await request(app).delete('/api/account').set('Authorization', loginAs(admin)).send({ password: 'a-long-secure-password' }).expect(200);
+    expect(await User.exists({ _id: admin._id })).toBeFalsy();
+
+    const pending = await User.create({ email: 'no-password@test.com', passwordHash: null, emailVerifiedAt: new Date() });
+    await request(app).delete('/api/account').set('Authorization', loginAs(pending)).send({ password: '' }).expect(401);
+  });
 });

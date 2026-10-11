@@ -1,6 +1,6 @@
 require('../config/loadEnv');
 const mongoose = require('mongoose');
-const { connectMongo } = require('../lib/mongoConnect');
+const { connectMongo, databaseNameFor } = require('../lib/mongoConnect');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
@@ -239,13 +239,29 @@ A scalable time-series ingestion and analysis system designed for microservice c
   },
 };
 
+// Demo content for a local database only. Production holds other people's accounts, so the seed refuses
+// to run there, and it always requires the target database name as a confirmation flag.
+function confirmedDatabase() {
+  const index = process.argv.indexOf('--confirm-db');
+  return index >= 0 ? process.argv[index + 1] : undefined;
+}
+
 async function runSeed() {
-  console.log('[Seed] Connecting to MongoDB Atlas...');
   const mongoUri = process.env.MONGODB_URI;
   if (!mongoUri) {
     console.error('[Error] MONGODB_URI not defined in server/.env');
     process.exit(1);
   }
+  if (process.env.NODE_ENV === 'production' || String(process.env.MODE || '').toLowerCase().startsWith('prod')) {
+    console.error('[Error] Refusing to seed demo content with MODE=prod / NODE_ENV=production. Seeding is for local databases only.');
+    process.exit(1);
+  }
+  const database = databaseNameFor(mongoUri);
+  if (!database || confirmedDatabase() !== database) {
+    console.error(`[Error] Refusing to seed. This replaces the admin account's content. Re-run with --confirm-db ${database || '<database>'} after checking the target.`);
+    process.exit(1);
+  }
+  console.log('[Seed] Connecting to MongoDB...');
 
   try {
     await connectMongo(mongoUri);

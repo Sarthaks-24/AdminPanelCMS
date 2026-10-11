@@ -23,10 +23,15 @@ describe('onContentChanged write hook', () => {
       await request(app).patch('/api/profile/availability').set('Authorization', auth).send({ isAvailableForHire: false }).expect(200);
       await request(app).put('/api/profile').set('Authorization', auth).send({ email: 'new-email@test.com' }).expect(200);
       const emailSocial = await Social.findOne({ owner: user._id, platform: 'Email' });
-      expect(emailSocial.visibility).toBe('published');
-      await Social.findOneAndUpdate({ _id: emailSocial._id, owner: user._id }, { $set: { visibility: 'draft' } });
+      // A14: the mirrored Email social is inserted as an unfeatured draft; publishing it is the owner's call.
+      expect(emailSocial.visibility).toBe('draft');
+      expect(emailSocial.featured).toBe(false);
+      await Social.findOneAndUpdate({ _id: emailSocial._id, owner: user._id }, { $set: { visibility: 'published', featured: false } });
       await request(app).put('/api/profile').set('Authorization', auth).send({ email: 'changed-email@test.com' }).expect(200);
-      expect((await Social.findOne({ _id: emailSocial._id, owner: user._id })).visibility).toBe('draft');
+      const resaved = await Social.findOne({ _id: emailSocial._id, owner: user._id });
+      expect(resaved.visibility).toBe('published');
+      expect(resaved.featured).toBe(false);
+      expect(resaved.url).toBe('mailto:changed-email@test.com');
       await request(app).put('/api/resume').set('Authorization', auth).send({ resumeUrl: 'https://test.com/updated.pdf' }).expect(200);
       await request(app).put(`/api/projects/${seeded.project._id}`).set('Authorization', auth).send({ title: 'Updated project' }).expect(200);
       await request(app).put(`/api/socials/${seeded.social._id}`).set('Authorization', auth).send({ label: 'updated' }).expect(200);

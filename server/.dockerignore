@@ -1,0 +1,18 @@
+# Never bake secrets, local state or test fixtures into the image.
+node_modules
+npm-debug.log*
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+cache
+.cache
+tests
+coverage
+logs
+*.log
+Dockerfile
+.dockerignore
+.git
+.gitignore

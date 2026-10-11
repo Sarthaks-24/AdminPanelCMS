@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import { apiErrorMessage } from '../../lib/apiErrors';
 import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
@@ -26,7 +27,7 @@ export default function EducationManager() {
   const [form, setForm] = useState({
     institution: '',
     degree: '',
-    fieldOfStudy: 'Computer Science & Engineering',
+    fieldOfStudy: '',
     period: '',
     grade: '',
     location: '',
@@ -40,7 +41,7 @@ export default function EducationManager() {
       const res = await api.get('/education');
       setItems(res.data || []);
     } catch (err) {
-      setErrorMsg('Failed to load education history: ' + (err.response?.data?.message || err.message));
+      setErrorMsg(apiErrorMessage(err, 'Failed to load education history.'));
     } finally {
       setLoading(false);
     }
@@ -55,7 +56,7 @@ export default function EducationManager() {
     setForm({
       institution: '',
       degree: '',
-      fieldOfStudy: 'Computer Science & Engineering',
+      fieldOfStudy: '',
       period: '',
       grade: '',
       location: '',
@@ -88,8 +89,10 @@ export default function EducationManager() {
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    const visibility = e.nativeEvent?.submitter?.value === 'draft' ? 'draft' : 'published';
     const payload = {
       ...form,
+      visibility,
       achievements: form.achievements
         .split('\n')
         .map((a) => a.trim())
@@ -109,7 +112,7 @@ export default function EducationManager() {
       setShowModal(false);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error saving academic credential');
+      setErrorMsg(apiErrorMessage(err, 'Error saving academic credential'));
     } finally {
       setSaving(false);
     }
@@ -123,7 +126,7 @@ export default function EducationManager() {
       setSuccessMsg('Academic record deleted.');
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error deleting record');
+      setErrorMsg(apiErrorMessage(err, 'Error deleting record'));
     }
   };
 
@@ -184,7 +187,7 @@ export default function EducationManager() {
                   <div className="text-xs text-t-accent font-medium mt-0.5">
                     {item.institution}
                   </div>
-                  <div className="text-[11px] text-t-muted font-mono mt-0.5">
+                  <div className="text-xs text-t-muted font-mono mt-0.5">
                     Field: {item.fieldOfStudy}
                   </div>
                 </div>
@@ -230,7 +233,7 @@ export default function EducationManager() {
 
               {item.achievements && item.achievements.length > 0 && (
                 <div className="pt-2">
-                  <div className="text-[11px] font-mono text-t-dim mb-1">Highlights:</div>
+                  <div className="text-xs font-mono text-t-dim mb-1">Highlights:</div>
                   <ul className="list-disc list-inside text-xs text-t-muted space-y-0.5 pl-1">
                     {item.achievements.map((ach, i) => (
                       <li key={i}>{ach}</li>
@@ -246,7 +249,7 @@ export default function EducationManager() {
       {/* Add / Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-t-bg/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg rounded bg-t-surface border border-t-border shadow-2xl overflow-hidden">
+          <div className="max-h-[90dvh] overflow-y-auto w-full max-w-lg rounded bg-t-surface border border-t-border shadow-2xl">
             <div className="p-4 border-b border-t-border flex items-center justify-between bg-t-bg">
               <span className="text-xs font-mono font-bold text-t-text uppercase tracking-wider">
                 {editingId ? 'Edit Academic Credential' : 'Add Academic Credential'}
@@ -356,12 +359,23 @@ export default function EducationManager() {
                 </button>
                 <button
                   type="submit"
+                  name="visibility"
+                  value="draft"
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs shadow cursor-pointer disabled:opacity-50"
-                >
-                  <Save size={13} />
-                  <span>{saving ? 'Saving...' : 'Save Credential'}</span>
-                </button>
+                  className="px-3.5 py-1.5 rounded border border-t-border-hi text-xs font-semibold text-t-text hover:bg-t-surface-hi disabled:opacity-50"
+                  >
+                    Save as draft
+                  </button>
+                  <button
+                  type="submit"
+                  name="visibility"
+                  value="published"
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs shadow disabled:opacity-50"
+                  >
+                    <Save size={13} aria-hidden="true" />
+                    <span>{saving ? 'Saving…' : 'Save and publish'}</span>
+                  </button>
               </div>
             </form>
           </div>

@@ -1,5 +1,9 @@
 const mongoose = require('mongoose');
 
+// Caps on new invites; existing records created with higher limits are still honoured until they expire.
+const MAX_INVITE_USES = 50;
+const MAX_INVITE_DAYS = 90;
+
 const InviteSchema = new mongoose.Schema({
   codeHash: { type: String, required: true, unique: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
@@ -10,4 +14,8 @@ const InviteSchema = new mongoose.Schema({
   expiresAt: { type: Date, required: true, index: { expires: 0 } },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
-module.exports = mongoose.model('Invite', InviteSchema);
+const Invite = mongoose.model('Invite', InviteSchema);
+Invite.MAX_INVITE_USES = MAX_INVITE_USES;
+Invite.MAX_INVITE_DAYS = MAX_INVITE_DAYS;
+
+module.exports = Invite;

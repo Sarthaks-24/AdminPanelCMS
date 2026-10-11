@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import { apiErrorMessage } from '../../lib/apiErrors';
 import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
@@ -51,7 +52,7 @@ export default function SocialsManager() {
       const res = await api.get('/socials');
       setSocials(res.data || []);
     } catch (err) {
-      setErrorMsg('Failed to load social profiles: ' + (err.response?.data?.message || err.message));
+      setErrorMsg(apiErrorMessage(err, 'Failed to load social profiles.'));
     } finally {
       setLoading(false);
     }
@@ -95,7 +96,8 @@ export default function SocialsManager() {
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    const payload = { ...form };
+    const visibility = e.nativeEvent?.submitter?.value === 'draft' ? 'draft' : 'published';
+    const payload = { ...form, visibility };
     if (payload.platform?.toLowerCase() === 'email') {
       if (payload.url && !payload.url.startsWith('mailto:') && !payload.url.startsWith('http')) {
         payload.url = `mailto:${payload.url.trim()}`;
@@ -118,7 +120,7 @@ export default function SocialsManager() {
       setShowModal(false);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error saving social link');
+      setErrorMsg(apiErrorMessage(err, 'Error saving social link'));
     } finally {
       setSaving(false);
     }
@@ -132,7 +134,7 @@ export default function SocialsManager() {
       setSuccessMsg('Social coordinate removed.');
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error deleting social link');
+      setErrorMsg(apiErrorMessage(err, 'Error deleting social link'));
     }
   };
 
@@ -142,7 +144,7 @@ export default function SocialsManager() {
       const res = await api.put(`/socials/${item._id}`, updated);
       setSocials((prev) => prev.map((s) => (s._id === item._id ? res.data : s)));
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error updating featured flag');
+      setErrorMsg(apiErrorMessage(err, 'Error updating featured flag'));
     }
   };
 
@@ -162,7 +164,7 @@ export default function SocialsManager() {
     try {
       await api.patch('/socials/reorder', { items: payload });
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Reorder failed');
+      setErrorMsg(apiErrorMessage(err, 'Reorder failed'));
       fetchSocials(); // Revert on error
     }
   };
@@ -212,7 +214,7 @@ export default function SocialsManager() {
           <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted">
             Your links
           </span>
-          <span className="text-[11px] font-mono text-t-dim">
+          <span className="text-xs font-mono text-t-dim">
             Sorted by Execution Order
           </span>
         </div>
@@ -256,12 +258,12 @@ export default function SocialsManager() {
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-t-text">{item.platform}</span>
                       {item.featured && (
-                        <span className="px-1.5 py-0.2 rounded bg-t-accent2-dim text-t-accent2 border border-t-accent2/30 text-[10px] font-mono">
+                        <span className="px-1.5 py-0.2 rounded bg-t-accent2-dim text-t-accent2 border border-t-accent2/30 text-xs font-mono">
                           ★ spotlight
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-[11px] text-t-muted font-mono mt-0.5">
+                    <div className="flex items-center gap-2 text-xs text-t-muted font-mono mt-0.5">
                       <span>{item.label}</span>
                       {item.username && <span className="text-t-dim">({item.username})</span>}
                     </div>
@@ -273,7 +275,7 @@ export default function SocialsManager() {
                     href={item.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-[11px] font-mono text-t-accent hover:text-t-accent-br flex items-center gap-1 truncate max-w-[200px]"
+                    className="text-xs font-mono text-t-accent hover:text-t-accent-br flex items-center gap-1 truncate max-w-[200px]"
                     title={item.url}
                   >
                     <span className="truncate">{item.url}</span>
@@ -318,7 +320,7 @@ export default function SocialsManager() {
       {/* Add / Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-t-bg/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg rounded bg-t-surface border border-t-border shadow-2xl overflow-hidden">
+          <div className="max-h-[90dvh] overflow-y-auto w-full max-w-lg rounded bg-t-surface border border-t-border shadow-2xl">
             <div className="p-4 border-b border-t-border flex items-center justify-between bg-t-bg">
               <span className="text-xs font-mono font-bold text-t-text uppercase tracking-wider">
                 {editingId ? 'Edit Social Coordinate' : 'Register New Social Coordinate'}
@@ -438,12 +440,23 @@ export default function SocialsManager() {
                 </button>
                 <button
                   type="submit"
+                  name="visibility"
+                  value="draft"
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs shadow cursor-pointer disabled:opacity-50"
-                >
-                  <Save size={13} />
-                  <span>{saving ? 'Saving...' : 'Save Coordinate'}</span>
-                </button>
+                  className="px-3.5 py-1.5 rounded border border-t-border-hi text-xs font-semibold text-t-text hover:bg-t-surface-hi disabled:opacity-50"
+                  >
+                    Save as draft
+                  </button>
+                  <button
+                  type="submit"
+                  name="visibility"
+                  value="published"
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs shadow disabled:opacity-50"
+                  >
+                    <Save size={13} aria-hidden="true" />
+                    <span>{saving ? 'Saving…' : 'Save and publish'}</span>
+                  </button>
               </div>
             </form>
           </div>

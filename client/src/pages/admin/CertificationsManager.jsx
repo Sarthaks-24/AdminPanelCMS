@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import { apiErrorMessage } from '../../lib/apiErrors';
 import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
@@ -27,7 +28,7 @@ export default function CertificationsManager() {
     title: '',
     issuer: '',
     issueDate: '',
-    expirationDate: 'No Expiration',
+    expirationDate: '',
     credentialId: '',
     credentialUrl: '',
     skills: '',
@@ -40,7 +41,7 @@ export default function CertificationsManager() {
       const res = await api.get('/certifications');
       setItems(res.data || []);
     } catch (err) {
-      setErrorMsg('Failed to load certifications: ' + (err.response?.data?.message || err.message));
+      setErrorMsg(apiErrorMessage(err, 'Failed to load certifications.'));
     } finally {
       setLoading(false);
     }
@@ -56,7 +57,7 @@ export default function CertificationsManager() {
       title: '',
       issuer: '',
       issueDate: '',
-      expirationDate: 'No Expiration',
+      expirationDate: '',
       credentialId: '',
       credentialUrl: '',
       skills: '',
@@ -88,8 +89,10 @@ export default function CertificationsManager() {
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    const visibility = e.nativeEvent?.submitter?.value === 'draft' ? 'draft' : 'published';
     const payload = {
       ...form,
+      visibility,
       skills: form.skills
         .split(',')
         .map((s) => s.trim())
@@ -109,7 +112,7 @@ export default function CertificationsManager() {
       setShowModal(false);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error saving certification');
+      setErrorMsg(apiErrorMessage(err, 'Error saving certification'));
     } finally {
       setSaving(false);
     }
@@ -123,7 +126,7 @@ export default function CertificationsManager() {
       setSuccessMsg('Certification record removed.');
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error deleting certification');
+      setErrorMsg(apiErrorMessage(err, 'Error deleting certification'));
     }
   };
 
@@ -203,7 +206,7 @@ export default function CertificationsManager() {
                   </div>
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] font-mono text-t-muted">
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-mono text-t-muted">
                   <span className="flex items-center gap-1 text-t-muted">
                     <Calendar size={12} className="text-t-dim" />
                     Issued: {item.issueDate}
@@ -213,7 +216,7 @@ export default function CertificationsManager() {
                 </div>
 
                 {item.credentialId && (
-                  <div className="mt-2 text-[11px] font-mono text-t-muted">
+                  <div className="mt-2 text-xs font-mono text-t-muted">
                     ID: <span className="text-t-text">{item.credentialId}</span>
                   </div>
                 )}
@@ -223,7 +226,7 @@ export default function CertificationsManager() {
                     {item.skills.map((s, i) => (
                       <span
                         key={i}
-                        className="px-2 py-0.5 rounded bg-t-bg border border-t-border-hi text-[10px] font-mono text-t-accent2"
+                        className="px-2 py-0.5 rounded bg-t-bg border border-t-border-hi text-xs font-mono text-t-accent2"
                       >
                         {s}
                       </span>
@@ -253,7 +256,7 @@ export default function CertificationsManager() {
       {/* Add / Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-t-bg/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg rounded bg-t-surface border border-t-border shadow-2xl overflow-hidden">
+          <div className="max-h-[90dvh] overflow-y-auto w-full max-w-lg rounded bg-t-surface border border-t-border shadow-2xl">
             <div className="p-4 border-b border-t-border flex items-center justify-between bg-t-bg">
               <span className="text-xs font-mono font-bold text-t-text uppercase tracking-wider">
                 {editingId ? 'Edit Certification' : 'Log New Certification'}
@@ -373,12 +376,23 @@ export default function CertificationsManager() {
                 </button>
                 <button
                   type="submit"
+                  name="visibility"
+                  value="draft"
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs shadow cursor-pointer disabled:opacity-50"
-                >
-                  <Save size={13} />
-                  <span>{saving ? 'Saving...' : 'Save Certification'}</span>
-                </button>
+                  className="px-3.5 py-1.5 rounded border border-t-border-hi text-xs font-semibold text-t-text hover:bg-t-surface-hi disabled:opacity-50"
+                  >
+                    Save as draft
+                  </button>
+                  <button
+                  type="submit"
+                  name="visibility"
+                  value="published"
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs shadow disabled:opacity-50"
+                  >
+                    <Save size={13} aria-hidden="true" />
+                    <span>{saving ? 'Saving…' : 'Save and publish'}</span>
+                  </button>
               </div>
             </form>
           </div>

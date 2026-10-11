@@ -3,20 +3,25 @@ const appServer = require('../app');
 const User = require('../models/User');
 const App = require('../models/App');
 const ApiToken = require('../models/ApiToken');
-const { generateToken } = require('../lib/tokens');
-const { tokenCache, badTokenCache, responseCache, getOwnerVersion } = require('../lib/cache');
-const { preAuthLimiter } = require('../middleware/v1Limiters');
+const { generateToken, hashToken } = require('../lib/tokens');
+const cache = require('../lib/cache');
+const { tokenCache, badTokenCache, responseCache, getOwnerVersion } = cache;
+const { preAuthLimiter, resetV1Limiters, globalMissBucket } = require('../middleware/v1Limiters');
 const { createUser, createApp, createToken, loginAs, seedContent } = require('./helpers/factory');
 
+const models = {
+  Profile: require('../models/Profile'), Project: require('../models/Project'), Resume: require('../models/Resume'),
+  Skill: require('../models/Skill'), Social: require('../models/Social'), Experience: require('../models/Experience'),
+  Education: require('../models/Education'), Certification: require('../models/Certification'),
+};
+const v1ErrorShape = { error: expect.any(String), message: expect.any(String), requestId: expect.any(String) };
+
 describe('versioned public API and dashboard token lifecycle', () => {
+  beforeEach(() => resetV1Limiters());
+
   it('supports a localhost consumer cutover from app creation through profile and resume reads', async () => {
     const consumerOrigin = 'http://localhost:5174';
     const user = await createUser(User);
-    const models = {
-      Profile: require('../models/Profile'), Project: require('../models/Project'), Resume: require('../models/Resume'),
-      Skill: require('../models/Skill'), Social: require('../models/Social'), Experience: require('../models/Experience'),
-      Education: require('../models/Education'), Certification: require('../models/Certification'),
-    };
     const content = await seedContent(models, user);
     const createdApp = await request(appServer).post('/api/apps').set('Authorization', loginAs(user)).send({
       name: 'Local portfolio consumer',
@@ -32,33 +37,36 @@ describe('versioned public API and dashboard token lifecycle', () => {
 
     const headers = { Authorization: `Bearer ${token}`, Origin: consumerOrigin };
     const profile = await request(appServer).get('/v1/profile').set(headers).expect(200);
-    expect(profile.body).toMatchObject({ name: content.profile.name, shortBio: content.profile.shortBio });
-    expect(profile.body).not.toHaveProperty('owner');
+    expect(Object.keys(profile.body)).toEqual(['data']);
+    expect(profile.body.data).toMatchObject({ name: content.profile.name, shortBio: content.profile.shortBio });
+    expect(profile.body.data).not.toHaveProperty('owner');
+    expect(profile.body.data).not.toHaveProperty('configured');
     expect(profile.headers['access-control-allow-origin']).toBe(consumerOrigin);
 
     const resume = await request(appServer).get('/v1/resume').set(headers).expect(200);
-    expect(resume.body).toMatchObject({ resumeUrl: content.resume.resumeUrl, fileName: content.resume.fileName });
+    expect(resume.body.data).toMatchObject({ resumeUrl: content.resume.resumeUrl, fileName: content.resume.fileName });
     expect(resume.headers.location).toBeUndefined();
 
     const wrongOrigin = await request(appServer).get('/v1/profile')
       .set({ Authorization: `Bearer ${token}`, Origin: 'http://localhost:5173' }).expect(403);
-    expect(wrongOrigin.body.error).toBe('origin_not_allowed');
+    expect(wrongOrigin.body).toMatchObject({ ...v1ErrorShape, error: 'origin_not_allowed' });
     expect(wrongOrigin.headers['access-control-allow-origin']).toBeUndefined();
   });
 
-  it('serves app metadata with ETag caching and origin CORS headers', async () => {
+  it('serves app metadata with ETag caching, private Cache-Control and origin CORS headers', async () => {
     const user = await createUser(User);
     const cmsApp = await createApp(App, user);
     const { rawToken } = await createToken(ApiToken, cmsApp, 'pk');
     const headers = { Authorization: `Bearer ${rawToken}`, Origin: 'https://portfolio.test' };
 
     const response = await request(appServer).get('/v1/app').set(headers).expect(200);
-    expect(response.body).toEqual({ name: cmsApp.name, type: 'static', enabledSections: ['profile', 'projects'] });
+    expect(response.body).toEqual({ data: { name: cmsApp.name, type: 'static', enabledSections: ['profile', 'projects'] } });
     expect(response.headers['access-control-allow-origin']).toBe('https://portfolio.test');
-    expect(response.headers['cache-control']).toBe('public, max-age=60');
+    expect(response.headers['cache-control']).toBe('private, max-age=60');
     expect(response.headers.etag).toBeTruthy();
+    expect(response.headers['x-request-id']).toBeTruthy();
     await request(appServer).get('/v1/app').set({ ...headers, 'If-None-Match': response.headers.etag })
-      .expect(304).expect('cache-control', 'public, max-age=60').expect('etag', response.headers.etag)
+      .expect(304).expect('cache-control', 'private, max-age=60').expect('etag', response.headers.etag)
       .expect('vary', 'Authorization, Origin');
   });
 
@@ -84,11 +92,6 @@ describe('versioned public API and dashboard token lifecycle', () => {
 
   it('groups skills through the public projection and returns the virtual filesystem', async () => {
     const user = await createUser(User);
-    const models = {
-      Profile: require('../models/Profile'), Project: require('../models/Project'), Resume: require('../models/Resume'),
-      Skill: require('../models/Skill'), Social: require('../models/Social'), Experience: require('../models/Experience'),
-      Education: require('../models/Education'), Certification: require('../models/Certification'),
-    };
     await seedContent(models, user);
     const cmsApp = await createApp(App, user, { include: {
       profile: { enabled: true, fields: ['name', 'shortBio'] },
@@ -98,16 +101,13 @@ describe('versioned public API and dashboard token lifecycle', () => {
     const { rawToken } = await createToken(ApiToken, cmsApp, 'pk');
     const headers = { Authorization: `Bearer ${rawToken}`, Origin: 'https://portfolio.test' };
     const categories = await request(appServer).get('/v1/skills/categories').set(headers).expect(200);
-    expect(categories.body.Frontend[0]).toMatchObject({ name: 'react', category: 'Frontend' });
+    expect(categories.body.data.Frontend[0]).toMatchObject({ name: 'react', category: 'Frontend' });
     const filesystem = await request(appServer).get('/v1/fs').set(headers).expect(200);
-    expect(filesystem.body).toMatchObject({ type: 'directory', path: '/' });
-    expect(filesystem.body.children.map((node) => node.path)).toEqual(expect.arrayContaining(['/about', '/skills']));
+    expect(filesystem.body.data).toMatchObject({ type: 'directory', path: '/' });
+    expect(filesystem.body.data.children.map((node) => node.path)).toEqual(expect.arrayContaining(['/about', '/skills']));
   });
 
   it('isolates identical /v1 routes between two owners', async () => {
-    const models = { Profile: require('../models/Profile'), Project: require('../models/Project'), Resume: require('../models/Resume'),
-      Skill: require('../models/Skill'), Social: require('../models/Social'), Experience: require('../models/Experience'),
-      Education: require('../models/Education'), Certification: require('../models/Certification') };
     const firstOwner = await createUser(User);
     const secondOwner = await createUser(User);
     await seedContent(models, firstOwner);
@@ -119,34 +119,45 @@ describe('versioned public API and dashboard token lifecycle', () => {
     const secondToken = (await createToken(ApiToken, secondApp, 'sk')).rawToken;
     const firstProfile = await request(appServer).get('/v1/profile').set('Authorization', `Bearer ${firstToken}`).expect(200);
     const secondProfile = await request(appServer).get('/v1/profile').set('Authorization', `Bearer ${secondToken}`).expect(200);
-    expect(firstProfile.body.name).toBe(`User ${firstOwner._id}`);
-    expect(secondProfile.body.name).toBe(`User ${secondOwner._id}`);
-    expect(firstProfile.body.name).not.toBe(secondProfile.body.name);
+    expect(firstProfile.body.data.name).toBe(`User ${firstOwner._id}`);
+    expect(secondProfile.body.data.name).toBe(`User ${secondOwner._id}`);
+    expect(firstProfile.body.data.name).not.toBe(secondProfile.body.data.name);
   });
 
   it('requires a bearer token and rejects query string tokens', async () => {
     await request(appServer).get('/v1/app').set('Origin', 'https://portfolio.test').expect(401).expect((res) => {
-      expect(res.body.error).toBe('token_missing');
+      expect(res.body).toMatchObject({ ...v1ErrorShape, error: 'token_missing' });
+      expect(res.body).not.toHaveProperty('success');
       expect(res.headers['access-control-allow-origin']).toBeUndefined();
     });
     await request(appServer).get('/v1/app?token=pk_live_nope').expect(400).expect((res) => expect(res.body.error).toBe('token_in_query'));
   });
 
-  it('uses the negative token cache to avoid repeating invalid-token database lookups', async () => {
+  it('rejects unknown token hashes from the active set with no database lookup, and caches stale hashes negatively', async () => {
     const { token } = generateToken('pk');
     const querySpy = vi.spyOn(ApiToken, 'findOne');
     try {
       for (let index = 0; index < 2; index += 1) {
-        await request(appServer).get('/v1/app').set({ Authorization: `Bearer ${token}`, Origin: 'https://portfolio.test' }).expect(401);
+        const denied = await request(appServer).get('/v1/app').set({ Authorization: `Bearer ${token}`, Origin: 'https://portfolio.test' }).expect(401);
+        expect(denied.body).toMatchObject({ ...v1ErrorShape, error: 'token_invalid' });
+      }
+      expect(querySpy).not.toHaveBeenCalled();
+      // A hash that is in the set but no longer in the database costs exactly one lookup, then the negative cache answers.
+      const stale = generateToken('pk');
+      cache.addActiveToken(stale.hash, 'owner', 'app');
+      for (let index = 0; index < 3; index += 1) {
+        await request(appServer).get('/v1/app').set('Authorization', `Bearer ${stale.token}`).expect(401);
       }
       expect(querySpy).toHaveBeenCalledTimes(1);
+      expect(cache.isActiveToken(stale.hash)).toBe(false);
+      expect(badTokenCache.has(hashToken(stale.token))).toBe(true);
     } finally { querySpy.mockRestore(); }
   });
 
   it('invalidates cached tokens and responses when an owner is deactivated', async () => {
     const user = await createUser(User);
     tokenCache.set(`deactivate-${user._id}`, { appDoc: { _id: 'app-id', owner: user._id } });
-    responseCache.set(`deactivate-${user._id}`, { ownerId: String(user._id), body: {} });
+    responseCache.set(`deactivate-${user._id}`, { ownerId: String(user._id), serialized: '{}' });
     const version = getOwnerVersion(user._id);
     user.status = 'deleted';
     await user.save();
@@ -163,6 +174,7 @@ describe('versioned public API and dashboard token lifecycle', () => {
         await request(appServer).get('/v1/app').set('Authorization', 'Bearer malformed').expect(401);
       }
       const limited = await request(appServer).get('/v1/app').set('Origin', 'https://portfolio.test').set('Authorization', 'Bearer malformed').expect(429);
+      expect(limited.body).toMatchObject({ ...v1ErrorShape, error: 'rate_limited' });
       expect(limited.headers['access-control-allow-origin']).toBeUndefined();
       expect(querySpy).not.toHaveBeenCalled();
     } finally {
@@ -171,35 +183,37 @@ describe('versioned public API and dashboard token lifecycle', () => {
     }
   });
 
-  it('applies the publishable token rate limit after authentication', async () => {
+  it('applies the publishable token rate limit (120/min per token and IP) after authentication', async () => {
     const user = await createUser(User);
     const cmsApp = await createApp(App, user);
     const { rawToken } = await createToken(ApiToken, cmsApp, 'pk');
     const headers = { Authorization: `Bearer ${rawToken}`, Origin: 'https://portfolio.test' };
-    for (let index = 0; index < 60; index += 1) {
+    for (let index = 0; index < 120; index += 1) {
       await request(appServer).get('/v1/app').set(headers).expect(200);
-      if ((index + 1) % 10 === 0 && index < 59) await new Promise((resolve) => setTimeout(resolve, 1000));
     }
     const limited = await request(appServer).get('/v1/app').set(headers).expect(429);
-    expect(limited.body.error).toBe('rate_limited');
+    expect(limited.body).toMatchObject({ ...v1ErrorShape, error: 'rate_limited' });
+    expect(limited.headers['retry-after']).toBeTruthy();
+    expect(limited.headers['ratelimit']).toBeTruthy();
     expect(limited.headers['access-control-allow-origin']).toBe('https://portfolio.test');
   });
 
-  it('bounds aggregate authenticated traffic and signals retry with CORS headers', async () => {
-    const allHeaders = [];
-    for (let owner = 0; owner < 3; owner += 1) {
-      const user = await createUser(User);
-      const cmsApp = await createApp(App, user);
-      const { rawToken } = await createToken(ApiToken, cmsApp, 'pk');
-      allHeaders.push({ Authorization: `Bearer ${rawToken}`, Origin: 'https://portfolio.test' });
-    }
-    const headers = allHeaders[0];
-    const responses = await Promise.all(Array.from({ length: 30 }, (_, i) => request(appServer).get('/v1/app').set(allHeaders[i % 3])));
-    const busy = responses.filter((response) => response.status === 503);
-    expect(busy.length).toBeGreaterThan(0);
-    expect(busy[0].body.error).toBe('busy');
-    expect(busy[0].headers['retry-after']).toBe('1');
-    expect(busy[0].headers['access-control-allow-origin']).toBe('https://portfolio.test');
+  it('signals a drained global miss budget with 503 busy and CORS headers while cache hits keep flowing', async () => {
+    const user = await createUser(User);
+    await seedContent(models, user);
+    const cmsApp = await createApp(App, user);
+    const { rawToken } = await createToken(ApiToken, cmsApp, 'pk');
+    const headers = { Authorization: `Bearer ${rawToken}`, Origin: 'https://portfolio.test' };
+    await request(appServer).get('/v1/profile').set(headers).expect(200);
+    globalMissBucket.hold();
+    try {
+      await request(appServer).get('/v1/profile').set(headers).expect(200);
+      const busy = await request(appServer).get('/v1/projects').set(headers).expect(503);
+      expect(busy.body).toMatchObject({ ...v1ErrorShape, error: 'busy' });
+      expect(busy.headers['retry-after']).toBe('1');
+      expect(busy.headers['access-control-allow-origin']).toBe('https://portfolio.test');
+    } finally { globalMissBucket.refill(); }
+    await request(appServer).get('/v1/projects').set(headers).expect(200);
   });
 
   it('lists and revokes tokens, with revocation taking effect immediately', async () => {
@@ -209,8 +223,11 @@ describe('versioned public API and dashboard token lifecycle', () => {
     const auth = loginAs(user);
     const list = await request(appServer).get(`/api/apps/${cmsApp._id}/tokens`).set('Authorization', auth).expect(200);
     expect(list.body[0].value).toBe(rawToken);
+    await request(appServer).get('/v1/app').set({ Authorization: `Bearer ${rawToken}`, Origin: 'https://portfolio.test' }).expect(200);
     await request(appServer).delete(`/api/apps/${cmsApp._id}/tokens/${tokenDoc._id}`).set('Authorization', auth).expect(200);
-    await request(appServer).get('/v1/app').set({ Authorization: `Bearer ${rawToken}`, Origin: 'https://portfolio.test' }).expect(401);
+    expect(cache.isActiveToken(tokenDoc.hash)).toBe(false);
+    const revoked = await request(appServer).get('/v1/app').set({ Authorization: `Bearer ${rawToken}`, Origin: 'https://portfolio.test' }).expect(401);
+    expect(revoked.body.error).toBe('token_invalid');
   });
 
   it('returns only an owner’s app and hides stored secret-key values from token listings', async () => {
@@ -237,8 +254,9 @@ describe('versioned public API and dashboard token lifecycle', () => {
   it('revokes app tokens when the app is deleted', async () => {
     const user = await createUser(User);
     const cmsApp = await createApp(App, user);
-    const { rawToken } = await createToken(ApiToken, cmsApp, 'pk');
+    const { rawToken, tokenDoc } = await createToken(ApiToken, cmsApp, 'pk');
     await request(appServer).delete(`/api/apps/${cmsApp._id}`).set('Authorization', loginAs(user)).expect(200);
+    expect(cache.isActiveToken(tokenDoc.hash)).toBe(false);
     await request(appServer).get('/v1/app').set({ Authorization: `Bearer ${rawToken}`, Origin: 'https://portfolio.test' }).expect(401);
     const stored = await ApiToken.findOne({ owner: user._id, app: cmsApp._id });
     expect(stored.revokedAt).toBeInstanceOf(Date);

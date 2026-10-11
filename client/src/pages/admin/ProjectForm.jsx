@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../../api/client';
+import { useApiBase } from '../../lib/apiBase';
+import { apiErrorMessage } from '../../lib/apiErrors';
 import { useToast } from '../../components/admin/Toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -23,32 +25,39 @@ const slugify = (text) =>
     .replace(/[\s\W-]+/g, '-')
     .replace(/(^-|-$)/g, '');
 
+// Blank, not the previous owner's project. Helpful examples live in placeholders only.
+const EMPTY = {
+  title: '',
+  slug: '',
+  mode: 'solo',
+  shortDescription: '',
+  thumbnail: '',
+  stack: '',
+  role: '',
+  teammates: '',
+  keyMetric: '',
+  highlights: '',
+  caseStudyBody: '',
+  github: '',
+  live: '',
+  demo: '',
+  order: 0,
+  featured: true,
+};
+
+const input = 'w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-sm focus:border-t-accent outline-none';
+const labelClass = 'block text-sm font-medium text-t-text mb-1';
+const hintClass = 'text-xs text-t-muted mt-1 block';
+
 export default function ProjectForm() {
   const { notify } = useToast();
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const { v1Base } = useApiBase();
 
-  const [formData, setFormData] = useState({
-    title: '',
-    slug: '',
-    mode: 'solo',
-    shortDescription: '',
-    thumbnail: '',
-    stack: '',
-    role: 'Lead Engineer',
-    teammates: '',
-    keyMetric: 'Latency: <15ms',
-    highlights: '',
-    caseStudyBody:
-      '# Project Architecture & Technical Overview\n\n### Problem Statement\nDescribe the engineering challenge, latency constraints, or scale requirements.\n\n### Architecture & Key Decisions\n- **Microservices / Decoupled Core**: Explain system design.\n- **State Management**: Explain client/server data caching.\n\n```ts\n// Example system loop or configuration\nconst latency = measureSubsystem();\n```\n\n### Engineering Results\nDetail performance metrics, test coverage, and outcomes.',
-    github: '',
-    live: '',
-    demo: '',
-    order: 0,
-    featured: true,
-  });
-
+  const [formData, setFormData] = useState(EMPTY);
+  const [visibility, setVisibility] = useState('published');
   const [availableSkills, setAvailableSkills] = useState([]);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -56,7 +65,6 @@ export default function ProjectForm() {
   const [viewMode, setViewMode] = useState('split'); // 'split', 'editor', 'preview'
 
   useEffect(() => {
-    // Fetch available skills for quick tags
     api.get('/skills')
       .then((res) => {
         const list = Array.isArray(res.data) ? res.data : res.data.skills || [];
@@ -75,7 +83,7 @@ export default function ProjectForm() {
             shortDescription: p.shortDescription || '',
             thumbnail: p.thumbnail || '',
             stack: p.stack?.join(', ') || '',
-            role: p.role || 'Lead Engineer',
+            role: p.role || '',
             teammates: p.teammates?.join(', ') || '',
             keyMetric: p.keyMetric || '',
             highlights: p.highlights?.join('\n') || '',
@@ -86,10 +94,11 @@ export default function ProjectForm() {
             order: p.order ?? 0,
             featured: p.featured ?? true,
           });
+          setVisibility(p.visibility === 'published' ? 'published' : 'draft');
           setSlugManuallyEdited(true);
         })
         .catch((err) => {
-          notify('Could not load this project. ' + (err.response?.data?.message || err.message));
+          notify(apiErrorMessage(err, 'Could not load this project.'));
           navigate('/admin/projects');
         })
         .finally(() => setFetching(false));
@@ -121,6 +130,7 @@ export default function ProjectForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const chosen = e.nativeEvent?.submitter?.value === 'draft' ? 'draft' : 'published';
     setLoading(true);
 
     const isTeam = formData.mode === 'team';
@@ -156,6 +166,7 @@ export default function ProjectForm() {
       },
       order: Number(formData.order),
       featured: formData.featured,
+      visibility: chosen,
     };
 
     try {
@@ -164,9 +175,10 @@ export default function ProjectForm() {
       } else {
         await api.post('/projects', payload);
       }
+      notify(chosen === 'published' ? 'Project saved and published.' : 'Project saved as a draft. Apps won’t see it until you publish.', 'success');
       navigate('/admin/projects');
     } catch (err) {
-      notify(err.response?.data?.message || 'Could not save the project. Try again.');
+      notify(apiErrorMessage(err, 'Could not save the project. Try again.'));
     } finally {
       setLoading(false);
     }
@@ -195,12 +207,12 @@ export default function ProjectForm() {
   if (fetching) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-xs font-mono text-t-accent animate-pulse">
-          Fetching case study data...
-        </div>
+        <p role="status" className="text-sm text-t-muted">Loading project…</p>
       </div>
     );
   }
+
+  const publicUrl = `${v1Base}/projects/${formData.slug || 'slug'}`;
 
   return (
     <form onSubmit={handleSubmit} className="max-w-6xl mx-auto space-y-6">
@@ -210,34 +222,45 @@ export default function ProjectForm() {
           <Link
             to="/admin/projects"
             className="p-2 rounded bg-t-surface text-t-muted hover:text-t-text border border-t-border transition-all"
-            title="Return to Projects List"
+            aria-label="Back to projects"
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={16} aria-hidden="true" />
           </Link>
           <div>
             <h1 className="text-xl font-bold text-t-text tracking-tight">
-              {isEdit ? 'Edit Engineering Case Study' : 'Create Engineering Case Study'}
+              {isEdit ? 'Edit project' : 'New project'}
             </h1>
-            <p className="text-xs text-t-muted mt-0.5">
-              The write-up, link and details for this project.
+            <p className="text-sm text-t-muted mt-0.5">
+              {isEdit ? (visibility === 'published' ? 'Published: Apps serve it now.' : 'Draft: no App can see it yet.') : 'The write-up, links and details for this project.'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             to="/admin/projects"
-            className="px-3 py-1.5 rounded text-xs font-semibold text-t-muted hover:text-t-text hover:bg-t-surface-hi"
+            className="px-3 py-1.5 rounded text-sm font-semibold text-t-muted hover:text-t-text hover:bg-t-surface-hi"
           >
             Cancel
           </Link>
           <button
             type="submit"
+            name="visibility"
+            value="draft"
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
+            className="px-3.5 py-1.5 rounded border border-t-border-hi text-sm font-semibold text-t-text hover:bg-t-surface-hi disabled:opacity-50"
           >
-            <Save size={14} />
-            <span>{loading ? 'Saving...' : isEdit ? 'Update Case Study' : 'Publish Case Study'}</span>
+            Save as draft
+          </button>
+          <button
+            type="submit"
+            name="visibility"
+            value="published"
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-sm shadow-md transition-all disabled:opacity-50"
+          >
+            <Save size={14} aria-hidden="true" />
+            <span>{loading ? 'Saving…' : 'Save and publish'}</span>
           </button>
         </div>
       </div>
@@ -245,99 +268,122 @@ export default function ProjectForm() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column (Core Metadata) */}
         <div className="lg:col-span-1 space-y-5">
-          {/* Section: Basic Info */}
-          <div className="p-4 rounded bg-t-surface border border-t-border space-y-3.5">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted block pb-2 border-b border-t-border">
-              Project Identification
-            </span>
+          <fieldset className="p-4 rounded bg-t-surface border border-t-border space-y-3.5">
+            <legend className="text-sm font-semibold text-t-text px-1">About the project</legend>
 
             <div>
-              <label className="block text-xs font-mono text-t-muted mb-1">Project Title *</label>
+              <label htmlFor="project-title" className={labelClass}>Title</label>
               <input
+                id="project-title"
                 type="text"
                 required
+                maxLength={120}
                 value={formData.title}
                 onChange={(e) => handleTitleChange(e.target.value)}
-                placeholder="e.g. Real-time Order Flow Dashboard"
-                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
+                placeholder="e.g. Order flow dashboard"
+                autoComplete="off"
+                className={input}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-t-muted mb-1">Public URL Slug *</label>
+              <label htmlFor="project-slug" className={labelClass}>Slug</label>
               <input
+                id="project-slug"
                 type="text"
                 required
+                maxLength={80}
+                pattern="[a-z0-9]+(-[a-z0-9]+)*"
                 value={formData.slug}
                 onChange={(e) => {
                   setSlugManuallyEdited(true);
                   setFormData({ ...formData, slug: slugify(e.target.value) });
                 }}
-                placeholder="e.g. real-time-order-flow-dashboard"
-                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-accent-br font-mono text-xs focus:border-t-accent outline-none"
+                placeholder="e.g. order-flow-dashboard"
+                aria-describedby="project-slug-hint"
+                autoComplete="off"
+                spellCheck={false}
+                className={`${input} font-mono`}
               />
-              <span className="text-[10px] font-mono text-t-dim mt-1 block">
-                endpoint: <code className="text-t-accent2">/api/projects/{formData.slug || 'slug'}</code>
+              <span id="project-slug-hint" className={hintClass}>
+                Public at <code translate="no" className="text-t-text">{publicUrl}</code>{isEdit && <>. Changing the slug changes that URL.</>}
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs font-mono text-t-muted mb-1">Project Mode</label>
+                <label htmlFor="project-mode" className={labelClass}>Solo or team</label>
                 <select
+                  id="project-mode"
                   value={formData.mode}
                   onChange={(e) => setFormData({ ...formData, mode: e.target.value })}
-                  className="w-full px-2.5 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
+                  className={input}
                 >
-                  <option value="solo">Solo Project</option>
-                  <option value="team">Team Collaboration</option>
+                  <option value="solo">Solo</option>
+                  <option value="team">Team</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-t-muted mb-1">Display Order</label>
+                <label htmlFor="project-order" className={labelClass}>Order</label>
                 <input
+                  id="project-order"
                   type="number"
+                  inputMode="numeric"
                   value={formData.order}
                   onChange={(e) => setFormData({ ...formData, order: e.target.value })}
-                  className="w-full px-2.5 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
+                  aria-describedby="project-order-hint"
+                  className={`${input} font-mono`}
                 />
+                <span id="project-order-hint" className={hintClass}>Lower comes first.</span>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-t-muted mb-1">Engineering Role</label>
+              <label htmlFor="project-role" className={labelClass}>Your role</label>
               <input
+                id="project-role"
                 type="text"
+                maxLength={80}
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                placeholder="Lead Full Stack Engineer"
-                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
+                placeholder="e.g. Designer and developer"
+                autoComplete="off"
+                className={input}
               />
             </div>
 
             {formData.mode === 'team' && (
               <div>
-                <label className="block text-xs font-mono text-t-muted mb-1">Collaborators (Comma-separated)</label>
+                <label htmlFor="project-teammates" className={labelClass}>Teammates</label>
                 <input
+                  id="project-teammates"
                   type="text"
                   value={formData.teammates}
                   onChange={(e) => setFormData({ ...formData, teammates: e.target.value })}
-                  placeholder="Alex Rivera, Sarah Chen"
-                  className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
+                  placeholder="e.g. Alex Rivera, Sam Chen"
+                  aria-describedby="project-teammates-hint"
+                  autoComplete="off"
+                  className={input}
                 />
+                <span id="project-teammates-hint" className={hintClass}>Comma-separated. Served only to Apps that opt in to this field.</span>
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-mono text-t-muted mb-1">Key Performance Metric</label>
+              <label htmlFor="project-metric" className={labelClass}>Key result</label>
               <input
+                id="project-metric"
                 type="text"
+                maxLength={120}
                 value={formData.keyMetric}
                 onChange={(e) => setFormData({ ...formData, keyMetric: e.target.value })}
-                placeholder="e.g. Latency: <15ms, 99.98% Uptime"
-                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-accent2 font-mono text-xs focus:border-t-accent outline-none"
+                placeholder="e.g. 2,000 weekly users"
+                aria-describedby="project-metric-hint"
+                autoComplete="off"
+                className={input}
               />
+              <span id="project-metric-hint" className={hintClass}>One number or outcome worth leading with.</span>
             </div>
 
             <div className="flex items-center gap-2 pt-2">
@@ -346,58 +392,61 @@ export default function ProjectForm() {
                 id="projFeatured"
                 checked={formData.featured}
                 onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
-                className="w-4 h-4 rounded bg-t-bg border-t-border-hi text-t-accent2 focus:ring-t-accent2"
+                className="w-4 h-4 rounded bg-t-bg border-t-border-hi accent-[var(--theme-accent)]"
               />
-              <label htmlFor="projFeatured" className="text-xs text-t-muted cursor-pointer">
-                Feature this project
+              <label htmlFor="projFeatured" className="text-sm text-t-text cursor-pointer">
+                Featured
               </label>
             </div>
-          </div>
+          </fieldset>
 
-          {/* Section: Short Bio & Tech Stack */}
-          <div className="p-4 rounded bg-t-surface border border-t-border space-y-3.5">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted block pb-2 border-b border-t-border">
-              Summary and tools
-            </span>
+          <fieldset className="p-4 rounded bg-t-surface border border-t-border space-y-3.5">
+            <legend className="text-sm font-semibold text-t-text px-1">Summary and tools</legend>
 
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="text-xs font-mono text-t-muted">Short Summary (Max 260) *</label>
-                <span className={`text-[10px] font-mono ${formData.shortDescription.length > 260 ? 'text-t-danger' : 'text-t-dim'}`}>
+                <label htmlFor="project-summary" className="text-sm font-medium text-t-text">Short summary</label>
+                <span aria-live="polite" className={`text-xs ${formData.shortDescription.length > 260 ? 'text-t-danger' : 'text-t-dim'}`}>
                   {formData.shortDescription.length}/260
                 </span>
               </div>
               <textarea
+                id="project-summary"
                 required
                 maxLength={260}
                 rows={3}
                 value={formData.shortDescription}
                 onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })}
-                placeholder="High-frequency options order flow visualization with sub-15ms WebSocket updates..."
-                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none resize-none"
+                placeholder="One or two sentences on what it is and who it is for…"
+                className={`${input} resize-none`}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-t-muted mb-1">Tech Stack (Comma-separated)</label>
+              <label htmlFor="project-stack" className={labelClass}>Stack</label>
               <input
+                id="project-stack"
                 type="text"
                 value={formData.stack}
                 onChange={(e) => setFormData({ ...formData, stack: e.target.value })}
-                placeholder="React, Node.js, WebSockets, Redis"
-                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
+                placeholder="e.g. React, Node.js, Postgres"
+                aria-describedby="project-stack-hint"
+                autoComplete="off"
+                className={`${input} font-mono`}
               />
+              <span id="project-stack-hint" className={hintClass}>Comma-separated.</span>
 
               {availableSkills.length > 0 && (
                 <div className="mt-2">
-                  <span className="text-[10px] font-mono text-t-dim block mb-1">Add from your skills:</span>
+                  <span className="text-xs text-t-muted block mb-1">Add from your skills:</span>
                   <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
                     {availableSkills.map((sk) => (
                       <button
                         key={sk}
                         type="button"
                         onClick={() => addStackTag(sk)}
-                        className="px-1.5 py-0.5 rounded bg-t-bg hover:bg-t-surface-hi text-[10px] font-mono text-t-muted hover:text-t-text border border-t-border-hi cursor-pointer"
+                        aria-label={`Add ${sk} to the stack`}
+                        className="px-1.5 py-0.5 rounded bg-t-bg hover:bg-t-surface-hi text-xs text-t-muted hover:text-t-text border border-t-border-hi"
                       >
                         + {sk}
                       </button>
@@ -408,39 +457,44 @@ export default function ProjectForm() {
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-t-muted mb-1">
-                Key Accomplishments / Highlights (One per line)
-              </label>
+              <label htmlFor="project-highlights" className={labelClass}>Highlights</label>
               <textarea
+                id="project-highlights"
                 rows={3}
                 value={formData.highlights}
                 onChange={(e) => setFormData({ ...formData, highlights: e.target.value })}
-                placeholder="Black-Scholes approximations executed in real time&#10;Redis pub/sub channels fan out 1,200 ticks/sec"
-                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:border-t-accent outline-none"
+                placeholder={'e.g. Cut page load from 4 s to 1 s\nShipped to 3 countries'}
+                aria-describedby="project-highlights-hint"
+                className={input}
               />
+              <span id="project-highlights-hint" className={hintClass}>One per line, up to 15.</span>
             </div>
-          </div>
+          </fieldset>
 
-          {/* Section: Media & URLs */}
-          <div className="p-4 rounded bg-t-surface border border-t-border space-y-3.5">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-t-muted block pb-2 border-b border-t-border">
-              Images and links
-            </span>
+          <fieldset className="p-4 rounded bg-t-surface border border-t-border space-y-3.5">
+            <legend className="text-sm font-semibold text-t-text px-1">Images and links</legend>
 
             <div>
-              <label className="block text-xs font-mono text-t-muted mb-1">Thumbnail Preview URL</label>
+              <label htmlFor="project-thumbnail" className={labelClass}>Thumbnail URL</label>
               <input
+                id="project-thumbnail"
                 type="url"
                 value={formData.thumbnail}
                 onChange={(e) => setFormData({ ...formData, thumbnail: e.target.value })}
-                placeholder="https://images.unsplash.com/..."
-                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
+                placeholder="https://…/cover.png"
+                aria-describedby="project-thumbnail-hint"
+                autoComplete="off"
+                spellCheck={false}
+                className={`${input} font-mono`}
               />
+              <span id="project-thumbnail-hint" className={hintClass}>An https image link. Uploads aren’t supported yet.</span>
               {formData.thumbnail && (
                 <div className="mt-2 rounded overflow-hidden border border-t-border h-28 bg-t-bg">
                   <img
                     src={formData.thumbnail}
-                    alt="Preview"
+                    alt=""
+                    width={448}
+                    height={112}
                     className="w-full h-full object-cover"
                     onError={(e) => (e.target.style.display = 'none')}
                   />
@@ -449,163 +503,86 @@ export default function ProjectForm() {
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-t-muted mb-1">GitHub Repository URL</label>
-              <input
-                type="url"
-                value={formData.github}
-                onChange={(e) => setFormData({ ...formData, github: e.target.value })}
-                placeholder="https://github.com/username/project"
-                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
-              />
+              <label htmlFor="project-github" className={labelClass}>Repository URL</label>
+              <input id="project-github" type="url" value={formData.github} onChange={(e) => setFormData({ ...formData, github: e.target.value })} placeholder="https://github.com/you/project" autoComplete="off" spellCheck={false} className={`${input} font-mono`} />
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-t-muted mb-1">Live Application URL</label>
-              <input
-                type="url"
-                value={formData.live}
-                onChange={(e) => setFormData({ ...formData, live: e.target.value })}
-                placeholder="https://app.example.com"
-                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
-              />
+              <label htmlFor="project-live" className={labelClass}>Live URL</label>
+              <input id="project-live" type="url" value={formData.live} onChange={(e) => setFormData({ ...formData, live: e.target.value })} placeholder="https://project.example.com" autoComplete="off" spellCheck={false} className={`${input} font-mono`} />
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-t-muted mb-1">Demo Video URL</label>
-              <input
-                type="url"
-                value={formData.demo}
-                onChange={(e) => setFormData({ ...formData, demo: e.target.value })}
-                placeholder="https://youtube.com/..."
-                className="w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none"
-              />
+              <label htmlFor="project-demo" className={labelClass}>Demo video URL</label>
+              <input id="project-demo" type="url" value={formData.demo} onChange={(e) => setFormData({ ...formData, demo: e.target.value })} placeholder="https://youtube.com/watch?v=…" autoComplete="off" spellCheck={false} className={`${input} font-mono`} />
             </div>
-          </div>
+          </fieldset>
         </div>
 
-        {/* Right Column (Markdown Case Study Editor) */}
+        {/* Right Column (Markdown write-up) */}
         <div className="lg:col-span-2 flex flex-col space-y-3">
-          <div className="p-3 rounded bg-t-surface border border-t-border flex items-center justify-between">
+          <div className="p-3 rounded bg-t-surface border border-t-border flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Code size={16} className="text-t-accent" />
-              <span className="text-xs font-mono font-bold text-t-text uppercase tracking-wider">
-                Full Case Study Document (Markdown)
-              </span>
+              <Code size={16} aria-hidden="true" className="text-t-accent" />
+              <label htmlFor="caseStudyTextarea" className="text-sm font-semibold text-t-text">Write-up (Markdown, optional)</label>
             </div>
 
-            {/* View Mode Switcher */}
-            <div className="flex items-center bg-t-bg border border-t-border-hi rounded p-0.5">
-              <button
-                type="button"
-                onClick={() => setViewMode('editor')}
-                className={`px-2.5 py-1 text-[11px] font-mono rounded ${
-                  viewMode === 'editor' ? 'bg-t-accent text-t-on-accent font-bold' : 'text-t-muted hover:text-t-text'
-                }`}
-              >
-                Editor
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('split')}
-                className={`px-2.5 py-1 text-[11px] font-mono rounded hidden sm:inline-block ${
-                  viewMode === 'split' ? 'bg-t-accent text-t-on-accent font-bold' : 'text-t-muted hover:text-t-text'
-                }`}
-              >
-                Split
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('preview')}
-                className={`px-2.5 py-1 text-[11px] font-mono rounded ${
-                  viewMode === 'preview' ? 'bg-t-accent text-t-on-accent font-bold' : 'text-t-muted hover:text-t-text'
-                }`}
-              >
-                Preview
-              </button>
+            <div role="group" aria-label="Editor view" className="flex items-center bg-t-bg border border-t-border-hi rounded p-0.5">
+              {[['editor', 'Editor', ''], ['split', 'Split', 'hidden sm:inline-block'], ['preview', 'Preview', '']].map(([mode, label, extra]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setViewMode(mode)}
+                  aria-pressed={viewMode === mode}
+                  className={`px-2.5 py-1 text-xs rounded ${extra} ${viewMode === mode ? 'bg-t-accent text-t-on-accent font-bold' : 'text-t-muted hover:text-t-text'}`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Quick Toolbar */}
-          <div className="p-2 rounded bg-t-surface border border-t-border flex flex-wrap items-center gap-1 text-t-muted">
-            <button
-              type="button"
-              onClick={() => insertMarkdown('## ')}
-              className="p-1.5 hover:bg-t-surface-hi hover:text-t-text rounded"
-              title="Heading 2"
-            >
-              <Heading2 size={13} />
-            </button>
-            <button
-              type="button"
-              onClick={() => insertMarkdown('**', '**')}
-              className="p-1.5 hover:bg-t-surface-hi hover:text-t-text rounded"
-              title="Bold"
-            >
-              <Bold size={13} />
-            </button>
-            <button
-              type="button"
-              onClick={() => insertMarkdown('*', '*')}
-              className="p-1.5 hover:bg-t-surface-hi hover:text-t-text rounded"
-              title="Italic"
-            >
-              <Italic size={13} />
-            </button>
-            <button
-              type="button"
-              onClick={() => insertMarkdown('- ')}
-              className="p-1.5 hover:bg-t-surface-hi hover:text-t-text rounded"
-              title="Bullet list"
-            >
-              <List size={13} />
-            </button>
-            <button
-              type="button"
-              onClick={() => insertMarkdown('> ')}
-              className="p-1.5 hover:bg-t-surface-hi hover:text-t-text rounded"
-              title="Quote"
-            >
-              <Quote size={13} />
-            </button>
-            <button
-              type="button"
-              onClick={() => insertMarkdown('```ts\n', '\n```')}
-              className="p-1.5 hover:bg-t-surface-hi hover:text-t-text rounded font-mono text-[11px]"
-              title="Code block"
-            >
-              &lt;/&gt;
-            </button>
+          <div role="toolbar" aria-label="Formatting" className="p-2 rounded bg-t-surface border border-t-border flex flex-wrap items-center gap-1 text-t-muted">
+            {[
+              ['Heading', () => insertMarkdown('## '), <Heading2 key="h" size={13} aria-hidden="true" />],
+              ['Bold', () => insertMarkdown('**', '**'), <Bold key="b" size={13} aria-hidden="true" />],
+              ['Italic', () => insertMarkdown('*', '*'), <Italic key="i" size={13} aria-hidden="true" />],
+              ['Bullet list', () => insertMarkdown('- '), <List key="l" size={13} aria-hidden="true" />],
+              ['Quote', () => insertMarkdown('> '), <Quote key="q" size={13} aria-hidden="true" />],
+              ['Code block', () => insertMarkdown('```\n', '\n```'), <span key="c" className="font-mono text-xs" aria-hidden="true">&lt;/&gt;</span>],
+            ].map(([label, action, icon]) => (
+              <button key={label} type="button" onClick={action} aria-label={label} title={label} className="p-1.5 hover:bg-t-surface-hi hover:text-t-text rounded">{icon}</button>
+            ))}
           </div>
 
-          {/* Main Markdown Body Grid */}
           <div className="flex-1 min-h-[500px] grid grid-cols-1 gap-4">
             {viewMode === 'split' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
                 <textarea
                   id="caseStudyTextarea"
-                  required
                   value={formData.caseStudyBody}
                   onChange={(e) => setFormData({ ...formData, caseStudyBody: e.target.value })}
-                  className="w-full h-full min-h-[480px] p-4 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none resize-none leading-relaxed"
+                  placeholder="What was the problem, what did you build, what happened…"
+                  className="w-full h-full min-h-[480px] p-4 rounded bg-t-bg border border-t-border-hi text-t-text text-sm font-mono focus:border-t-accent outline-none resize-none leading-relaxed"
                 />
                 <div className="h-full min-h-[480px] p-5 rounded bg-t-bg border border-t-border-hi overflow-y-auto preview-prose">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {formData.caseStudyBody || '*Empty preview*'}
+                    {formData.caseStudyBody || '*Nothing written yet.*'}
                   </ReactMarkdown>
                 </div>
               </div>
             ) : viewMode === 'editor' ? (
               <textarea
                 id="caseStudyTextarea"
-                required
                 value={formData.caseStudyBody}
                 onChange={(e) => setFormData({ ...formData, caseStudyBody: e.target.value })}
-                className="w-full h-full min-h-[500px] p-4 rounded bg-t-bg border border-t-border-hi text-t-text text-xs font-mono focus:border-t-accent outline-none resize-none leading-relaxed"
+                placeholder="What was the problem, what did you build, what happened…"
+                className="w-full h-full min-h-[500px] p-4 rounded bg-t-bg border border-t-border-hi text-t-text text-sm font-mono focus:border-t-accent outline-none resize-none leading-relaxed"
               />
             ) : (
               <div className="w-full h-full min-h-[500px] p-6 rounded bg-t-bg border border-t-border-hi overflow-y-auto preview-prose">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {formData.caseStudyBody || '*Empty preview*'}
+                  {formData.caseStudyBody || '*Nothing written yet.*'}
                 </ReactMarkdown>
               </div>
             )}

@@ -14,12 +14,12 @@ describe('superadmin controls', () => {
     await request(app).get('/api/admin/invites').set('Authorization', loginAs(unverifiedAdmin)).expect(403, { success: false, error: 'email_unverified', message: 'Verify your email before changing content' });
   });
 
-  it('creates, lists, and revokes hashed invite codes without returning stored hashes', async () => {
+  it('creates, lists, and revokes hashed 12-character invite codes without returning stored hashes', async () => {
     const admin = await createUser(User, { role: 'superadmin' });
     const auth = loginAs(admin);
     const created = await request(app).post('/api/admin/invites').set('Authorization', auth).send({ expiresInDays: 14, maxUses: 3 }).expect(201);
     const code = created.body.invite.code;
-    expect(code).toMatch(/^\d{6}$/);
+    expect(code).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{12}$/);
     expect(created.body.invite.maxUses).toBe(3);
     expect(await Invite.exists({ codeHash: inviteDigest(code), usedBy: null })).toBeTruthy();
     const listed = await request(app).get('/api/admin/invites').set('Authorization', auth).expect(200);
@@ -30,6 +30,14 @@ describe('superadmin controls', () => {
     expect(listed.body.invites[0]).toMatchObject({ usedCount: 0, maxUses: 3, remainingUses: 3 });
     await request(app).delete(`/api/admin/invites/${created.body.invite.id}`).set('Authorization', auth).expect(200, { success: true, revoked: true });
     expect(await Invite.countDocuments()).toBe(0);
+  });
+
+  it('caps invites at 50 uses and 90 days', async () => {
+    const admin = await createUser(User, { role: 'superadmin' });
+    const auth = loginAs(admin);
+    await request(app).post('/api/admin/invites').set('Authorization', auth).send({ maxUses: 51 }).expect(400);
+    await request(app).post('/api/admin/invites').set('Authorization', auth).send({ expiresInDays: 91 }).expect(400);
+    await request(app).post('/api/admin/invites').set('Authorization', auth).send({ maxUses: 50, expiresInDays: 90 }).expect(201);
   });
 
   it('returns aggregate performance metrics without exposing individual API app details', async () => {
@@ -61,28 +69,43 @@ describe('signup mode setting', () => {
     await request(app).put('/api/admin/settings').set('Authorization', loginAs(admin)).send({}).expect(400);
   });
 
-  it('defaults to the environment value and lets the dashboard override it for signup', async () => {
+  it('defaults to the environment value and lets the dashboard override it, including back to closed', async () => {
     const admin = await createUser(User, { role: 'superadmin' });
     const auth = loginAs(admin);
     process.env.SIGNUP_MODE = 'invite';
     const initial = await request(app).get('/api/admin/settings').set('Authorization', auth).expect(200);
     expect(initial.body.settings).toMatchObject({ signupMode: 'invite', source: 'environment' });
-    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: true, signupMode: 'invite' });
+    expect((await request(app).get('/api/auth/config').expect(200)).body).toMatchObject({ signupEnabled: true, signupMode: 'invite' });
 
     const updated = await request(app).put('/api/admin/settings').set('Authorization', auth).send({ signupMode: 'open' }).expect(200);
     expect(updated.body.settings).toMatchObject({ signupMode: 'open', source: 'dashboard' });
-    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: true, signupMode: 'open' });
+    expect((await request(app).get('/api/auth/config').expect(200)).body).toMatchObject({ signupEnabled: true, signupMode: 'open' });
+
+    const closed = await request(app).put('/api/admin/settings').set('Authorization', auth).send({ signupMode: 'closed' }).expect(200);
+    expect(closed.body.settings).toMatchObject({ signupMode: 'closed', source: 'dashboard', environmentDefault: 'invite' });
+    expect((await request(app).get('/api/auth/config').expect(200)).body).toMatchObject({ signupEnabled: false, signupMode: 'closed' });
+    const refused = await request(app).post('/api/auth/signup').send({ email: 'x@test.com', acceptedTerms: true, acceptedPrivacy: true });
+    expect(refused.status).toBe(503);
+    expect(refused.body.error).toBe('signup_unavailable');
 
     await request(app).put('/api/admin/settings').set('Authorization', auth).send({ signupMode: 'invite' }).expect(200);
-    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: true, signupMode: 'invite' });
+    expect((await request(app).get('/api/auth/config').expect(200)).body).toMatchObject({ signupEnabled: true, signupMode: 'invite' });
+  });
+
+  it('honours SIGNUP_MODE=closed from the environment when nothing is saved', async () => {
+    const admin = await createUser(User, { role: 'superadmin' });
+    process.env.SIGNUP_MODE = 'closed';
+    const settings = await request(app).get('/api/admin/settings').set('Authorization', loginAs(admin)).expect(200);
+    expect(settings.body.settings).toMatchObject({ signupMode: 'closed', source: 'environment', environmentDefault: 'closed' });
+    expect((await request(app).get('/api/auth/config').expect(200)).body).toMatchObject({ signupEnabled: false, signupMode: 'closed' });
   });
 
   it('stays closed in production until legal policies are approved, even when set to open', async () => {
     const admin = await createUser(User, { role: 'superadmin' });
     await request(app).put('/api/admin/settings').set('Authorization', loginAs(admin)).send({ signupMode: 'open' }).expect(200);
     process.env.NODE_ENV = 'production';
-    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: false, signupMode: 'closed' });
+    expect((await request(app).get('/api/auth/config').expect(200)).body).toMatchObject({ signupEnabled: false, signupMode: 'closed' });
     process.env.LEGAL_POLICIES_APPROVED = 'true';
-    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: true, signupMode: 'open' });
+    expect((await request(app).get('/api/auth/config').expect(200)).body).toMatchObject({ signupEnabled: true, signupMode: 'open' });
   });
 });

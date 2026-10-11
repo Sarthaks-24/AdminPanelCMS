@@ -1,24 +1,54 @@
 const mongoose = require('mongoose');
 const { ownerGuardPlugin } = require('../plugins/ownerGuard');
+const { MAX_FIELDS_PER_SECTION } = require('../lib/modelConstants');
+const LIMITS = require('../config/limits');
+
+// Schema-level caps are the last line of defence (contract §4); validateApp in appsController
+// applies the exact per-model `fields` cap, ownership of `ids` and the owner's category list.
+const unique = (value) => new Set(value.map(String)).size === value.length;
+const fieldsSpec = {
+  type: [{ type: String, trim: true }],
+  default: [],
+  validate: {
+    validator: (value) => value.length <= MAX_FIELDS_PER_SECTION && unique(value),
+    message: `fields must be unique and contain at most ${MAX_FIELDS_PER_SECTION} entries`,
+  },
+};
+const idsSpec = {
+  type: [{ type: mongoose.Schema.Types.ObjectId }],
+  default: [],
+  validate: {
+    validator: (value) => value.length <= LIMITS.itemsPerCollection && unique(value),
+    message: `ids must be unique and contain at most ${LIMITS.itemsPerCollection} entries`,
+  },
+};
+const categoriesSpec = {
+  type: [{ type: String, trim: true, maxlength: 60 }],
+  default: [],
+  validate: {
+    validator: (value) => value.length <= 50 && unique(value) && value.every((entry) => entry.length <= 60),
+    message: 'categories must be unique and contain at most 50 entries of at most 60 characters',
+  },
+};
 
 const SectionSchema = new mongoose.Schema({
   enabled: { type: Boolean, default: false },
   mode: { type: String, enum: ['all', 'featured', 'selected'], default: 'all' },
-  ids: [{ type: mongoose.Schema.Types.ObjectId }],
-  fields: [{ type: String, trim: true }],
+  ids: idsSpec,
+  fields: fieldsSpec,
 }, { _id: false });
 
 const SkillsSectionSchema = new mongoose.Schema({
   enabled: { type: Boolean, default: false },
   mode: { type: String, enum: ['all', 'featured', 'selected'], default: 'all' },
-  ids: [{ type: mongoose.Schema.Types.ObjectId }],
-  fields: [{ type: String, trim: true }],
-  categories: [{ type: String, trim: true }],
+  ids: idsSpec,
+  fields: fieldsSpec,
+  categories: categoriesSpec,
 }, { _id: false });
 
 const SimpleSectionSchema = new mongoose.Schema({
   enabled: { type: Boolean, default: false },
-  fields: [{ type: String, trim: true }],
+  fields: fieldsSpec,
 }, { _id: false });
 
 const IncludeSchema = new mongoose.Schema({

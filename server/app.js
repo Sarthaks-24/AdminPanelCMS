@@ -2,6 +2,10 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const pinoHttp = require('pino-http');
+const logger = require('./lib/logger');
+const readiness = require('./lib/readiness');
+const requestId = require('./middleware/requestId');
 const errorHandler = require('./middleware/errorHandler');
 const sanitizeMongoInput = require('./middleware/sanitizeMongoInput');
 
@@ -27,7 +31,45 @@ if (!Number.isSafeInteger(trustProxyHops) || trustProxyHops < 0) {
 }
 app.set('trust proxy', trustProxyHops);
 app.set('etag', false);
+
+// Request id first so every log line and error body can carry it, then one access-log line per
+// request: reqId, method, path, status, ms, plus owner/app/tokenId/cacheHit when /v1 resolved them.
+// Secrets are redacted by lib/logger.js; the logger is silent under NODE_ENV=test.
+const PROBE_PATHS = new Set(['/livez', '/readyz', '/api/health']);
+const requestFields = (req, res) => ({
+  method: req.method,
+  path: (req.originalUrl || req.url || '').split('?')[0],
+  status: res.statusCode,
+  owner: req.ownerId ? String(req.ownerId) : (req.userId ? String(req.userId) : undefined),
+  app: req.cmsApp ? String(req.cmsApp._id) : undefined,
+  tokenId: req.tokenId ? String(req.tokenId) : undefined,
+  cacheHit: res.locals?.cacheHit,
+});
+app.use(requestId);
+app.use(pinoHttp({
+  logger,
+  genReqId: (req) => req.id,
+  quietReqLogger: true,
+  quietResLogger: true,
+  customAttributeKeys: { reqId: 'reqId', responseTime: 'ms' },
+  autoLogging: { ignore: (req) => PROBE_PATHS.has((req.url || '').split('?')[0]) },
+  customSuccessObject: (req, res, val) => ({ ...requestFields(req, res), ms: val.responseTime }),
+  // The handlers already log real 5xx errors with their stack; skip pino-http's synthetic "failed with status code" error.
+  customErrorObject: (req, res, err, val) => ({ ...requestFields(req, res), ms: val.responseTime, ...(res.err || req.err ? { err: val.err } : {}) }),
+  customSuccessMessage: () => 'request',
+  customErrorMessage: () => 'request failed',
+}));
 app.use(helmet());
+
+// Probes sit above every limiter: /livez is process liveness, /readyz adds a Mongo ping.
+const liveness = (req, res) => res.json({ status: 'ok', uptime: Math.floor(process.uptime()), timestamp: new Date().toISOString() });
+app.get('/livez', liveness);
+app.get('/api/health', liveness);
+app.get('/readyz', async (req, res) => {
+  const result = await readiness.checkReady();
+  res.status(result.ok ? 200 : 503).json({ status: result.ok ? 'ready' : 'unavailable', ...(result.reason ? { reason: result.reason } : {}), timestamp: new Date().toISOString() });
+});
+
 // Mount /v1 before the dashboard CORS middleware so its stricter preflight policy wins.
 app.use('/v1', v1Routes);
 
@@ -46,10 +88,13 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Request-Id'],
+  exposedHeaders: ['X-Request-Id'],
 }));
 
 app.use(express.json({ limit: '256kb' }));
+// Express 5 leaves req.body undefined without a JSON body; controllers may destructure it.
+app.use((req, res, next) => { req.body ??= {}; next(); });
 
 app.use('/api', rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -57,14 +102,6 @@ app.use('/api', rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 }));
-
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    uptime: Math.floor(process.uptime()),
-    timestamp: new Date().toISOString(),
-  });
-});
 
 app.use('/api', sanitizeMongoInput);
 app.use('/api/auth', authRoutes);
@@ -81,7 +118,7 @@ app.use('/api/resume', resumeRoutes);
 app.use('/api/apps', appsRoutes);
 
 app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'API route not found' });
+  res.status(404).json({ success: false, error: 'not_found', message: 'API route not found', requestId: req.id });
 });
 
 app.use(errorHandler);

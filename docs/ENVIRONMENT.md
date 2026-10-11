@@ -70,7 +70,8 @@ Write each of these twice in `server/.env`, as `DEV_<NAME>` and `PROD_<NAME>`.
 | `CLIENT_ORIGIN` | `http://localhost:5173` | `https://` origin the dashboard is served from | Exact origin, no trailing slash. It is the only origin allowed by dashboard CORS and the base of emailed verify/reset links. Must be https in prod. |
 | `TRUST_PROXY_HOPS` | `0` | Usually `1` | Number of reverse proxies in front of Node. Required in prod. Too low and every visitor shares one IP, so rate limits lock everyone out together; too high and clients can spoof their IP. |
 | `SESSION_COOKIE_SAMESITE` | `lax` | `lax`, or `none` for unrelated domains | `lax`, `strict` or `none`; anything else means `lax`. See [hosting layouts](DEPLOYMENT.md#choose-a-hosting-layout). In prod the cookie is always `Secure`. |
-| `SIGNUP_MODE` | `invite` or `open` | `closed` until you want other users | `invite`, `open`, or any other value such as `closed` to close signup. Unset or blank means `invite`. A superadmin's choice in the dashboard overrides this. |
+| `PUBLIC_API_URL` | Empty, or `http://localhost:5000` | `https://api.example.com` | The public base of the API as consumers reach it: scheme and host only, no path, no trailing slash. The dashboard reads it from `GET /api/auth/config` (`publicApiBase`) and shows `<base>/v1/...` in every snippet, so the client never hardcodes it. Optional in dev (the dashboard then derives it from its own API URL); in prod it must be an `https:` URL with no path or the server refuses to start. |
+| `SIGNUP_MODE` | `invite` or `open` | `closed` until launch | `closed`, `invite` or `open`. Unset, blank or any other value means **`closed`**. A superadmin's choice in the dashboard (which can also pick `closed`) overrides this. |
 | `LEGAL_POLICIES_APPROVED` | `false` | `true` only once your Terms and Privacy pages are final | In prod, signup stays unavailable until this is `true`, whatever `SIGNUP_MODE` or the dashboard says. Ignored in dev. |
 | `RESEND_MAIL_KEY` | Placeholder, or a real key | Live Resend API key | Empty or the `re_xxxxxxxxx` placeholder means no email is sent. In dev, accounts made on the signup page then cannot be verified (use `npm run setup`, which creates a verified account). In prod, signup returns `email_unavailable` and reset emails are not sent. |
 | `RESEND_FROM_EMAIL` | `onboarding@resend.dev` | An address on a domain verified in Resend | The Resend test sender only delivers to your own address. |
@@ -82,16 +83,21 @@ Write each of these twice in `server/.env`, as `DEV_<NAME>` and `PROD_<NAME>`.
 | Setting | Default | Notes |
 | :--- | :--- | :--- |
 | `PORT` | `5000` | Most hosts inject this themselves. |
-| `ADMIN_NAME` | `Portfolio Administrator` | Default profile name for a new account. Replace the template placeholder. |
+| `ADMIN_NAME` | `Portfolio Administrator` | Profile name the setup and seed scripts give the `ADMIN_EMAIL` account. New accounts start with a blank profile; this is never a schema default. |
 | `ADMIN_EMAIL` | none | Email of the first account, used by the setup scripts. Replace the template placeholder. |
 | `INVITE_CODE_PEPPER` | uses `JWT_SECRET` | Optional separate secret for invite-code hashes. Changing it invalidates outstanding invites. |
-| `INVITE_FAILURE_LIMIT` | `100` | Wrong invite codes allowed per hour, across all visitors, before invite signup pauses. |
+| `INVITE_FAILURE_LIMIT` | `2000` | Wrong invite codes allowed per hour across all visitors before invite signup pauses (the global guard). Codes are 12 characters, so guessing is impractical; this is a last-resort brake. |
+| `INVITE_IP_FAILURE_LIMIT` | `10` | Wrong invite codes allowed per hour from one IP before that IP gets `429 invite_locked`. Other visitors are unaffected. |
+| `MAIL_DAILY_CAP` | `500` | Outbound emails allowed per UTC day across the whole service (verification, resend, account-exists notices, reset). The counter is the `Setting` key `mail:YYYY-MM-DD`. Over the cap, signup and resend return `503 mail_budget`; forgot-password still returns the generic 200 and logs the drop. |
+| `MAIL_RESET_RESERVE` | `50` | Part of `MAIL_DAILY_CAP` that only password-reset mail may spend, so a signup flood cannot lock existing users out of recovery. |
+| `LOG_LEVEL` | `info` | pino level for the structured request and security log (`fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent`). Tests run with `silent`. |
 | `SWEEP_DELETED_INTERVAL_HOURS` | `6` | How often the running server finishes cleanup of deleted accounts. `0` disables it. |
 | `MONGODB_DB` | `Portfolio_db` | Database name used only when the URI path has none (dev only; production requires the name in the URI). |
 | `DB_STORAGE_CAP_BYTES` | `536870912` | `npm run stats` exits with code 2 at 70% of this. |
 | `TOKEN_EXPIRY_WARNING_DAYS` | `7` | Lead time for `npm run tokens:notify-expiring` (1 to 30). |
 | `BACKUP_PASSPHRASE_FILE` | none | File holding the backup passphrase. Required by the backup scripts. |
-| `BACKUP_DIR` | `~/cms-backups` | Where encrypted archives are written. Archives are named after the database and the newest 14 per database are kept. |
+| `BACKUP_DIR` | `~/cms-backups` | Where encrypted archives are written. Archives are named after the database; local copies older than `BACKUP_RETENTION_DAYS` are deleted after each run (the newest is always kept). |
+| `BACKUP_RETENTION_DAYS` | `30` | Retention window for backups, local and off-host. After each successful upload `npm run backup` runs `rclone delete --min-age <days>d` on `BACKUP_RETENTION_DAYS`-old archives of the same database in `BACKUP_REMOTE_DESTINATION` and logs what it removed. This window is also how long a deleted account's data can survive in backups. |
 | `RCLONE_BINARY`, `GPG_BINARY`, `MONGORESTORE_BINARY` | `rclone`, `gpg`, `mongorestore` | Override if the tools are not on `PATH`. `mongodump` has no override: it must be on `PATH` (on Windows the default MongoDB Tools install folder is also tried). |
 | `BACKUP_RESTORE_URI` | `mongodb://127.0.0.1:27017` | Restore-drill target. Must be a local MongoDB. |
 | `RESUME_DRIVE_URL` | none | Read only by `npm run update-resume` (`RESUME_URL` is accepted as an alias). |
@@ -108,6 +114,21 @@ Write each of these twice in `server/.env`, as `DEV_<NAME>` and `PROD_<NAME>`.
 
 Everything prefixed `VITE_` is public. Never put a secret in `client/.env`.
 
+The dashboard API base (`VITE_PROD_API_URL`) and the public `/v1` base shown to users are different settings. The second one comes from the server's `PUBLIC_API_URL`, fetched at runtime through `GET /api/auth/config`, so a rebuild is not needed when the public hostname changes.
+
+## Backup workflow secrets (GitHub Actions)
+
+`.github/workflows/backup.yml` runs `npm run backup` nightly without a `.env` file. It takes its settings from repository secrets, which map onto the variables above:
+
+| Secret | Becomes |
+| :--- | :--- |
+| `PROD_MONGODB_URI` | `MONGODB_URI` (use the dedicated backup database user, not the API user) |
+| `BACKUP_PASSPHRASE` | written to a 600 temp file that `BACKUP_PASSPHRASE_FILE` points at |
+| `BACKUP_REMOTE_DESTINATION` | `BACKUP_REMOTE_DESTINATION` |
+| `RCLONE_CONFIG` | `~/.config/rclone/rclone.conf` on the runner |
+
+The repository variable `BACKUP_RETENTION_DAYS` (optional) overrides the 30-day default. The workflow sets `MODE=prod` itself.
+
 ## Boot checks
 
 The server will not start when any of these is true:
@@ -123,8 +144,10 @@ The server will not start when any of these is true:
 | `TRUST_PROXY_HOPS` is not set explicitly | prod |
 | `MONGODB_URI` points at the same cluster and database as `DEV_MONGODB_URI`, or `JWT_SECRET` equals `DEV_JWT_SECRET` (only checked when the `DEV_` values are present) | prod |
 | `MONGODB_URI` has no database name in its path | prod |
+| `PUBLIC_API_URL` is missing, is not `https:`, or has a path | prod |
+| `RESEND_MAIL_KEY` is missing or a placeholder, or `RESEND_FROM_EMAIL` is blank or the Resend test sender, while signup is not `closed` | prod |
 
-It starts but prints a `[Config]` warning when, in prod, `RESEND_MAIL_KEY` is missing or a placeholder, or `RESEND_FROM_EMAIL` is still the Resend test sender.
+With signup `closed` the mail checks are only a `[Config]` warning, because nothing can register. The moment you flip to `invite` or `open`, a test sender would make every verification email fail silently, which is why it is fatal.
 
 These checks run when the server starts. The scripts apply the `MODE` switch but not these checks; each script validates only what it needs.
 
@@ -135,8 +158,9 @@ These checks run when the server starts. The scripts apply the `MODE` switch but
 | Session cookie `Secure` flag | only if `SameSite=None` | always |
 | Error responses | include the error message and stack trace | 5xx return `Internal Server Error`, no stack |
 | `http://localhost` as an App's allowed origin | accepted | rejected; https only |
-| Signup without a real mail key | allowed (no email is sent) | `503 email_unavailable` |
+| Signup without a real mail key | allowed (no email is sent) | refused at boot unless signup is `closed` |
 | Signup without `LEGAL_POLICIES_APPROVED=true` | allowed | `503 signup_unavailable` |
+| `PUBLIC_API_URL` | optional | required, `https:`, no path |
 | `npm run backup` without a remote destination | allowed | refused |
 | `npm run production:prepare` | refused | allowed |
 

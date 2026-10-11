@@ -21,17 +21,29 @@ function localMongoUri(uri, database) {
   return parsed.toString();
 }
 
-function start(command, args, pipeInput = false) {
-  const child = spawn(command, args, { stdio: [pipeInput ? 'pipe' : 'ignore', 'pipe', 'ignore'], windowsHide: true });
+// stderr is captured for mongorestore only: its final summary line is the one place that reports per-document failures.
+function start(command, args, { pipeInput = false, captureStderr = false } = {}) {
+  const child = spawn(command, args, { stdio: [pipeInput ? 'pipe' : 'ignore', 'pipe', captureStderr ? 'pipe' : 'ignore'], windowsHide: true });
+  let stderr = '';
+  if (captureStderr) child.stderr.on('data', (chunk) => { stderr += chunk; });
   const exit = new Promise((resolve) => {
-    child.once('error', (error) => resolve({ error }));
-    child.once('close', (code) => resolve({ code }));
+    child.once('error', (error) => resolve({ error, stderr }));
+    child.once('close', (code) => resolve({ code, stderr }));
   });
   return { child, exit };
 }
 
+// mongorestore ends with e.g. "1234 document(s) restored successfully. 0 document(s) failed to restore."
+function parseRestoreSummary(stderr) {
+  const restored = /(\d+) document\(s\) restored successfully/.exec(stderr);
+  const failed = /(\d+) document\(s\) failed to restore/.exec(stderr);
+  return { restored: restored ? Number(restored[1]) : null, failed: failed ? Number(failed[1]) : null };
+}
+
 async function main() {
   const archive = path.resolve(argument('--file') || '');
+  const archiveName = path.basename(archive);
+  const today = new Date().toISOString().slice(0, 10);
   const targetDatabase = String(argument('--target-db') || '').trim();
   const confirmation = argument('--confirm-db');
   const sourceUri = process.env.MONGODB_URI;
@@ -56,20 +68,39 @@ async function main() {
   const decrypt = start(process.env.GPG_BINARY || 'gpg', ['--batch', '--pinentry-mode', 'loopback', '--passphrase-file', passphraseFile, '--decrypt', archive]);
   const restore = start(process.env.MONGORESTORE_BINARY || 'mongorestore', [
     '--uri', targetUri, '--archive', '--gzip', '--nsFrom', `${sourceDatabase}.*`, '--nsTo', `${targetDatabase}.*`,
-  ], true);
+  ], { pipeInput: true, captureStderr: true });
   let restoreStarted = true;
+  let failure;
   try {
     await pipeline(decrypt.child.stdout, restore.child.stdin);
     const [decryptResult, restoreResult] = await Promise.all([decrypt.exit, restore.exit]);
     if (decryptResult.code !== 0 || restoreResult.code !== 0) throw new Error('Decrypt or restore command returned a failure status.');
+    const summary = parseRestoreSummary(restoreResult.stderr);
+    if (summary.failed === null || summary.restored === null) throw new Error('mongorestore did not report its document counts; the restore cannot be verified.');
+    if (summary.failed > 0) throw new Error(`mongorestore reported ${summary.failed} document(s) that failed to restore.`);
+    if (summary.restored === 0) throw new Error('mongorestore reported zero restored documents; the archive is empty or belongs to another database.');
+
     await mongoose.connect(targetUri, { maxPoolSize: 2 });
     const collections = await mongoose.connection.db.listCollections().toArray();
     if (!collections.length) throw new Error('The restore completed but created no collections.');
-    console.log(`Restore verified in local disposable database ${targetDatabase}: ${collections.length} collection(s).`);
-  } catch {
+    const counts = [];
+    for (const { name } of collections.sort((a, b) => a.name.localeCompare(b.name))) {
+      // An exact count through the aggregate command, on the disposable database only.
+      const result = await mongoose.connection.db.command({ aggregate: name, pipeline: [{ $count: 'n' }], cursor: {} });
+      counts.push({ name, count: result.cursor.firstBatch.length ? result.cursor.firstBatch[0].n : 0 });
+    }
+    const total = counts.reduce((sum, entry) => sum + entry.count, 0);
+    // The documents mongorestore says it wrote must all be readable back from the disposable database.
+    if (total !== summary.restored) throw new Error(`Mismatch: mongorestore reported ${summary.restored} document(s) but ${total} are readable in ${targetDatabase}.`);
+    const empty = counts.filter((entry) => entry.count === 0).map((entry) => entry.name);
+    if (empty.length) throw new Error(`Mismatch: restored collection(s) with zero documents: ${empty.join(', ')}.`);
+    console.log(`Restore verified in local disposable database ${targetDatabase}: ${counts.map((entry) => `${entry.name}=${entry.count}`).join(', ')}.`);
+    // One line to paste into docs/OPERATIONS.md under "Restore drill log".
+    console.log(`RESTORE DRILL OK ${today} ${archiveName} (${collections.length} collections, ${total} documents, ${summary.failed} failed)`);
+  } catch (error) {
+    failure = error;
     decrypt.child.kill();
     restore.child.kill();
-    throw new Error('Restore verification failed. Check that GPG, MongoDB Database Tools, the passphrase, and the archive are valid.');
   } finally {
     let cleanupFailed = false;
     if (restoreStarted && mongoose.connection.readyState !== 1) {
@@ -81,8 +112,13 @@ async function main() {
       catch { cleanupFailed = true; }
       finally { await mongoose.disconnect(); }
     }
-    if (cleanupFailed) throw new Error(`Could not clean up the disposable restore database ${targetDatabase}; remove it manually from the local test MongoDB.`);
+    if (cleanupFailed) console.error(`[Error] Could not clean up the disposable restore database ${targetDatabase}; remove it manually from the local test MongoDB.`);
+    if (failure || cleanupFailed) {
+      console.error(`RESTORE DRILL FAILED ${today} ${archiveName}: ${failure ? failure.message : 'cleanup failed'}`);
+      process.exitCode = 1;
+    }
   }
+  if (failure) throw new Error(`Restore verification failed: ${failure.message} Check that GPG, MongoDB Database Tools, the passphrase, and the archive are valid.`);
   console.log('Disposable restore database was removed after verification.');
 }
 

@@ -3,6 +3,7 @@ const User = require('../models/User');
 const { readSessionCookie } = require('../lib/sessionCookie');
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+const SESSION_FIELDS = '_id email tokenVersion status emailVerifiedAt acceptedTermsAt acceptedTermsVersion acceptedPrivacyAt acceptedPrivacyVersion role adminReauthAt';
 
 async function requireSession(req, res, next) {
   const header = req.headers.authorization;
@@ -22,14 +23,14 @@ async function requireSession(req, res, next) {
     return res.status(401).json({ success: false, error: 'invalid_token_type', message: 'API tokens cannot access dashboard sessions' });
   }
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     if (!payload.sub || typeof payload.tv !== 'number') {
       return res.status(401).json({ success: false, error: 'invalid_session', message: 'Please log in again' });
     }
     // ownerGuard-exemption: User is an identity lookup, not tenant content
-    const user = await User.findById(payload.sub).select('_id email tokenVersion status emailVerifiedAt acceptedTermsAt role');
+    const user = await User.findById(payload.sub).select(SESSION_FIELDS);
     if (!user || user.status !== 'active') {
-      return res.status(401).json({ success: false, error: 'account_inactive', message: 'Account is invalid or deactivated' });
+      return res.status(401).json({ success: false, error: 'account_inactive', message: user?.status === 'suspended' ? 'This account is suspended' : 'Account is invalid or deactivated' });
     }
     if (payload.tv !== user.tokenVersion) {
       return res.status(401).json({ success: false, error: 'session_expired', message: 'Session expired due to password change' });

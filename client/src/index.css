@@ -31,6 +31,7 @@
   --theme-brand-glow:    rgba(59, 130, 246, 0.25);
   --theme-danger:        #ef4444;
   --theme-danger-dim:    rgba(239, 68, 68, 0.14);
+  --theme-warn:          #fbbf24;
   --theme-code-bg:       #0f1520;
 }
 
@@ -55,6 +56,7 @@
   --theme-brand-glow:    rgba(99, 102, 241, 0.25);
   --theme-danger:        #f43f5e;
   --theme-danger-dim:    rgba(244, 63, 94, 0.14);
+  --theme-warn:          #fbbf24;
   --theme-code-bg:       #0e1017;
 }
 
@@ -79,6 +81,7 @@
   --theme-brand-glow:    rgba(0, 112, 243, 0.25);
   --theme-danger:        #ef4444;
   --theme-danger-dim:    rgba(239, 68, 68, 0.14);
+  --theme-warn:          #fbbf24;
   --theme-code-bg:       #101014;
 }
 
@@ -104,6 +107,7 @@
   --theme-brand-glow:    rgba(62, 207, 142, 0.25);
   --theme-danger:        #f43f5e;
   --theme-danger-dim:    rgba(244, 63, 94, 0.14);
+  --theme-warn:          #fbbf24;
   --theme-code-bg:       #0e1519;
 }
 
@@ -129,6 +133,7 @@
   --theme-brand-glow:    rgba(139, 92, 246, 0.25);
   --theme-danger:        #f43f5e;
   --theme-danger-dim:    rgba(244, 63, 94, 0.14);
+  --theme-warn:          #fbbf24;
   --theme-code-bg:       #110e1c;
 }
 
@@ -155,6 +160,7 @@
   --theme-brand-glow:    rgba(56, 189, 248, 0.25);
   --theme-danger:        #fb7185;
   --theme-danger-dim:    rgba(251, 113, 133, 0.14);
+  --theme-warn:          #fbbf24;
   --theme-code-bg:       #0e192a;
 }
 
@@ -181,6 +187,7 @@
   --theme-brand-glow:    rgba(212, 163, 115, 0.25);
   --theme-danger:        #e76f51;
   --theme-danger-dim:    rgba(231, 111, 81, 0.14);
+  --theme-warn:          #fbbf24;
   --theme-code-bg:       #161412;
 }
 
@@ -209,6 +216,7 @@
   --theme-brand-glow:    rgba(37, 99, 235, 0.15);
   --theme-danger:        #dc2626;
   --theme-danger-dim:    #fee2e2;
+  --theme-warn:          #b45309;
   --theme-code-bg:       #f1f5f9;
 }
 
@@ -235,6 +243,7 @@
   --theme-brand-glow:    rgba(194, 65, 12, 0.15);
   --theme-danger:        #dc2626;
   --theme-danger-dim:    #fee2e2;
+  --theme-warn:          #b45309;
   --theme-code-bg:       #f4eee3;
 }
 
@@ -260,6 +269,7 @@
   --theme-brand-glow:    rgba(2, 132, 199, 0.15);
   --theme-danger:        #dc2626;
   --theme-danger-dim:    #fee2e2;
+  --theme-warn:          #b45309;
   --theme-code-bg:       #e2e8f0;
 }
 
@@ -285,6 +295,7 @@
   --theme-brand-glow:    rgba(5, 150, 105, 0.15);
   --theme-danger:        #dc2626;
   --theme-danger-dim:    #fee2e2;
+  --theme-warn:          #b45309;
   --theme-code-bg:       #e3ebe6;
 }
 
@@ -311,6 +322,7 @@
   --theme-brand-glow:    rgba(124, 58, 237, 0.15);
   --theme-danger:        #e11d48;
   --theme-danger-dim:    #ffe4e6;
+  --theme-warn:          #b45309;
   --theme-code-bg:       #eae5f5;
 }
 
@@ -338,6 +350,7 @@
   --theme-brand-glow:    rgba(0, 240, 255, 0.25);
   --theme-danger:        #ff3366;
   --theme-danger-dim:    rgba(255, 51, 102, 0.14);
+  --theme-warn:          #fbbf24;
   --theme-code-bg:       #0e101a;
 }
 
@@ -365,6 +378,7 @@
   --theme-brand-glow:    rgba(244, 63, 94, 0.25);
   --theme-danger:        #ff2a6d;
   --theme-danger-dim:    rgba(255, 42, 109, 0.14);
+  --theme-warn:          #fbbf24;
   --theme-code-bg:       #140c26;
 }
 
@@ -390,6 +404,7 @@
   --theme-brand-glow:    rgba(189, 147, 249, 0.25);
   --theme-danger:        #ff5555;
   --theme-danger-dim:    rgba(255, 85, 85, 0.14);
+  --theme-warn:          #fbbf24;
   --theme-code-bg:       #1c1c2b;
 }
 
@@ -416,6 +431,7 @@
   --theme-brand-glow:    rgba(255, 42, 109, 0.25);
   --theme-danger:        #ff2a6d;
   --theme-danger-dim:    rgba(255, 42, 109, 0.14);
+  --theme-warn:          #fbbf24;
   --theme-code-bg:       #0c121e;
 }
 
@@ -443,6 +459,7 @@
   --theme-brand-glow:    rgba(0, 210, 211, 0.25);
   --theme-danger:        #ff4757;
   --theme-danger-dim:    rgba(255, 71, 87, 0.14);
+  --theme-warn:          #fbbf24;
   --theme-code-bg:       #08121f;
 }
 
@@ -467,6 +484,7 @@
   --theme-brand-glow:    rgba(229, 169, 60, 0.25);
   --theme-danger:        #e74c3c;
   --theme-danger-dim:    rgba(231, 76, 60, 0.14);
+  --theme-warn:          #fbbf24;
   --theme-code-bg:       #13110f;
 }
 
@@ -491,6 +509,7 @@
   --theme-brand-glow:    rgba(45, 212, 191, 0.25);
   --theme-danger:        #f43f5e;
   --theme-danger-dim:    rgba(244, 63, 94, 0.14);
+  --theme-warn:          #fbbf24;
   --theme-code-bg:       #08151f;
 }
 
@@ -516,6 +535,7 @@
   --theme-brand-glow:    rgba(228, 228, 231, 0.20);
   --theme-danger:        #ef4444;
   --theme-danger-dim:    rgba(239, 68, 68, 0.14);
+  --theme-warn:          #fbbf24;
   --theme-code-bg:       #131316;
 }
 

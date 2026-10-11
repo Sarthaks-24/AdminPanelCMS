@@ -10,26 +10,10 @@ const ResumeSchema = new mongoose.Schema(
       trim: true,
       validate: { validator: isSafeHttpsUrl, message: 'URL must use https://' },
     },
-    fileName: {
-      type: String,
-      default: 'Resume_Master.pdf',
-      trim: true,
-    },
-    version: {
-      type: String,
-      default: 'v2026.09',
-      trim: true,
-    },
-    lastUpdated: {
-      type: Date,
-      default: Date.now,
-    },
-    summaryText: {
-      type: String,
-      maxlength: 500,
-      default: 'Full Stack Engineer with expertise in modern web systems, distributed architectures, and cloud services.',
-      trim: true,
-    },
+    fileName: { type: String, maxlength: 120, trim: true, default: '' },
+    version: { type: String, maxlength: 40, trim: true, default: '' },
+    lastUpdated: { type: Date, default: Date.now },
+    summaryText: { type: String, maxlength: 500, trim: true, default: '' },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, immutable: true },
   },
   {

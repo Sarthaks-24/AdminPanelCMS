@@ -1,6 +1,6 @@
 # Local setup
 
-Get the API and the dashboard running on your machine. For production, see [DEPLOYMENT.md](DEPLOYMENT.md).
+Get the API and the dashboard running on your machine for development. The product itself is a hosted service with one deployment; for that, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Prerequisites
 
@@ -36,11 +36,14 @@ MODE=dev
 DEV_MONGODB_URI=<your connection string, with a database name>
 DEV_JWT_SECRET=<output of the command below>
 DEV_CLIENT_ORIGIN=http://localhost:5173
+DEV_PUBLIC_API_URL=http://localhost:5000
 DEV_ADMIN_PASSWORD=<a password of 10+ characters>
 
 ADMIN_NAME=Your Name
 ADMIN_EMAIL=you@example.com
 ```
+
+`DEV_PUBLIC_API_URL` is optional in dev; it is what the dashboard shows as the base of every `/v1` URL.
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
@@ -54,7 +57,7 @@ Create the indexes and your account:
 npm run setup
 ```
 
-This creates (or resets the password of) a verified account for `ADMIN_EMAIL`. To see the Superadmin panel, promote it:
+This creates (or resets the password of) a **verified** account for `ADMIN_EMAIL`. Use it rather than the signup page locally: signup is email-first (you enter only an email and choose the password from the verification link), so without a real Resend key the link never arrives and the unverified account is purged after 48 hours. To see the Superadmin panel, promote it:
 
 ```bash
 npm run superadmin:grant -- --email you@example.com --confirm-db Portfolio_dev
@@ -80,7 +83,7 @@ Among the startup output you should see:
 [Server] Running on port 5000 in dev mode
 ```
 
-Check it: <http://localhost:5000/api/health>.
+Check it: <http://localhost:5000/livez> (process up) and <http://localhost:5000/readyz> (database reachable). `/api/health` is an alias of `/livez`.
 
 ## 3. Dashboard (`client/`)
 
@@ -101,15 +104,28 @@ The dashboard must be opened at exactly the origin in `DEV_CLIENT_ORIGIN`. If Vi
 
 ## 4. Make your first API call
 
-1. In the dashboard, add some content and set it to **Published**. Drafts are never served.
-2. Go to **Apps** (labelled "Connected websites" in the sidebar), create an app of type *Static website*, open it, and enable the sections you want to expose.
-3. Open the app's tokens and create one. A static app gets a publishable `pk_live_...` token.
-4. Call the public API:
+1. In the dashboard, save your **Profile** once (that marks it configured; until then `/v1/profile` answers `404 not_configured`), then add a project and **publish** it. Drafts are never served; "Save and publish" on a form publishes in one step.
+2. Go to **Apps**, create an App. Pick "Build or server (recommended)" for a secret `sk_` key, or "Visitors' browsers" for a publishable `pk_` key with an origin allowlist. Use the "Everything published" preset or enable the sections you want to expose.
+3. Open the App's **Keys** and create one. A secret key is shown once; copy it.
+4. The App's **Connect** panel shows the base URL (from `PUBLIC_API_URL`, here `http://localhost:5000`) and a ready-made snippet. Its **Check** button calls `POST /api/apps/:id/check` and lists anything that would make a `/v1` call come back empty (no key, no enabled section, all drafts).
+5. Call the public API:
 
 ```bash
-curl -H "Authorization: Bearer pk_live_your_token" http://localhost:5000/v1/app
-curl -H "Authorization: Bearer pk_live_your_token" http://localhost:5000/v1/projects
+curl -H "Authorization: Bearer sk_live_your_key" http://localhost:5000/v1/app
+curl -H "Authorization: Bearer sk_live_your_key" http://localhost:5000/v1/projects
 ```
+
+Every success is wrapped in a `data` envelope:
+
+```json
+{ "data": { "name": "my-site", "type": "protected", "enabledSections": ["profile", "projects"] } }
+```
+
+```json
+{ "data": [ { "_id": "…", "title": "First project", "slug": "first-project", "stack": ["node"] } ] }
+```
+
+and every error has the same shape: `{ "error": "section_disabled", "message": "…", "requestId": "…" }`. A `pk_` key sent from `curl` with no `Origin` header works too; from a browser the page's origin must be on the App's allowlist.
 
 The full endpoint list is in [API_REFERENCE.md](API_REFERENCE.md).
 
@@ -117,7 +133,7 @@ The full endpoint list is in [API_REFERENCE.md](API_REFERENCE.md).
 
 ```bash
 cd server
-npm test                # 146 tests; uses an in-memory MongoDB, never your real database
+npm test                # the whole suite; uses an in-memory MongoDB, never your real database
 npm run lint:security   # static check that every content query is owner-scoped
 
 cd ../client
@@ -135,7 +151,9 @@ The first `npm test` downloads a MongoDB binary for the in-memory server.
 | `MODE=dev conflicts with NODE_ENV=production` | Remove `NODE_ENV` from `server/.env` or your shell; `MODE` sets it. |
 | `Invalid configuration: JWT_SECRET ...` | The secret is missing, under 32 characters, or still the example. |
 | Sign-in request blocked by CORS | The browser address does not match `DEV_CLIENT_ORIGIN` exactly. |
-| Signed in, but every save returns `email_unverified` | The account was created through the signup page and has not followed its verification link. `npm run setup` creates a verified account. |
-| `/v1/...` returns `403 section_disabled` | That section is not enabled in the app's settings. |
-| `/v1/...` returns an empty list | The items exist but are still drafts. |
+| Login says `Invalid credentials or unverified email` for an account you just created on the signup page | Signup is email-first: the password is set from the verification link, which needs a real mail key locally. Use `npm run setup`, which creates a verified account with `DEV_ADMIN_PASSWORD`. |
+| `/v1/profile` returns `404 not_configured` | The profile has never been saved. Save it once in the dashboard. |
+| `/v1/...` returns `403 section_disabled` | That section is not enabled in the App's settings. |
+| `/v1/...` returns `{ "data": [] }` | The items exist but are still drafts, or the App's mode is `selected` with no ids. The App's Check button says which. |
+| `/v1/...` returns `401 token_invalid` for a key you just created | The key was revoked, or the server was restarted and the request arrived before the active-key set reloaded. Create a fresh key if it persists. |
 | `querySrv ENOTFOUND` on connect | Your network blocks SRV lookups. The server retries through DNS-over-HTTPS automatically (this needs outbound HTTPS). Multi-host standard connection strings are not supported by the scripts. |

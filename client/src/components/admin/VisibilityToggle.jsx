@@ -26,12 +26,12 @@ export default function VisibilityToggle({ endpoint, item, onChange }) {
         type="button"
         disabled={saving}
         onClick={toggle}
-        className="px-2 py-1 rounded border border-t-border-hi text-[10px] uppercase font-mono text-t-muted hover:text-t-accent disabled:opacity-50"
+        className="px-2 py-1 rounded border border-t-border-hi text-xs text-t-muted hover:text-t-accent disabled:opacity-50"
         title={`Move to ${visibility === 'published' ? 'draft' : 'published'}`}
       >
         {saving ? 'Saving…' : visibility === 'published' ? 'Published' : 'Draft · Publish'}
       </button>
-      {error && <span role="alert" className="text-[9px] text-t-danger">{error}</span>}
+      {error && <span role="alert" className="text-xs text-t-danger">{error}</span>}
     </span>
   );
 }

@@ -39,7 +39,10 @@ describe('MODE environment switch', () => {
   });
 
   it('covers every setting that differs between development and production', () => {
-    expect(MODE_KEYS).toEqual(expect.arrayContaining(['MONGODB_URI', 'JWT_SECRET', 'CLIENT_ORIGIN', 'TRUST_PROXY_HOPS', 'SIGNUP_MODE']));
+    expect(MODE_KEYS).toEqual(expect.arrayContaining(['MONGODB_URI', 'JWT_SECRET', 'CLIENT_ORIGIN', 'PUBLIC_API_URL', 'TRUST_PROXY_HOPS', 'SIGNUP_MODE']));
+    const env = { MODE: 'prod', DEV_PUBLIC_API_URL: 'http://localhost:5000', PROD_PUBLIC_API_URL: 'https://api.example.com', DEV_MONGODB_URI: 'mongodb://dev/Dev', PROD_MONGODB_URI: 'mongodb://prod/Prod' };
+    applyMode(env);
+    expect(env.PUBLIC_API_URL).toBe('https://api.example.com');
   });
 
   it('keeps .env.example in step with MODE_KEYS: every key once per mode, and no plain duplicates', () => {

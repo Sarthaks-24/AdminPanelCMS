@@ -30,14 +30,18 @@ describe('applyInclude public projection', () => {
     expect(view.projects[0].lastUpdated).toBe(lastUpdated);
   });
 
-  it('sorts published certifications by issue date and uses stable null-safe ordering', () => {
+  it('orders certifications by `order` in every include mode (B13) and keeps stable null-safe comparators', () => {
     const certifications = [
-      { _id: 'old', visibility: 'published', issueDate: '2023-01' },
-      { _id: 'unknown', visibility: 'published', issueDate: 'not a date' },
-      { _id: 'new', visibility: 'published', issueDate: '2025-06' },
+      { _id: 'old', visibility: 'published', issueDate: '2023-01', order: 1, featured: true },
+      { _id: 'unknown', visibility: 'published', issueDate: 'not a date', order: 2, featured: true },
+      { _id: 'new', visibility: 'published', issueDate: '2025-06', order: 0, featured: true },
     ];
-    const view = applyInclude({ include: { certifications: { enabled: true, mode: 'all' } } }, { certifications });
-    expect(view.certifications.map((item) => item._id)).toEqual(['new', 'old', 'unknown']);
+    const all = applyInclude({ include: { certifications: { enabled: true, mode: 'all' } } }, { certifications });
+    const featured = applyInclude({ include: { certifications: { enabled: true, mode: 'featured' } } }, { certifications });
+    expect(all.certifications.map((item) => item._id)).toEqual(['new', 'old', 'unknown']);
+    expect(featured.certifications.map((item) => item._id)).toEqual(['new', 'old', 'unknown']);
+    const selected = applyInclude({ include: { certifications: { enabled: true, mode: 'selected', ids: ['unknown', 'new'] } } }, { certifications });
+    expect(selected.certifications.map((item) => item._id)).toEqual(['unknown', 'new']);
     expect([{ _id: 'b' }, { _id: 'a' }, { _id: 'placed', order: 0 }].sort(byOrder).map((item) => item._id)).toEqual(['placed', 'a', 'b']);
     expect([{ _id: 'bad', issueDate: 'bad' }, { _id: 'date', issueDate: '2024-01' }].sort(byIssueDateDesc).map((item) => item._id)).toEqual(['date', 'bad']);
   });

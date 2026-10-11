@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../api/client';
+import { apiErrorMessage } from '../../lib/apiErrors';
 import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import VisibilityToggle from '../../components/admin/VisibilityToggle';
 import {
@@ -31,7 +32,7 @@ export default function ExperienceList() {
     employmentType: 'Full-time',
     period: '',
     isCurrent: false,
-    location: 'Remote',
+    location: '',
     companyUrl: '',
     description: '',
     achievements: '',
@@ -45,7 +46,7 @@ export default function ExperienceList() {
       const res = await api.get('/experience');
       setItems(res.data || []);
     } catch (err) {
-      setErrorMsg('Error fetching career timeline: ' + (err.response?.data?.message || err.message));
+      setErrorMsg(apiErrorMessage(err, 'Error fetching career timeline.'));
     } finally {
       setLoading(false);
     }
@@ -63,7 +64,7 @@ export default function ExperienceList() {
       employmentType: 'Full-time',
       period: '',
       isCurrent: false,
-      location: 'Remote',
+      location: '',
       companyUrl: '',
       description: '',
       achievements: '',
@@ -99,8 +100,10 @@ export default function ExperienceList() {
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    const visibility = e.nativeEvent?.submitter?.value === 'draft' ? 'draft' : 'published';
     const payload = {
       ...form,
+      visibility,
       achievements: form.achievements
         .split('\n')
         .map((a) => a.trim())
@@ -124,7 +127,7 @@ export default function ExperienceList() {
       setShowModal(false);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error saving experience record');
+      setErrorMsg(apiErrorMessage(err, 'Error saving experience record'));
     } finally {
       setSaving(false);
     }
@@ -138,7 +141,7 @@ export default function ExperienceList() {
       setSuccessMsg('Career milestone removed.');
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error deleting milestone');
+      setErrorMsg(apiErrorMessage(err, 'Error deleting milestone'));
     }
   };
 
@@ -198,7 +201,7 @@ export default function ExperienceList() {
                   <div className="flex items-center gap-2">
                     <h2 className="text-base font-bold text-t-text">{item.role}</h2>
                     {item.isCurrent && (
-                      <span className="px-2 py-0.2 rounded bg-t-accent2-dim text-t-accent2 border border-t-accent2/30 text-[10px] font-mono">
+                      <span className="px-2 py-0.2 rounded bg-t-accent2-dim text-t-accent2 border border-t-accent2/30 text-xs font-mono">
                         CURRENT
                       </span>
                     )}
@@ -216,7 +219,7 @@ export default function ExperienceList() {
                       </a>
                     )}
                     <span className="text-t-dim">·</span>
-                    <span className="text-t-muted font-mono text-[11px]">{item.employmentType || 'Full-time'}</span>
+                    <span className="text-t-muted font-mono text-xs">{item.employmentType || 'Full-time'}</span>
                   </div>
                 </div>
 
@@ -250,7 +253,7 @@ export default function ExperienceList() {
 
               {item.achievements && item.achievements.length > 0 && (
                 <div className="pt-2">
-                  <div className="text-[11px] font-mono text-t-dim mb-1">What you did:</div>
+                  <div className="text-xs font-mono text-t-dim mb-1">What you did:</div>
                   <ul className="list-disc list-inside text-xs text-t-muted space-y-1 pl-1">
                     {item.achievements.map((ach, i) => (
                       <li key={i}>{ach}</li>
@@ -260,7 +263,7 @@ export default function ExperienceList() {
               )}
 
               {/* Technologies & Location */}
-              <div className="pt-3 border-t border-t-border flex flex-wrap items-center justify-between gap-3 text-[11px] font-mono">
+              <div className="pt-3 border-t border-t-border flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
                 <div className="flex flex-wrap gap-1.5">
                   {item.technologies &&
                     item.technologies.map((tech, idx) => (
@@ -286,7 +289,7 @@ export default function ExperienceList() {
       {/* Add / Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-t-bg/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-xl rounded bg-t-surface border border-t-border shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="max-h-[90dvh] overflow-y-auto w-full max-w-xl rounded bg-t-surface border border-t-border shadow-2xl flex flex-col">
             <div className="p-4 border-b border-t-border flex items-center justify-between bg-t-bg">
               <span className="text-xs font-mono font-bold text-t-text uppercase tracking-wider">
                 {editingId ? 'Edit Career Milestone' : 'Add Career Milestone'}
@@ -439,12 +442,23 @@ export default function ExperienceList() {
                 </button>
                 <button
                   type="submit"
+                  name="visibility"
+                  value="draft"
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent2 hover:bg-t-accent2 text-t-on-accent2 font-semibold text-xs shadow cursor-pointer disabled:opacity-50"
-                >
-                  <Save size={13} />
-                  <span>{saving ? 'Saving...' : 'Save Milestone'}</span>
-                </button>
+                  className="px-3.5 py-1.5 rounded border border-t-border-hi text-xs font-semibold text-t-text hover:bg-t-surface-hi disabled:opacity-50"
+                  >
+                    Save as draft
+                  </button>
+                  <button
+                  type="submit"
+                  name="visibility"
+                  value="published"
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs shadow disabled:opacity-50"
+                  >
+                    <Save size={13} aria-hidden="true" />
+                    <span>{saving ? 'Saving…' : 'Save and publish'}</span>
+                  </button>
               </div>
             </form>
           </div>

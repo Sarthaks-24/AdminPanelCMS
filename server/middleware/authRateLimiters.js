@@ -14,24 +14,19 @@ function rateLimitResponse(_req, res) {
   });
 }
 
-const loginByIp = rateLimit({
-  windowMs: WINDOW_MS,
-  limit: MAX_LOGIN_ATTEMPTS,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true,
-  handler: rateLimitResponse,
-});
+const emailDigest = (req) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  return email ? crypto.createHash('sha256').update(email).digest('hex') : '';
+};
 
-const loginByEmail = rateLimit({
+// Keyed on the pair, not the email alone: ten wrong guesses at a victim's address from one network
+// must not lock the victim out from their own.
+const emailIpKey = (req) => `${ipKeyGenerator(req.ip)}|${emailDigest(req) || 'missing'}`;
+
+const loginByEmailAndIp = rateLimit({
   windowMs: WINDOW_MS,
   limit: MAX_LOGIN_ATTEMPTS,
-  keyGenerator: (req) => {
-    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-    if (!email) return `missing:${ipKeyGenerator(req.ip)}`;
-    const digest = crypto.createHash('sha256').update(email).digest('hex');
-    return `email:${digest}`;
-  },
+  keyGenerator: emailIpKey,
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
@@ -50,17 +45,19 @@ function createAccountLimiter(windowMs = 60 * 60 * 1000, limit = MAX_ACCOUNT_ATT
 }
 
 const emailKey = (req) => {
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  return email ? `email:${crypto.createHash('sha256').update(email).digest('hex')}` : `missing:${ipKeyGenerator(req.ip)}`;
+  const digest = emailDigest(req);
+  return digest ? `email:${digest}` : `missing:${ipKeyGenerator(req.ip)}`;
 };
 const userKey = (req) => req.userId ? `user:${req.userId}` : ipKeyGenerator(req.ip);
 
 module.exports = {
-  loginRateLimiters: [loginByIp, loginByEmail],
+  loginRateLimiters: [loginByEmailAndIp],
   signupRateLimiters: [createAccountLimiter(60 * 60 * 1000, MAX_ACCOUNT_ATTEMPTS), createAccountLimiter(60 * 60 * 1000, MAX_ACCOUNT_ATTEMPTS, emailKey)],
   verificationRateLimiter: createAccountLimiter(60 * 60 * 1000, 5),
-  resendVerificationRateLimiters: [createAccountLimiter(60 * 60 * 1000, 5), createAccountLimiter(60 * 60 * 1000, 5, userKey)],
-  recoveryRateLimiters: [createAccountLimiter(60 * 60 * 1000, 5), createAccountLimiter(60 * 60 * 1000, 5, emailKey)],
+  resendVerificationRateLimiters: [createAccountLimiter(60 * 60 * 1000, 5), createAccountLimiter(60 * 60 * 1000, 5, emailIpKey)],
+  // Per-recipient cooldowns live in lib/mailBudget.js (recipientAllowed); this is only the per-source cap.
+  recoveryRateLimiters: [createAccountLimiter(60 * 60 * 1000, 5)],
   changePasswordRateLimiter: createAccountLimiter(60 * 60 * 1000, 5, userKey),
   accountDestructiveRateLimiter: createAccountLimiter(60 * 60 * 1000, 5, userKey),
+  adminReauthRateLimiter: createAccountLimiter(15 * 60 * 1000, 10, userKey),
 };

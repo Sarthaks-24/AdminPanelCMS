@@ -2,14 +2,15 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import PublicShell from '../../components/public/PublicShell';
 import ScopeDemo from '../../components/public/ScopeDemo';
-import { REPO_URL, SITE } from '../../content/site';
+import { SITE } from '../../content/site';
+import { useApiBase } from '../../lib/apiBase';
 import { useSignupMode } from '../../hooks/useSignupMode';
 
 // The eight things the dashboard holds, named the way the API names them.
 const CONTENT = [
   { key: 'profile', shape: 'one record', detail: 'Name, headline, bio, location, availability.' },
   { key: 'projects', shape: 'many', detail: 'Slug, summary, stack, links, highlights, a Markdown case study.' },
-  { key: 'skills', shape: 'many', detail: 'Grouped by category, with proficiency and years.' },
+  { key: 'skills', shape: 'many', detail: 'Grouped by your own categories, with proficiency and years.' },
   { key: 'experience', shape: 'many', detail: 'Company, role, period, achievements, technologies.' },
   { key: 'education', shape: 'many', detail: 'Institution, degree, field, period, grade.' },
   { key: 'certifications', shape: 'many', detail: 'Issuer, dates, credential id and link.' },
@@ -17,7 +18,7 @@ const CONTENT = [
   { key: 'resume', shape: 'one record', detail: 'A link, a version and a summary line.' },
 ];
 
-// Two apps drawn from the same pool, compared row by row. The column of dashes is the point.
+// Two Apps drawn from the same pool, compared row by row. The column of dashes is the point.
 const COMPARED = [
   { section: 'profile', portfolio: 'everything but the email address', resume: 'name and headline' },
   { section: 'projects', portfolio: 'all published, with case studies', resume: 'the featured ones, no case studies' },
@@ -30,20 +31,39 @@ const COMPARED = [
   { section: 'fs', portfolio: 'enabled', resume: null },
 ];
 
+// The portfolio builds with a secret key; the résumé microsite reads live from visitors' browsers.
 const COLUMNS = [
-  { key: 'portfolio', name: 'portfolio-site', token: 'pk_live_…', note: 'Publishable. Read from the browser, and only from the origins you allow.' },
-  { key: 'resume', name: 'resume-page', token: 'sk_live_…', note: 'Secret. Read from your server, never shipped to a browser.' },
+  { key: 'portfolio', name: 'portfolio-site', token: 'sk_live_…', note: 'Secret. Read when your site builds; never shipped to a browser.' },
+  { key: 'resume', name: 'resume-page', token: 'pk_live_…', note: 'Publishable. Read in visitors’ browsers, only from origins you allow; 120 requests/min per visitor.' },
 ];
 
-const STEPS = [
-  { command: 'git clone https://github.com/Sarthaks-24/AdminPanelCMS.git', note: 'Node 20.19+ and a MongoDB database are the only requirements.' },
-  { command: 'cd server && npm install && cp .env.example .env', note: 'Fill in the DEV_ block at the top: database URI, JWT secret, your email.' },
-  { command: 'npm run setup && npm run dev', note: 'Creates the indexes and your first account, then serves the API on :5000.' },
-  { command: 'cd ../client && npm install && npm run dev', note: 'The dashboard comes up on :5173. Sign in and start writing.' },
+// The beta limits, quoted from the same table the API enforces. Change them there first.
+const LIMITS = [
+  { what: 'Apps per account', value: '10' },
+  { what: 'Items per section', value: '100' },
+  { what: 'Live keys per App', value: '2' },
+  { what: 'Secret key', value: '600 requests/min' },
+  { what: 'Publishable key', value: '120 requests/min per visitor, 3,000/min per key' },
+  { what: 'Uncached requests per account', value: '10 per second; a cache hit or 304 is free' },
+  { what: 'Response cache', value: 'about 60 seconds' },
+  { what: 'Uptime', value: 'best effort during the beta, no SLA' },
 ];
+
+const buttonPrimary = 'rounded-lg bg-t-accent px-5 py-2.5 text-[0.875rem] font-semibold text-t-on-accent transition hover:bg-t-accent-br';
+const buttonSecondary = 'rounded-lg border border-t-border-hi px-5 py-2.5 text-[0.875rem] font-medium text-t-text transition hover:border-t-accent';
 
 export default function Landing() {
-  const { isOpen, isInviteOnly, isClosed, resolved } = useSignupMode();
+  const { isInviteOnly } = useSignupMode();
+  const { v1Base } = useApiBase();
+  // Rendered in every mode. In invite mode the same page explains how to get a code.
+  const signupLabel = isInviteOnly ? 'Request an invite' : 'Create a free account';
+
+  const steps = [
+    { title: 'Create an account and verify your email.', note: 'You choose a password from the verification link. About a minute.' },
+    { title: 'Add your profile and a project.', note: 'Everything you save is published unless you keep it as a draft.' },
+    { title: 'Create an App and choose what it can read.', note: 'The “Everything published” preset is the default; narrow it whenever you like. Then create a secret key.' },
+    { title: 'Fetch it from your build.', command: `curl -H "Authorization: Bearer sk_live_…" ${v1Base}/projects`, note: 'The dashboard tells you the moment your key reaches us.' },
+  ];
 
   return (
     <PublicShell wide>
@@ -51,41 +71,28 @@ export default function Landing() {
       <section className="mx-auto max-w-[90rem] px-4 pb-10 pt-14 sm:px-6 sm:pt-20">
         <div className="page-enter max-w-3xl">
           <p className="text-[0.9375rem] text-t-muted">{SITE.category}</p>
-          <h1 className="mt-3 font-display text-[2.25rem] leading-[1.03] tracking-[-0.03em] text-t-text sm:text-[3.25rem]">
+          <h1 className="mt-3 text-balance font-display text-[2.25rem] leading-[1.03] tracking-[-0.03em] text-t-text sm:text-[3.25rem]">
             {SITE.claim}
             <span className="block text-t-muted">{SITE.mechanism}</span>
           </h1>
           <p className="mt-5 max-w-xl text-[1.0625rem] leading-7 text-t-muted">
-            Write your profile, projects and skills once. Each site you build then gets its own read-only key,
-            and a key can only ever read the fields you granted it.
+            Add your profile, projects and experience once. Each site you build gets its own key, and each key
+            reads only the sections and fields you choose.
           </p>
           <p className="mt-4 text-[0.875rem] text-t-dim">{SITE.status}</p>
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Link
-              to="/docs/setup"
-              className="rounded-lg bg-t-accent px-5 py-2.5 text-[0.875rem] font-semibold text-t-on-accent transition hover:bg-t-accent-br"
-            >
-              Run it yourself
-            </Link>
-            <a
-              href={REPO_URL}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="rounded-lg border border-t-border-hi px-5 py-2.5 text-[0.875rem] font-medium text-t-text transition hover:border-t-accent"
-            >
-              View the source
-            </a>
+            <Link to="/signup" className={buttonPrimary}>{signupLabel}</Link>
+            <Link to="/docs/quickstart" className={buttonSecondary}>Read the 5-minute quickstart</Link>
           </div>
         </div>
 
         {/* Why scoping is worth having at all. The demo below is the answer in motion. */}
-        <div className="mt-10 max-w-3xl border-l-2 border-t-accent pl-5">
+        <div className="mt-10 max-w-3xl border-l border-t-accent pl-5">
           <p className="text-[0.9375rem] leading-7 text-t-muted">
-            A key that your website reads content with ships inside that website, where anyone can read it back
-            out. So whatever a key may fetch is, in practice, public. That is the problem this solves: your
-            portfolio's key can hold your whole history, while the key on a client microsite reaches three
-            projects and never your email address.
+            A browser key ships inside your site, where anyone can read it; a secret key stays in your build.
+            Either way a key fetches only what its App grants: your portfolio&rsquo;s key can hold your whole
+            history, while a client microsite&rsquo;s reaches three projects and never your email.
           </p>
         </div>
 
@@ -97,7 +104,7 @@ export default function Landing() {
       {/* ── The mechanism, shown as two real grants ────────────────────── */}
       <section aria-labelledby="apps-title" className="mx-auto max-w-[90rem] px-4 py-16 sm:px-6">
         <div className="max-w-2xl">
-          <h2 id="apps-title" className="font-display text-[1.75rem] leading-tight tracking-[-0.02em] sm:text-[2.125rem]">
+          <h2 id="apps-title" className="text-balance font-display text-[1.75rem] leading-tight tracking-[-0.02em] sm:text-[2.125rem]">
             An App is a view, not a copy
           </h2>
           <p className="mt-4 text-[0.9375rem] leading-7 text-t-muted">
@@ -109,14 +116,14 @@ export default function Landing() {
 
         <div className="mt-8 overflow-x-auto">
           <table className="w-full min-w-[34rem] border-collapse text-left">
-            <caption className="sr-only">What each of two apps may read from the same content pool</caption>
+            <caption className="sr-only">What each of two Apps may read from the same content pool</caption>
             <thead>
               <tr>
                 <th scope="col" className="w-40 pb-3 pr-6 align-bottom text-[0.875rem] font-medium text-t-dim">Section</th>
                 {COLUMNS.map((column) => (
                   <th key={column.key} scope="col" className="pb-3 pr-6 align-bottom">
-                    <span className="block font-mono-code text-[0.9375rem] font-medium text-t-text">{column.name}</span>
-                    <span className="mt-1 block font-mono-code text-[0.75rem] text-t-accent">{column.token}</span>
+                    <span className="block font-mono-code text-[0.9375rem] font-medium text-t-text" translate="no">{column.name}</span>
+                    <span className="mt-1 block font-mono-code text-[0.75rem] text-t-accent" translate="no">{column.token}</span>
                     <span className="mt-1.5 block max-w-[15rem] text-[0.75rem] font-normal leading-5 text-t-muted">{column.note}</span>
                   </th>
                 ))}
@@ -125,14 +132,14 @@ export default function Landing() {
             <tbody>
               {COMPARED.map((row) => (
                 <tr key={row.section}>
-                  <th scope="row" className="border-t border-t-border py-2.5 pr-6 font-mono-code text-[0.875rem] font-normal text-t-muted">
+                  <th scope="row" className="border-t border-t-border py-2.5 pr-6 font-mono-code text-[0.875rem] font-normal text-t-muted" translate="no">
                     {row.section}
                   </th>
                   {COLUMNS.map((column) => (
                     <td key={column.key} className="border-t border-t-border py-2.5 pr-6 text-[0.875rem] leading-6">
                       {row[column.key]
                         ? <span className="text-t-text">{row[column.key]}</span>
-                        : <span className="text-t-dim" title="not granted">not granted</span>}
+                        : <span className="text-t-dim">not granted</span>}
                     </td>
                   ))}
                 </tr>
@@ -145,12 +152,12 @@ export default function Landing() {
       {/* ── What the pool holds ────────────────────────────────────────── */}
       <section aria-labelledby="content-title" className="mx-auto max-w-[90rem] px-4 py-16 sm:px-6">
         <div className="max-w-2xl">
-          <h2 id="content-title" className="font-display text-[1.75rem] leading-tight tracking-[-0.02em] sm:text-[2.125rem]">
-            Eight sections, each item a draft or published
+          <h2 id="content-title" className="text-balance font-display text-[1.75rem] leading-tight tracking-[-0.02em] sm:text-[2.125rem]">
+            Eight sections, published as you save
           </h2>
           <p className="mt-4 text-[0.9375rem] leading-7 text-t-muted">
-            A draft is invisible to every App, however generous its grant. Publishing is the only thing that makes
-            an item readable, and it is one toggle per item.
+            Keep an item as a draft and no App will ever see it, however generous its grant. Everything else is
+            readable the moment you save.
           </p>
         </div>
 
@@ -158,7 +165,7 @@ export default function Landing() {
           {CONTENT.map((section) => (
             <div key={section.key} className="flex flex-col gap-1 border-t border-t-border py-3.5 sm:flex-row sm:gap-6">
               <dt className="flex w-56 shrink-0 items-baseline gap-2.5">
-                <span className="font-mono-code text-[0.875rem] text-t-text">{section.key}</span>
+                <span className="font-mono-code text-[0.875rem] text-t-text" translate="no">{section.key}</span>
                 <span className="text-[0.75rem] text-t-dim">{section.shape}</span>
               </dt>
               <dd className="text-[0.875rem] leading-6 text-t-muted">{section.detail}</dd>
@@ -167,83 +174,82 @@ export default function Landing() {
         </dl>
       </section>
 
-      {/* ── Running it: a genuine sequence, so numbering earns its place ── */}
-      <section aria-labelledby="run-title" className="mx-auto max-w-[90rem] px-4 py-16 sm:px-6">
+      {/* ── The path to a first request: a genuine sequence, so numbering earns its place ── */}
+      <section aria-labelledby="start-title" className="mx-auto max-w-[90rem] px-4 py-16 sm:px-6">
         <div className="max-w-2xl">
-          <h2 id="run-title" className="font-display text-[1.75rem] leading-tight tracking-[-0.02em] sm:text-[2.125rem]">
-            You host it, so you keep the database
+          <h2 id="start-title" className="text-balance font-display text-[1.75rem] leading-tight tracking-[-0.02em] sm:text-[2.125rem]">
+            From sign-up to your first request
           </h2>
           <p className="mt-4 text-[0.9375rem] leading-7 text-t-muted">
-            There is no account to sign up for here. You clone the repository and point it at your own MongoDB,
-            on your machine or on a host you choose.
+            About ten minutes, no card. Your data stays yours: export everything as JSON or delete your account
+            from Settings at any time.
           </p>
         </div>
 
         <ol className="mt-8 max-w-3xl">
-          {STEPS.map((step, index) => (
-            <li key={step.command} className="flex gap-4 border-t border-t-border py-4">
+          {steps.map((step, index) => (
+            <li key={step.title} className="flex gap-4 border-t border-t-border py-4">
               <span aria-hidden="true" className="mt-0.5 w-4 shrink-0 font-mono-code text-[0.875rem] text-t-dim">{index + 1}</span>
-              <div className="min-w-0">
-                <code className="block overflow-x-auto whitespace-pre rounded-lg bg-t-code px-3 py-2 font-mono-code text-[0.875rem] text-t-accent2">
-                  {step.command}
-                </code>
-                <p className="mt-2 text-[0.875rem] leading-6 text-t-muted">{step.note}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.9375rem] font-medium text-t-text">{step.title}</p>
+                {step.command && (
+                  <code translate="no" className="mt-2 block overflow-x-auto whitespace-pre rounded-lg bg-t-code px-3 py-2 font-mono-code text-[0.875rem] text-t-accent2">
+                    {step.command}
+                  </code>
+                )}
+                <p className="mt-1.5 text-[0.875rem] leading-6 text-t-muted">{step.note}</p>
               </div>
             </li>
           ))}
         </ol>
 
         <p className="mt-6 max-w-3xl text-[0.875rem] leading-7 text-t-muted">
-          The long version, including the production checklist, is in the{' '}
-          <Link to="/docs/setup" className="text-t-accent hover:underline">setup guide</Link> and{' '}
-          <Link to="/docs/deployment" className="text-t-accent hover:underline">deployment</Link>.
+          The walk-through is in the{' '}
+          <Link to="/docs/quickstart" className="text-t-accent hover:underline">quickstart</Link>; every error code is in{' '}
+          <Link to="/docs/limits" className="text-t-accent hover:underline">limits &amp; errors</Link>.
         </p>
       </section>
 
-      {/* ── Honest state of the project ────────────────────────────────── */}
-      <section aria-labelledby="status-title" className="mx-auto max-w-[90rem] px-4 py-16 sm:px-6">
+      {/* ── The limits, stated before anyone builds on them ───────────── */}
+      <section aria-labelledby="limits-title" className="mx-auto max-w-[90rem] px-4 py-16 sm:px-6">
         <div className="max-w-3xl border-t border-t-border pt-8">
-          <h2 id="status-title" className="font-display text-[1.5rem] leading-tight tracking-[-0.02em]">
-            Built and tested, not yet deployed
+          <h2 id="limits-title" className="text-balance font-display text-[1.5rem] leading-tight tracking-[-0.02em]">
+            Limits during the beta
           </h2>
-          <div className="mt-5 space-y-3.5 text-[0.9375rem] leading-7 text-t-muted">
-            <p>
-              The server suite passes 146 tests against an in-memory database, and tenant isolation has a static
-              check of its own. Nobody is running this in production yet, including the person who wrote it.
-            </p>
-            <p>
-              {/* Only stated once the server has actually answered: an unreachable API is not a closed one. */}
-              {isClosed && 'Registration on this instance is closed, so the dashboard is reachable only by accounts that already exist. '}
-              {isInviteOnly && 'Registration on this instance is invite-only: you need a code from whoever runs it. '}
-              {isOpen && 'Registration on this instance is open, with email verification. '}
-              {!resolved && 'Whether this instance accepts registrations is something only its own server can answer. '}
-              The usual answer is to run your own copy.
-            </p>
-            <p>
-              Read{' '}
-              <Link to="/docs/deployment#known-limits-before-real-traffic" className="text-t-accent hover:underline">
-                known limits
-              </Link>{' '}
-              before you open registration to anyone else.
-            </p>
-          </div>
-          <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Link to="/docs" className="rounded-lg bg-t-accent px-5 py-2.5 text-[0.875rem] font-semibold text-t-on-accent transition hover:bg-t-accent-br">
-              Read the docs
-            </Link>
-            <Link to="/admin/login" className="rounded-lg border border-t-border-hi px-5 py-2.5 text-[0.875rem] font-medium text-t-text transition hover:border-t-accent">
-              Sign in to this instance
-            </Link>
-            {isInviteOnly && (
-              <Link to="/admin/signup" className="px-2 py-2.5 text-[0.875rem] text-t-muted transition hover:text-t-text hover:underline">
-                I have an invite code
-              </Link>
-            )}
-            {isOpen && (
-              <Link to="/admin/signup" className="px-2 py-2.5 text-[0.875rem] text-t-muted transition hover:text-t-text hover:underline">
-                Create an account
-              </Link>
-            )}
+          <p className="mt-4 text-[0.9375rem] leading-7 text-t-muted">
+            Enough for a portfolio, a résumé page and a few microsites that fetch at build time. Each limit answers
+            with a code and a <code className="font-mono-code text-[0.875rem]" translate="no">Retry-After</code> header
+            rather than a silent failure.
+          </p>
+
+          <table className="mt-6 w-full border-collapse text-left">
+            <caption className="sr-only">Limits that apply to every account during the beta</caption>
+            <tbody>
+              {LIMITS.map((row) => (
+                <tr key={row.what}>
+                  <th scope="row" className="border-t border-t-border py-2.5 pr-6 align-top text-[0.875rem] font-normal text-t-muted">{row.what}</th>
+                  <td className="border-t border-t-border py-2.5 text-[0.875rem] leading-6 text-t-text tabular-nums">{row.value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* <!-- OWNER-APPROVAL: pricing sentence --> */}
+          <p className="mt-5 text-[0.9375rem] leading-7 text-t-muted">
+            Free during the beta; any paid plan will be announced 30 days ahead.
+          </p>
+        </div>
+      </section>
+
+      {/* ── The last word is the first action ─────────────────────────── */}
+      <section aria-labelledby="cta-title" className="mx-auto max-w-[90rem] px-4 pb-8 pt-4 sm:px-6">
+        <div className="max-w-3xl">
+          <h2 id="cta-title" className="text-balance font-display text-[1.5rem] leading-tight tracking-[-0.02em]">
+            Write it once. Read it from everything you build.
+          </h2>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <Link to="/signup" className={buttonPrimary}>{signupLabel}</Link>
+            <Link to="/login" className={buttonSecondary}>Sign in</Link>
           </div>
         </div>
       </section>

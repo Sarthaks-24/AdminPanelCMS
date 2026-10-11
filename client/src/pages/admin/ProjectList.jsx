@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
+import { apiErrorMessage } from '../../lib/apiErrors';
 import { ListSkeleton, EmptyState } from '../../components/admin/States';
 import { useToast } from '../../components/admin/Toast';
 import VisibilityToggle from '../../components/admin/VisibilityToggle';
@@ -47,7 +48,7 @@ export default function ProjectList() {
       await api.delete(`/projects/${id}`);
       setProjects((prev) => prev.filter((p) => p._id !== id));
     } catch (err) {
-      notify(err.response?.data?.message || 'Could not delete the project. Try again.');
+      notify(apiErrorMessage(err, 'Could not delete the project. Try again.'));
     }
   };
 

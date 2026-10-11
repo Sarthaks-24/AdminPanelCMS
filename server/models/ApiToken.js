@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { ownerGuardPlugin } = require('../plugins/ownerGuard');
+const { addActiveToken, removeActiveToken } = require('../lib/cache');
 
 const ApiTokenSchema = new mongoose.Schema({
   owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -21,6 +22,12 @@ ApiTokenSchema.index({ revokedAt: 1, expiresAt: 1, expiryWarningSentAt: 1 });
 ApiTokenSchema.index({ app: 1, quotaSlot: 1 }, { unique: true, partialFilterExpression: { revokedAt: null } });
 ApiTokenSchema.pre('validate', function keepSecretTokensHashOnly() {
   if (this.type === 'sk') this.value = null;
+});
+// Keep the in-memory active-token hash set current. Revocations go through updateOne/updateMany
+// (no save hook) and call evictTokenByHash themselves; this covers creation and document saves.
+ApiTokenSchema.post('save', function syncActiveTokenSet(doc) {
+  if (doc.revokedAt) removeActiveToken(doc.hash);
+  else addActiveToken(doc.hash, doc.owner, doc.app);
 });
 // ownerGuard-exemption: the hash-only lookup is the credential authentication entry point; hash is a unique SHA-256 digest.
 ApiTokenSchema.plugin(ownerGuardPlugin, { modelName: 'ApiToken' });

@@ -3,6 +3,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, THEME_GROUPS } from '../../context/ThemeContext';
 import { api } from '../../api/client';
+import { SITE } from '../../content/site';
 import {
   LayoutDashboard,
   User,
@@ -37,7 +38,7 @@ export default function AdminLayout() {
     setResendingVerification(true);
     setVerificationMessage('');
     try {
-      await api.post('/auth/resend-verification');
+      await api.post('/auth/resend-verification', { email: user?.email });
       setVerificationMessage('If verification is needed, a message will be sent.');
     } catch {
       setVerificationMessage('Could not request a verification email. Please try again later.');
@@ -59,7 +60,7 @@ export default function AdminLayout() {
     { to: '/admin/education', label: 'Education', icon: GraduationCap },
     { to: '/admin/certifications', label: 'Certifications', icon: Award },
     { to: '/admin/resume', label: 'Resume', icon: FileText },
-    { to: '/admin/apps', label: 'Connected websites', icon: Boxes },
+    { to: '/admin/apps', label: 'Apps', icon: Boxes },
     { to: '/admin/account', label: 'Account', icon: Settings },
     ...(user?.role === 'superadmin' ? [{ to: '/admin/superadmin', label: 'Platform admin', icon: ShieldCheck }] : []),
   ];
@@ -70,15 +71,15 @@ export default function AdminLayout() {
     if (path === '/admin/dashboard' || path === '/admin') return ['Overview'];
     if (path.includes('/admin/projects/new')) return ['Projects', 'New project'];
     if (path.includes('/admin/projects/edit')) return ['Projects', 'Edit project'];
-    if (path.includes('/admin/apps/')) return ['Connected websites', 'Settings'];
+    if (path.includes('/admin/apps/')) return ['Apps', 'App settings'];
     const match = navLinks.find((link) => !link.exact && path.startsWith(link.to));
-    return [match?.label || 'Portfolio Control'];
+    return [match?.label || SITE.name];
   };
 
   // Keep the browser tab title in step with the page, and let Escape close anything that is open.
   const crumbs = getBreadcrumb();
   const pageTitle = crumbs[crumbs.length - 1];
-  useEffect(() => { document.title = `${pageTitle} · Portfolio Control`; }, [pageTitle]);
+  useEffect(() => { document.title = `${pageTitle} · ${SITE.name}`; }, [pageTitle]);
   useEffect(() => {
     const onKey = (event) => {
       if (event.key !== 'Escape') return;
@@ -136,11 +137,11 @@ export default function AdminLayout() {
                   border: '1px solid var(--theme-accent-bright)',
                 }}
               >
-                PC
+                {SITE.name.split(' ').map((word) => word[0]).join('').slice(0, 2).toUpperCase()}
               </div>
               <div>
                 <span className="font-bold text-sm tracking-tight block" style={{ color: 'var(--theme-text)' }}>
-                  Portfolio Control
+                  {SITE.name}
                 </span>
                 <span className="text-xs" style={{ color: 'var(--theme-text-muted)' }}>Content manager</span>
               </div>
@@ -235,7 +236,7 @@ export default function AdminLayout() {
                 <div className="text-xs font-semibold truncate" style={{ color: 'var(--theme-text)' }}>
                   {user?.email}
                 </div>
-                <div className="text-[10px]" style={{ color: 'var(--theme-text-muted)' }}>
+                <div className="text-xs" style={{ color: 'var(--theme-text-muted)' }}>
                   {user?.role === 'superadmin' ? 'Platform admin' : 'Signed in'}
                 </div>
               </div>
@@ -343,7 +344,7 @@ export default function AdminLayout() {
                     }}
                   >
                     {(groups || THEME_GROUPS).map((group) => {
-                      const groupThemes = Object.values(themes).filter((t) => t.group === group);
+                      const groupThemes = Object.values(themes).filter((t) => t.group === group && !t.hidden);
                       if (groupThemes.length === 0) return null;
                       return (
                         <div key={group}>
@@ -416,8 +417,8 @@ export default function AdminLayout() {
 
         {/* Main Body */}
         <main id="main-content" tabIndex={-1} className="admin-content flex-1 outline-none p-4 sm:p-6 lg:p-8 overflow-y-auto" style={{ backgroundColor: 'var(--theme-bg)', backgroundImage: 'radial-gradient(ellipse at 52% -20%, color-mix(in srgb, var(--theme-accent) 7%, transparent), transparent 52%)' }}>
-          {user && !user.emailVerified && <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm">
-            <span className="text-t-text">Verify your email to unlock content editing and API token management.{verificationMessage && <span role="status" className="ml-2 text-t-muted">{verificationMessage}</span>}</span>
+          {user && !user.emailVerified && <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-t-warn/40 bg-t-warn/10 p-4 text-sm">
+            <span className="text-t-text">Verify your email to edit content and create keys.{verificationMessage && <span role="status" className="ml-2 text-t-muted">{verificationMessage}</span>}</span>
             <button type="button" onClick={resendVerification} disabled={resendingVerification} className="font-semibold text-t-accent hover:underline disabled:opacity-60">{resendingVerification ? 'Sending…' : 'Resend verification'}</button>
           </div>}
           <Outlet />

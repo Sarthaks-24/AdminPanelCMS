@@ -1,9 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Check, Menu, Palette, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
-import { useSignupMode } from '../../hooks/useSignupMode';
 import { REPO_URL, SITE } from '../../content/site';
 
 function Wordmark() {
@@ -20,85 +18,23 @@ function Wordmark() {
   );
 }
 
-/** The 18 themes are a real feature of the dashboard, so the public pages let you drive them. */
-function ThemePicker() {
-  const { themeId, themes, changeTheme, groups } = useTheme();
-  const [open, setOpen] = useState(false);
-  const container = useRef(null);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onPointer = (event) => { if (!container.current?.contains(event.target)) setOpen(false); };
-    const onKey = (event) => {
-      if (event.key !== 'Escape') return;
-      setOpen(false);
-      // Escape must land focus somewhere predictable, not nowhere.
-      container.current?.querySelector('button')?.focus();
-    };
-    document.addEventListener('mousedown', onPointer);
-    document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('mousedown', onPointer); document.removeEventListener('keydown', onKey); };
-  }, [open]);
-
-  const byGroup = groups.map((group) => [group, Object.values(themes).filter((theme) => theme.group === group)]);
-
-  return (
-    <div ref={container} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        aria-haspopup="true"
-        className="flex items-center gap-2 rounded-lg border border-t-border px-2.5 py-1.5 text-[0.8125rem] text-t-muted transition hover:border-t-border-hi hover:text-t-text"
-      >
-        <Palette size={15} aria-hidden="true" />
-        <span className="hidden sm:inline">Theme</span>
-      </button>
-      {open && (
-        /* A plain group of toggle buttons. role="menu" would promise arrow-key navigation and focus
-           management that this does not implement; Tab already reaches every option. */
-        <div aria-label="Choose a theme" className="absolute right-0 top-full z-50 mt-2 max-h-[70vh] w-64 overflow-y-auto rounded-xl border border-t-border bg-t-surface p-2 shadow-card">
-          <p className="px-2 py-1.5 text-xs leading-5 text-t-dim">Switches this page and the dashboard you sign into.</p>
-          {byGroup.map(([group, list]) => (
-            <div key={group} className="mt-1">
-              <p id={`theme-group-${group}`} className="px-2 py-1 text-[0.6875rem] font-medium text-t-dim">{group}</p>
-              <ul aria-labelledby={`theme-group-${group}`}>
-                {list.map((theme) => (
-                  <li key={theme.id}>
-                    <button
-                      type="button"
-                      aria-pressed={theme.id === themeId}
-                      onClick={() => { changeTheme(theme.id); setOpen(false); container.current?.querySelector('button')?.focus(); }}
-                      className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[0.8125rem] text-t-muted transition hover:bg-t-surface-hi hover:text-t-text"
-                    >
-                      <span className="flex shrink-0 gap-0.5" aria-hidden="true">
-                        {theme.preview.map((color) => (
-                          <span key={color} className="h-3.5 w-2 rounded-sm" style={{ background: color }} />
-                        ))}
-                      </span>
-                      <span className="flex-1 truncate">{theme.label}</span>
-                      {theme.id === themeId && <Check size={14} className="shrink-0 text-t-accent" aria-hidden="true" />}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
+// The three pages a consumer of the API needs. Everything else is one click further in.
 const NAV = [
-  { to: '/docs', label: 'Docs' },
-  { to: '/readme', label: 'Readme' },
-  { to: '/license', label: 'License' },
+  { to: '/docs/quickstart', label: 'Quickstart' },
+  { to: '/docs/api', label: 'API reference' },
+  { to: '/docs/limits', label: 'Limits' },
+];
+
+const FOOTER_LINKS = [
+  { to: '/docs/quickstart', label: 'Quickstart' },
+  { to: '/docs/api', label: 'API reference' },
+  { to: '/docs/limits', label: 'Limits & errors' },
+  { to: '/legal/terms', label: 'Terms' },
+  { to: '/legal/privacy', label: 'Privacy' },
 ];
 
 export default function PublicShell({ children, wide = false }) {
   const { isAuthenticated } = useAuth();
-  const { isOpen, isInviteOnly } = useSignupMode();
   const { pathname } = useLocation();
   // The route the menu was opened on travels with the state, so navigating anywhere — including by
   // browser back — closes it without an effect. The header persists across routes, so otherwise an
@@ -116,6 +52,7 @@ export default function PublicShell({ children, wide = false }) {
 
   const linkClass = ({ isActive }) =>
     `rounded-md px-1 py-1 text-[0.875rem] transition ${isActive ? 'text-t-text' : 'text-t-muted hover:text-t-text'}`;
+  const menuLinkClass = 'block rounded-lg px-2 py-2 text-sm text-t-muted hover:bg-t-surface-hi hover:text-t-text';
 
   return (
     <div className="min-h-dvh bg-t-bg text-t-text antialiased">
@@ -127,19 +64,17 @@ export default function PublicShell({ children, wide = false }) {
 
           <nav aria-label="Pages" className="ml-4 hidden items-center gap-5 md:flex">
             {NAV.map((item) => <NavLink key={item.to} to={item.to} className={linkClass}>{item.label}</NavLink>)}
-            <a href={REPO_URL} target="_blank" rel="noreferrer noopener" className="rounded-md px-1 py-1 text-[0.875rem] text-t-muted transition hover:text-t-text">GitHub</a>
           </nav>
 
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
-            <ThemePicker />
             {isAuthenticated ? (
               <Link to="/admin/dashboard" className="rounded-lg bg-t-accent px-3.5 py-1.5 text-[0.8125rem] font-semibold text-t-on-accent transition hover:bg-t-accent-br">Dashboard</Link>
             ) : (
               <>
-                {/* Below sm these live in the menu instead: four controls in one row overflows a 375px screen. */}
-                <Link to="/admin/login" className="hidden rounded-lg px-2 py-1.5 text-[0.875rem] text-t-muted transition hover:text-t-text sm:block">Sign in</Link>
-                {isOpen && <Link to="/admin/signup" className="hidden rounded-lg bg-t-accent px-3.5 py-1.5 text-[0.8125rem] font-semibold text-t-on-accent transition hover:bg-t-accent-br sm:block">Create account</Link>}
-                {isInviteOnly && <Link to="/admin/signup" className="hidden rounded-lg border border-t-border-hi px-3.5 py-1.5 text-[0.8125rem] font-medium text-t-text transition hover:border-t-accent sm:block">Redeem an invite</Link>}
+                {/* Sign in moves into the menu below sm; the account button stays at every width, in
+                    every signup mode. The signup page itself explains invite-only or closed. */}
+                <Link to="/login" className="hidden rounded-lg px-2 py-1.5 text-[0.875rem] text-t-muted transition hover:text-t-text sm:block">Sign in</Link>
+                <Link to="/signup" className="rounded-lg bg-t-accent px-3.5 py-1.5 text-[0.8125rem] font-semibold text-t-on-accent transition hover:bg-t-accent-br">Create account</Link>
               </>
             )}
             <button
@@ -147,7 +82,7 @@ export default function PublicShell({ children, wide = false }) {
               onClick={() => setMenuOpen((value) => !value)}
               aria-expanded={menuOpen}
               aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-              className="rounded-lg border border-t-border p-1.5 text-t-muted md:hidden"
+              className="rounded-lg border border-t-border p-1.5 text-t-muted transition hover:border-t-border-hi hover:text-t-text md:hidden"
             >
               {menuOpen ? <X size={16} aria-hidden="true" /> : <Menu size={16} aria-hidden="true" />}
             </button>
@@ -159,13 +94,10 @@ export default function PublicShell({ children, wide = false }) {
             <ul className="space-y-1">
               {NAV.map((item) => (
                 <li key={item.to}>
-                  <NavLink to={item.to} className="block rounded-lg px-2 py-2 text-sm text-t-muted hover:bg-t-surface-hi hover:text-t-text">{item.label}</NavLink>
+                  <NavLink to={item.to} className={menuLinkClass}>{item.label}</NavLink>
                 </li>
               ))}
-              <li><a href={REPO_URL} target="_blank" rel="noreferrer noopener" className="block rounded-lg px-2 py-2 text-sm text-t-muted hover:bg-t-surface-hi hover:text-t-text">GitHub</a></li>
-              {!isAuthenticated && <li><Link to="/admin/login" className="block rounded-lg px-2 py-2 text-sm text-t-muted hover:bg-t-surface-hi hover:text-t-text">Sign in</Link></li>}
-              {!isAuthenticated && isOpen && <li><Link to="/admin/signup" className="block rounded-lg px-2 py-2 text-sm font-medium text-t-accent hover:bg-t-surface-hi">Create account</Link></li>}
-              {!isAuthenticated && isInviteOnly && <li><Link to="/admin/signup" className="block rounded-lg px-2 py-2 text-sm font-medium text-t-accent hover:bg-t-surface-hi">Redeem an invite</Link></li>}
+              {!isAuthenticated && <li className="sm:hidden"><Link to="/login" className={menuLinkClass}>Sign in</Link></li>}
             </ul>
           </nav>
         )}
@@ -181,17 +113,16 @@ export default function PublicShell({ children, wide = false }) {
               <p className="mt-3 text-[0.8125rem] leading-6 text-t-muted">{SITE.claim} {SITE.mechanism}</p>
               <p className="mt-3 text-xs leading-5 text-t-dim">{SITE.status}</p>
             </div>
-            <div className="grid grid-cols-2 gap-x-10 gap-y-2 text-[0.8125rem] sm:grid-cols-2">
-              <Link to="/docs" className="text-t-muted hover:text-t-text">Docs</Link>
-              <a href={REPO_URL} target="_blank" rel="noreferrer noopener" className="text-t-muted hover:text-t-text">GitHub</a>
-              <Link to="/readme" className="text-t-muted hover:text-t-text">Readme</Link>
-              <Link to="/docs/api" className="text-t-muted hover:text-t-text">API reference</Link>
-              <Link to="/license" className="text-t-muted hover:text-t-text">License</Link>
-              <Link to="/admin/login" className="text-t-muted hover:text-t-text">Sign in</Link>
-            </div>
+            <nav aria-label="Footer" className="grid grid-cols-2 gap-x-10 gap-y-2 text-[0.8125rem]">
+              {FOOTER_LINKS.map((item) => (
+                <Link key={item.to} to={item.to} className="text-t-muted hover:text-t-text">{item.label}</Link>
+              ))}
+              <a href={REPO_URL} target="_blank" rel="noreferrer noopener" className="text-t-muted hover:text-t-text">Source</a>
+            </nav>
           </div>
           <p className="mt-10 border-t border-t-border pt-6 text-xs text-t-dim">
-            Released under the <Link to="/license" className="text-t-muted hover:text-t-text hover:underline">MIT License</Link>. Run your own copy; nothing here is a hosted service.
+            © 2026 {SITE.owner}. Source available under the{' '}
+            <Link to="/license" className="text-t-muted hover:text-t-text hover:underline">MIT License</Link>.
           </p>
         </div>
       </footer>

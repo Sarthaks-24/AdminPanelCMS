@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { ownerGuardPlugin } = require('../plugins/ownerGuard');
+const { boundedStringArray } = require('../lib/modelConstants');
 
 const EducationSchema = new mongoose.Schema(
   {
@@ -15,40 +16,19 @@ const EducationSchema = new mongoose.Schema(
       maxlength: 120,
       trim: true,
     },
-    fieldOfStudy: {
-      type: String,
-      default: 'Computer Science & Engineering',
-      trim: true,
-    },
+    fieldOfStudy: { type: String, maxlength: 120, trim: true, default: '' },
     period: {
       type: String,
       required: [true, 'Display period is required (e.g., 2022 - 2026)'],
+      maxlength: 60,
       trim: true,
     },
-    startDate: {
-      type: Date,
-    },
-    endDate: {
-      type: Date,
-    },
-    grade: {
-      type: String,
-      default: '', // e.g., 'CGPA: 8.5 / 10'
-      trim: true,
-    },
-    location: {
-      type: String,
-      default: '',
-      trim: true,
-    },
-    achievements: {
-      type: [String],
-      default: [], // Relevant coursework, honors, societies
-    },
-    order: {
-      type: Number,
-      default: 0,
-    },
+    startDate: { type: Date },
+    endDate: { type: Date },
+    grade: { type: String, maxlength: 40, trim: true, default: '' }, // e.g., 'CGPA: 8.5 / 10'
+    location: { type: String, maxlength: 120, trim: true, default: '' },
+    achievements: boundedStringArray(15, 300), // Relevant coursework, honors, societies
+    order: { type: Number, default: 0 },
     featured: { type: Boolean, default: false },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true, immutable: true },
     visibility: { type: String, enum: ['draft', 'published'], default: 'draft' },

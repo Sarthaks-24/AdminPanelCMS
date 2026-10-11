@@ -1,101 +1,197 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Boxes, Globe2, Plus, Trash2 } from 'lucide-react';
 import { api } from '../../api/client';
+import { describeApiError } from '../../lib/apiErrors';
+import { ConfirmDialog } from '../../components/admin/ui/Modal';
+
+const ALL = { enabled: true, mode: 'all' };
+const EVERYTHING = {
+  profile: { enabled: true }, resume: { enabled: true }, socials: ALL, skills: ALL, projects: ALL,
+  experience: ALL, education: ALL, certifications: ALL, fs: { enabled: false },
+};
+
+// Exact payloads. `fields` and `ids` are omitted so the server falls back to DEFAULT_FIELDS,
+// which withholds email, phone, teammates, lastUpdated and driveUrl.
+export const PRESETS = [
+  { id: 'everything', label: 'Everything published', hint: 'Profile, résumé, links, skills, projects, experience, education and certifications. The usual choice for a portfolio site.', include: EVERYTHING },
+  { id: 'resume', label: 'Résumé page', hint: 'Profile, résumé link, experience, education, skills and certifications. No projects or links.', include: { profile: { enabled: true }, resume: { enabled: true }, experience: ALL, education: ALL, skills: ALL, certifications: ALL } },
+  { id: 'terminal', label: 'Terminal / file tree', hint: 'Everything published, plus /v1/fs: your content as a browsable file tree for terminal-style sites.', include: { ...EVERYTHING, fs: { enabled: true } } },
+  { id: 'empty', label: 'Start empty', hint: 'Turn sections on one by one in the App’s settings.', include: {}, warning: '0 sections enabled: every request returns 403 until you turn one on.' },
+];
+
+export const TYPE_OPTIONS = [
+  { id: 'protected', label: 'Build or server (recommended)', hint: 'Secret key (sk_), never shipped to a browser. 600 requests/min.' },
+  { id: 'static', label: 'Visitors’ browsers', hint: 'Publishable key (pk_), checked against the origins you allow. 120 requests/min per visitor, shared by everyone on your site.' },
+];
+
+export const typeLabel = (type) => (type === 'static' ? 'Visitors’ browsers' : 'Build or server');
+
+const enabledCount = (app) => Object.values(app.include || {}).filter((value) => value?.enabled).length;
+
+function ErrorLine({ error }) {
+  if (!error) return null;
+  return (
+    <p role="alert" className="rounded border border-t-danger/40 bg-t-danger-dim p-3 text-sm text-t-danger">
+      {error.message}{error.fix && <> <Link to={error.fix.to} className="font-medium underline underline-offset-4">{error.fix.label}</Link></>}
+    </p>
+  );
+}
 
 export default function AppsPage() {
+  const navigate = useNavigate();
   const [apps, setApps] = useState([]);
   const [name, setName] = useState('');
-  const [type, setType] = useState('static');
+  const [preset, setPreset] = useState('everything');
+  const [type, setType] = useState('protected');
   const [origin, setOrigin] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
+  const [listError, setListError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState('');
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    api.get('/apps')
-      .then(({ data }) => { if (active) setApps(data); })
-      .catch((err) => { if (active) setError(err.response?.data?.message || 'Could not load apps.'); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, []);
-
-  async function refresh() {
-    const { data } = await api.get('/apps');
-    setApps(data);
+  async function load() {
+    setLoading(true); setListError(null);
+    try { const { data } = await api.get('/apps'); setApps(Array.isArray(data) ? data : []); }
+    catch (err) { setListError(describeApiError(err, { fallback: 'Could not load your Apps.' })); }
+    finally { setLoading(false); }
   }
+  useEffect(() => { load(); }, []);
+
+  const chosen = useMemo(() => PRESETS.find((item) => item.id === preset) || PRESETS[0], [preset]);
 
   async function createApp(event) {
     event.preventDefault();
-    setBusy(true);
-    setError('');
+    setBusy(true); setError(null);
+    const allowedOrigins = type === 'static' ? origin.split(/[\s,]+/).filter(Boolean) : [];
     try {
-      await api.post('/apps', { name: name.trim(), type, allowedOrigins: origin.split(/[\s,]+/).filter(Boolean), include: {} });
-      setName('');
-      setOrigin('');
-      await refresh();
+      const { data } = await api.post('/apps', { name: name.trim(), type, allowedOrigins, include: chosen.include });
+      navigate(`/admin/apps/${data._id}`, { state: { justCreated: true } });
     } catch (err) {
-      setError(err.response?.data?.details?.join(', ') || err.response?.data?.message || 'Could not create app.');
-    } finally { setBusy(false); }
+      setError(describeApiError(err, { fallback: 'Could not create the App.' }));
+      setBusy(false);
+    }
   }
 
-  async function removeApp(id) {
-    if (!window.confirm('Delete this app?')) return;
-    setDeletingId(id);
-    setError('');
-    try { await api.delete(`/apps/${id}`); await refresh(); }
-    catch (err) { setError(err.response?.data?.message || 'Could not delete app.'); }
-    finally { setDeletingId(''); }
+  async function removeApp(app) {
+    setDeleting(true); setError(null);
+    try { await api.delete(`/apps/${app._id}`); setPendingDelete(null); await load(); }
+    catch (err) { setError(describeApiError(err, { appId: app._id, fallback: 'Could not delete the App.' })); }
+    finally { setDeleting(false); }
   }
 
-  return <div className="max-w-7xl mx-auto space-y-6">
-    <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-t-border">
-      <div>
-        <div className="flex items-center gap-2.5">
-          <h1 className="text-3xl text-t-text">Connected websites</h1>
+  const radioClass = (checked) => `flex cursor-pointer gap-3 rounded-lg border p-3 transition-colors ${checked ? 'border-t-accent bg-t-accent/5' : 'border-t-border hover:border-t-border-hi'}`;
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-8">
+      <header className="border-b border-t-border pb-5">
+        <div className="flex items-baseline gap-3">
+          <h1 className="text-3xl text-t-text">Apps</h1>
           <span className="text-sm text-t-muted">{apps.length} of 10</span>
         </div>
-        <p className="text-xs text-t-muted mt-2">Each website you connect gets its own access key and chooses which content it can show.</p>
-      </div>
-    </header>
+        <p className="mt-2 max-w-prose text-sm text-t-muted">An App is a read-only view of your content with its own key. Each site you build gets one, and reads only the sections and fields you grant it.</p>
+      </header>
 
-    <form onSubmit={createApp} className="bg-t-surface border border-t-border rounded p-5 space-y-4">
-      <div><h2 className="font-semibold text-sm">Create an app</h2><p className="text-xs text-t-muted mt-1">You can choose exactly which published content and fields each app exposes.</p></div>
-      <div className="grid md:grid-cols-3 gap-3">
-        <label className="block text-xs font-mono text-t-muted">App name
-          <input required maxLength={80} value={name} onChange={(event) => setName(event.target.value)} placeholder="Portfolio website" className="mt-1 w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:outline-none focus:border-t-accent" />
-        </label>
-        <label className="block text-xs font-mono text-t-muted">App type
-          <select value={type} onChange={(event) => setType(event.target.value)} className="mt-1 w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:outline-none focus:border-t-accent"><option value="static">Static website</option><option value="protected">Protected app</option></select>
-        </label>
-        <label className="block text-xs font-mono text-t-muted">Allowed origins
-          <input value={origin} onChange={(event) => setOrigin(event.target.value)} placeholder="* (any origin) or https://example.com" className="mt-1 w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi text-t-text text-xs focus:outline-none focus:border-t-accent" />
-        </label>
-      </div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <p className="text-[11px] text-t-muted">Static apps default to * (any origin). Enter HTTPS origins to restrict browser access. Calls still require a valid Bearer API token. HTTP localhost is allowed in development.</p>
-        <button disabled={busy || apps.length >= 10} className="inline-flex shrink-0 items-center justify-center gap-2 px-3.5 py-2 rounded bg-t-accent hover:bg-t-accent-br text-t-on-accent font-semibold text-xs disabled:opacity-50">
-          <Plus size={14} />{busy ? 'Creating…' : 'Create app'}
-        </button>
-      </div>
-      {error && <p role="alert" className="text-xs text-t-danger">{error}</p>}
-    </form>
-
-    <section aria-label="Your apps" className="grid md:grid-cols-2 gap-4">
-      {loading && <p className="text-xs text-t-muted">Loading apps…</p>}
-      {!loading && !apps.length && <div className="md:col-span-2 p-10 text-center rounded border border-dashed border-t-border bg-t-surface">
-        <Boxes size={24} className="mx-auto text-t-muted" /><h2 className="mt-3 text-sm font-semibold">No apps created</h2><p className="mt-1 text-xs text-t-muted">Create an app above to start configuring a scoped view.</p>
-      </div>}
-      {apps.map((app) => <article key={app._id} className="p-5 rounded border border-t-border bg-t-surface hover:border-t-accent/60 transition-colors space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0"><h2 className="font-semibold text-sm text-t-text truncate">{app.name}</h2><p className="text-[11px] text-t-muted mt-1">{app.type === 'static' ? 'Static website' : 'Protected app'} · {Object.values(app.include || {}).filter((value) => value?.enabled).length} sections enabled</p><p className="text-[10px] text-t-dim mt-1">Created {new Date(app.createdAt).toLocaleDateString()}</p></div>
-          <button type="button" disabled={deletingId === app._id} onClick={() => removeApp(app._id)} aria-label={`Delete ${app.name}`} className="inline-flex items-center gap-1.5 text-[11px] text-t-danger hover:opacity-80 disabled:opacity-50"><Trash2 size={13} />{deletingId === app._id ? 'Deleting…' : 'Delete'}</button>
+      <form onSubmit={createApp} aria-labelledby="create-app-title" className="space-y-6 rounded-lg border border-t-border bg-t-surface p-5 sm:p-6">
+        <div>
+          <h2 id="create-app-title" className="text-base font-semibold text-t-text">Create an App</h2>
+          <p className="mt-1 text-sm text-t-muted">You land in the App straight after, with the URL and a snippet ready.</p>
         </div>
-        <div className="flex items-start gap-2 text-[11px] text-t-muted"><Globe2 size={13} className="mt-0.5 shrink-0" /><span className="break-all">{app.allowedOrigins?.includes('*') ? 'Any origin (Bearer token required)' : (app.allowedOrigins || []).join(', ') || 'No allowed origins'}</span></div>
-        <Link to={`/admin/apps/${app._id}`} className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-t-border-hi text-xs text-t-text hover:border-t-accent hover:text-t-accent transition-colors">Configure view <ArrowRight size={13} /></Link>
-      </article>)}
-    </section>
-  </div>;
+
+        <div className="max-w-md">
+          <label htmlFor="app-name" className="block text-sm font-medium text-t-text">Name</label>
+          <input id="app-name" required maxLength={80} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. portfolio-site" autoComplete="off" spellCheck={false} aria-describedby="app-name-hint" className="mt-1 h-10 w-full rounded border border-t-border-hi bg-t-bg px-3 text-sm text-t-text outline-none focus:border-t-accent focus:ring-2 focus:ring-t-accent/20" />
+          <p id="app-name-hint" className="mt-1 text-xs text-t-muted">Only you see it. Name it after the site or script that will fetch.</p>
+        </div>
+
+        <fieldset>
+          <legend className="text-sm font-medium text-t-text">What will this App read?</legend>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {PRESETS.map((item) => (
+              <label key={item.id} className={radioClass(preset === item.id)}>
+                <input type="radio" name="preset" value={item.id} checked={preset === item.id} onChange={() => setPreset(item.id)} className="mt-1 h-4 w-4 shrink-0 accent-[var(--theme-accent)]" />
+                <span className="min-w-0"><span className="block text-sm font-medium text-t-text">{item.label}</span><span className="mt-0.5 block text-xs leading-5 text-t-muted">{item.hint}</span></span>
+              </label>
+            ))}
+          </div>
+          {chosen.warning && <p role="note" className="mt-2 rounded border border-t-warn/40 bg-t-warn/10 p-3 text-sm text-t-text">{chosen.warning}</p>}
+        </fieldset>
+
+        <fieldset>
+          <legend className="text-sm font-medium text-t-text">Where will you fetch from?</legend>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {TYPE_OPTIONS.map((item) => (
+              <label key={item.id} className={radioClass(type === item.id)}>
+                <input type="radio" name="type" value={item.id} checked={type === item.id} onChange={() => setType(item.id)} className="mt-1 h-4 w-4 shrink-0 accent-[var(--theme-accent)]" />
+                <span className="min-w-0"><span className="block text-sm font-medium text-t-text">{item.label}</span><span className="mt-0.5 block text-xs leading-5 text-t-muted">{item.hint}</span></span>
+              </label>
+            ))}
+          </div>
+          {type === 'static' && (
+            <div className="mt-3 max-w-xl">
+              <label htmlFor="app-origins" className="block text-sm font-medium text-t-text">Allowed origins</label>
+              <input id="app-origins" value={origin} onChange={(event) => setOrigin(event.target.value)} placeholder="https://example.com, https://www.example.com" autoComplete="off" spellCheck={false} aria-describedby="app-origins-hint" className="mt-1 h-10 w-full rounded border border-t-border-hi bg-t-bg px-3 text-sm text-t-text outline-none focus:border-t-accent focus:ring-2 focus:ring-t-accent/20" />
+              <p id="app-origins-hint" className="mt-1 text-xs leading-5 text-t-muted">Browser keys are public. The origin list stops other sites from using your key in a browser; it doesn’t stop scripts. Leave it empty for any origin (<code translate="no">*</code>); <code translate="no">http://localhost</code> works in development.</p>
+            </div>
+          )}
+        </fieldset>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <ErrorLine error={error} />
+          <button disabled={busy || apps.length >= 10} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded bg-t-accent px-4 text-sm font-semibold text-t-on-accent hover:bg-t-accent-br disabled:opacity-50 sm:ml-auto">
+            <Plus size={15} aria-hidden="true" />{busy ? 'Creating…' : 'Create App'}
+          </button>
+        </div>
+        {apps.length >= 10 && <p className="text-xs text-t-muted">You have 10 Apps, the most an account can hold. Delete one to create another.</p>}
+      </form>
+
+      <section aria-labelledby="apps-list-title">
+        <h2 id="apps-list-title" className="text-base font-semibold text-t-text">Your Apps</h2>
+        {loading && <p role="status" className="mt-3 text-sm text-t-muted">Loading Apps…</p>}
+        {listError && (
+          <div role="alert" className="mt-3 rounded border border-t-danger/40 bg-t-danger-dim p-4 text-sm text-t-danger">
+            {listError.message} <button type="button" onClick={load} className="font-medium underline underline-offset-4">Retry</button>
+          </div>
+        )}
+        {!loading && !listError && apps.length === 0 && (
+          <div className="mt-3 rounded-lg border border-dashed border-t-border bg-t-surface p-10 text-center">
+            <Boxes size={24} aria-hidden="true" className="mx-auto text-t-muted" />
+            <p className="mt-3 text-sm font-semibold text-t-text">No Apps yet</p>
+            <p className="mt-1 text-sm text-t-muted">Create one above. The default preset returns everything you’ve published.</p>
+          </div>
+        )}
+        <div className="mt-3 grid gap-4 md:grid-cols-2">
+          {apps.map((app) => (
+            <article key={app._id} className="space-y-4 rounded-lg border border-t-border bg-t-surface p-5 transition-colors hover:border-t-accent/60">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h3 className="truncate text-base font-semibold text-t-text">{app.name}</h3>
+                  <p className="mt-1 text-sm text-t-muted">{typeLabel(app.type)} · {enabledCount(app)} {enabledCount(app) === 1 ? 'section' : 'sections'} enabled</p>
+                  <p className="mt-1 text-xs text-t-dim">Created {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(app.createdAt))}</p>
+                </div>
+                <button type="button" onClick={() => setPendingDelete(app)} aria-label={`Delete ${app.name}`} className="inline-flex items-center gap-1.5 text-xs font-medium text-t-danger hover:underline"><Trash2 size={13} aria-hidden="true" />Delete</button>
+              </div>
+              {app.type === 'static' && (
+                <div className="flex items-start gap-2 text-xs text-t-muted"><Globe2 size={13} aria-hidden="true" className="mt-0.5 shrink-0" /><span className="break-all">{app.allowedOrigins?.includes('*') || !app.allowedOrigins?.length ? 'Any origin' : app.allowedOrigins.join(', ')}</span></div>
+              )}
+              <Link to={`/admin/apps/${app._id}`} className="inline-flex min-h-9 items-center gap-2 rounded border border-t-border-hi px-3 text-sm text-t-text transition-colors hover:border-t-accent hover:text-t-accent">Open App <ArrowRight size={13} aria-hidden="true" /></Link>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title={`Delete ${pendingDelete.name}?`}
+          consequence="Its keys stop working immediately: every site or build that fetches with them gets 401 from the next request. Your content is not touched."
+          confirmLabel="Delete App"
+          busy={deleting}
+          onConfirm={() => removeApp(pendingDelete)}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
+    </div>
+  );
 }

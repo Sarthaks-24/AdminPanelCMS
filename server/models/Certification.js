@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { ownerGuardPlugin } = require('../plugins/ownerGuard');
 const { isSafeHttpsUrl } = require('../lib/urlValidators');
+const { boundedStringArray } = require('../lib/modelConstants');
 
 const CertificationSchema = new mongoose.Schema(
   {
@@ -19,30 +20,19 @@ const CertificationSchema = new mongoose.Schema(
     issueDate: {
       type: String,
       required: [true, 'Issue date is required'], // e.g., 'August 2025' or ISO Date
-    },
-    expirationDate: {
-      type: String,
-      default: 'No Expiration',
-    },
-    credentialId: {
-      type: String,
-      default: '',
+      maxlength: 32,
       trim: true,
     },
+    expirationDate: { type: String, maxlength: 32, trim: true, default: '' },
+    credentialId: { type: String, maxlength: 120, trim: true, default: '' },
     credentialUrl: {
       type: String,
       default: '',
       trim: true,
       validate: { validator: isSafeHttpsUrl, message: 'URL must use https://' },
     },
-    skills: {
-      type: [String],
-      default: [],
-    },
-    order: {
-      type: Number,
-      default: 0,
-    },
+    skills: boundedStringArray(30, 40),
+    order: { type: Number, default: 0 },
     featured: { type: Boolean, default: false },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true, immutable: true },
     visibility: { type: String, enum: ['draft', 'published'], default: 'draft' },
@@ -53,6 +43,7 @@ const CertificationSchema = new mongoose.Schema(
 );
 
 CertificationSchema.index({ owner: 1, issueDate: -1 });
+CertificationSchema.index({ owner: 1, order: 1 });
 CertificationSchema.plugin(ownerGuardPlugin, { modelName: 'Certification' });
 
 module.exports = mongoose.model('Certification', CertificationSchema);

@@ -22,22 +22,10 @@ const SocialSchema = new mongoose.Schema(
       trim: true,
       validate: { validator: isSafeSocialUrl, message: 'URL must use https:// or a valid mailto: address' },
     },
-    username: {
-      type: String,
-      trim: true, // e.g., 'username'
-    },
-    icon: {
-      type: String,
-      default: 'link', // 'github', 'linkedin', 'twitter', 'mail', 'code', 'globe'
-    },
-    order: {
-      type: Number,
-      default: 0,
-    },
-    featured: {
-      type: Boolean,
-      default: true, // If true, highlighted in spotlight and top contact menu
-    },
+    username: { type: String, maxlength: 80, trim: true, default: '' },
+    icon: { type: String, maxlength: 40, trim: true, default: 'link' }, // 'github', 'linkedin', 'twitter', 'mail', 'code', 'globe'
+    order: { type: Number, default: 0 },
+    featured: { type: Boolean, default: true }, // If true, highlighted in spotlight and top contact menu
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true, immutable: true },
     visibility: { type: String, enum: ['draft', 'published'], default: 'draft' },
   },

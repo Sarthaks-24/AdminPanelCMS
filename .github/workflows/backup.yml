@@ -1,0 +1,91 @@
+# Nightly encrypted backup of the production database with 30-day off-host retention.
+# Council 2026-10-11, backend A26 / master plan Phase A. Runs `npm run backup` from server/,
+# which does: mongodump -> gzip -> gpg AES-256 -> rclone copy -> rclone delete --min-age <retention>d.
+#
+# Repository secrets this workflow needs (Settings -> Secrets and variables -> Actions):
+#   PROD_MONGODB_URI            connection string of the dedicated *backup* Atlas user, database name in the path
+#   BACKUP_PASSPHRASE           the gpg symmetric passphrase (keep a copy outside GitHub; without it archives are unreadable)
+#   BACKUP_REMOTE_DESTINATION   rclone target, e.g. remote:cms-backups
+#   RCLONE_CONFIG               full contents of an rclone.conf that defines that remote
+# Optional repository variable: BACKUP_RETENTION_DAYS (default 30).
+name: Nightly backup
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # 03:00 UTC every day
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: backup + prune
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install mongodump (MongoDB Database Tools), rclone and gpg
+        run: |
+          set -euo pipefail
+          curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
+          echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/8.0 multiverse" \
+            | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mongodb-database-tools rclone gnupg
+          mongodump --version | head -1
+          rclone version | head -1
+          gpg --version | head -1
+
+      - run: npm ci --omit=dev
+
+      - name: Write the passphrase file and the rclone config (mode 600, runner-local, removed at the end)
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          RCLONE_CONFIG_CONTENT: ${{ secrets.RCLONE_CONFIG }}
+        run: |
+          set -euo pipefail
+          test -n "$BACKUP_PASSPHRASE" || { echo "BACKUP_PASSPHRASE secret is empty"; exit 1; }
+          test -n "$RCLONE_CONFIG_CONTENT" || { echo "RCLONE_CONFIG secret is empty"; exit 1; }
+          umask 077
+          printf '%s' "$BACKUP_PASSPHRASE" > "$RUNNER_TEMP/backup.passphrase"
+          mkdir -p "$HOME/.config/rclone"
+          printf '%s\n' "$RCLONE_CONFIG_CONTENT" > "$HOME/.config/rclone/rclone.conf"
+          echo "BACKUP_PASSPHRASE_FILE=$RUNNER_TEMP/backup.passphrase" >> "$GITHUB_ENV"
+          echo "BACKUP_DIR=$RUNNER_TEMP/cms-backups" >> "$GITHUB_ENV"
+
+      - name: Encrypted backup, off-host copy, prune older than BACKUP_RETENTION_DAYS
+        env:
+          MODE: prod
+          MONGODB_URI: ${{ secrets.PROD_MONGODB_URI }}
+          BACKUP_REMOTE_DESTINATION: ${{ secrets.BACKUP_REMOTE_DESTINATION }}
+          BACKUP_RETENTION_DAYS: ${{ vars.BACKUP_RETENTION_DAYS || '30' }}
+        run: npm run backup
+
+      # B18: storage trend on the same schedule. `npm run stats` exits 2 at 70% of DB_STORAGE_CAP_BYTES,
+      # which fails this job and triggers GitHub's workflow-failure email. That is the Atlas upgrade alert.
+      - name: Storage check (fails at 70% of the Atlas M0 cap)
+        env:
+          MODE: prod
+          MONGODB_URI: ${{ secrets.PROD_MONGODB_URI }}
+        run: npm run stats
+
+      - name: Remove local secrets and archives
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/backup.passphrase" "$HOME/.config/rclone/rclone.conf"
+          rm -rf "$RUNNER_TEMP/cms-backups"

@@ -10,8 +10,49 @@ const inviteGuard = require('../lib/inviteGuard');
 const { getSignupMode } = require('../lib/signupMode');
 const { evictOwner } = require('../lib/cache');
 const { setSessionCookie, clearSessionCookie, readSessionCookie } = require('../lib/sessionCookie');
+const { TERMS_VERSION, PRIVACY_VERSION } = require('../lib/legal');
+const { reserveMail, refundMail, recipientAllowed } = require('../lib/mailBudget');
+const logger = require('../lib/logger');
+const { cascadeDeletedOwner } = require('./accountController');
 
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10);
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const INVITE_CODE_PATTERN = /^[A-Z2-9]{12}$/;
+const ACCOUNT_EXISTS_NOTICE_GAP_MS = 24 * 60 * 60 * 1000;
+
+const GENERIC_SIGNUP = { success: true, message: 'Check your email to complete registration' };
+const GENERIC_RECOVERY = { success: true, message: 'If the account exists, password reset instructions will be sent' };
+const GENERIC_RESEND = { success: true, message: 'If an unverified account exists for that address, a new link is on its way' };
+const LOGIN_FAILED = { success: false, error: 'credentials_invalid', message: 'Invalid credentials or unverified email' };
+
+const validPassword = (value) => typeof value === 'string' && value.length >= 10 && value.length <= 1024;
+const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
+const validEmail = (email) => EMAIL_PATTERN.test(email) && email.length <= 254;
+const identityOf = (user) => ({ id: user._id, email: user.email, emailVerified: Boolean(user.emailVerifiedAt), role: user.role });
+const signSession = (user) => jwt.sign({ sub: user._id, tv: user.tokenVersion }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+// Mail is never awaited on the public paths: the response timing must not reveal whether an account exists,
+// and a slow provider must not hold a signup. Failures are logged with the template and request id.
+function sendInBackground(promise, template, req) {
+  promise.catch((error) => logger.event('mail_failed', { template, reqId: req.id, err: error?.message || String(error) }));
+}
+
+function publicApiBase() {
+  const value = String(process.env.PUBLIC_API_URL || '').trim().replace(/\/+$/, '');
+  return value || null;
+}
+
+// Codes are often pasted as "ABCD-EFGH-JKLM" or "123 456"; separators are ignored and letters upper-cased.
+function normalizeInviteCode(raw) {
+  if (typeof raw !== 'string') return null;
+  const compact = raw.trim().replace(/[\s-]/g, '');
+  if (/^\d{6}$/.test(compact)) return compact;
+  if (INVITE_CODE_PATTERN.test(compact.toUpperCase())) return compact.toUpperCase();
+  const trimmed = raw.trim();
+  // Long opaque codes issued before the 12-character format.
+  if (trimmed.length >= 16 && trimmed.length <= 128) return trimmed;
+  return null;
+}
 
 const login = async (req, res, next) => {
   try {
@@ -19,16 +60,22 @@ const login = async (req, res, next) => {
     if (typeof email !== 'string' || !email.trim() || typeof password !== 'string' || !password) {
       return res.status(400).json({ success: false, message: 'Please provide email and password' });
     }
-    const user = await User.findOne({ email: email.trim().toLowerCase(), status: 'active' });
-    const passwordMatches = user
-      ? await user.matchPassword(password)
-      : await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
-    if (!user || !passwordMatches) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    const normalized = normalizeEmail(email);
+    const user = await User.findOne({ email: normalized, status: { $ne: 'deleted' } });
+    // Unverified accounts have no password yet; legacy unverified ones are refused until they verify.
+    const usable = Boolean(user && user.passwordHash && user.emailVerifiedAt);
+    const passwordMatches = usable ? await user.matchPassword(password) : await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
+    if (!usable || !passwordMatches) {
+      logger.event('login_failed', { reqId: req.id, emailHash: digest(normalized).slice(0, 16), reason: !user ? 'unknown' : !usable ? 'unverified' : 'password' });
+      return res.status(401).json(LOGIN_FAILED);
     }
-    const token = jwt.sign({ sub: user._id, tv: user.tokenVersion }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    const identity = { id: user._id, email: user.email, emailVerified: Boolean(user.emailVerifiedAt), role: user.role };
-    setSessionCookie(res, token);
+    if (user.status !== 'active') {
+      logger.event('login_refused', { reqId: req.id, userId: String(user._id), status: user.status });
+      return res.status(401).json({ success: false, error: 'account_suspended', message: 'This account is suspended. Contact support if you think this is a mistake.' });
+    }
+    const identity = identityOf(user);
+    setSessionCookie(res, signSession(user));
+    logger.event('login_ok', { reqId: req.id, userId: String(user._id) });
     return res.json({ success: true, user: identity, admin: identity });
   } catch (error) {
     return next(error);
@@ -36,131 +83,191 @@ const login = async (req, res, next) => {
 };
 
 const verify = (req, res) => {
-  const identity = { id: req.user._id, email: req.user.email, emailVerified: Boolean(req.user.emailVerifiedAt), role: req.user.role };
+  const identity = identityOf(req.user);
   res.json({ success: true, valid: true, user: identity, admin: identity });
 };
-
-const GENERIC_SIGNUP = { success: true, message: 'Check your email to complete registration' };
-const GENERIC_RECOVERY = { success: true, message: 'If the account exists, password reset instructions will be sent' };
-const validPassword = (value) => typeof value === 'string' && value.length >= 10 && value.length <= 1024;
 
 async function signupConfig(_req, res, next) {
   try {
     const mode = await getSignupMode();
-    return res.json({ success: true, signupEnabled: Boolean(mode), signupMode: mode || 'closed' });
+    return res.json({ success: true, signupEnabled: Boolean(mode), signupMode: mode || 'closed', publicApiBase: publicApiBase() });
   } catch (error) { return next(error); }
 }
 
+// Email-first: no password is taken here. Whoever opens the verification link chooses the password.
 async function signup(req, res, next) {
   try {
     const mode = await getSignupMode();
-    if (!mode) return res.status(503).json({ success: false, error: 'signup_unavailable' });
+    if (!mode) return res.status(503).json({ success: false, error: 'signup_unavailable', message: 'Registration is closed right now' });
     if (process.env.NODE_ENV === 'production' && !mailer.isConfigured()) {
-      return res.status(503).json({ success: false, error: 'email_unavailable' });
+      return res.status(503).json({ success: false, error: 'email_unavailable', message: 'Registration is temporarily unavailable' });
     }
-    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-    const password = req.body?.password;
-    // Codes are often pasted as "123 456" or "123-456"; ignore the separators.
-    const rawInvite = typeof req.body?.inviteCode === 'string' ? req.body.inviteCode.trim() : req.body?.inviteCode;
-    const inviteCode = typeof rawInvite === 'string' && /^\d{3}[\s-]?\d{3}$/.test(rawInvite) ? rawInvite.replace(/[\s-]/g, '') : rawInvite;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || !validPassword(password)) {
-      return res.status(400).json({ success: false, error: 'validation_failed', message: 'Enter a valid email and a password of at least 10 characters' });
+    const email = normalizeEmail(req.body?.email);
+    if (!validEmail(email)) {
+      return res.status(400).json({ success: false, error: 'validation_failed', message: 'Enter a valid email address' });
     }
     if (req.body?.acceptedTerms !== true || req.body?.acceptedPrivacy !== true) {
-      return res.status(400).json({ success: false, error: 'consent_required' });
+      return res.status(400).json({ success: false, error: 'consent_required', message: 'Accept the Terms and Privacy Policy to continue' });
     }
-    let inviteHash;
     let inviteHashes = [];
     if (mode === 'invite') {
-      if (typeof inviteCode !== 'string' || !( /^\d{6}$/.test(inviteCode) || (inviteCode.length >= 16 && inviteCode.length <= 128) )) {
-        return res.status(400).json({ success: false, error: 'invite_invalid' });
-      }
+      const inviteCode = normalizeInviteCode(req.body?.inviteCode);
+      if (!inviteCode) return res.status(400).json({ success: false, error: 'invite_invalid', message: 'That invite code is invalid or has expired' });
       // Older invites were hashed with plain sha256 before the keyed digest existed; keep accepting both.
       inviteHashes = [inviteDigest(inviteCode), digest(inviteCode)];
-      inviteHash = inviteHashes[0];
-      const ticket = inviteGuard.reserve();
-      if (!ticket) return res.status(429).json({ success: false, error: 'invite_locked', message: 'Too many incorrect invite codes. Try again later or ask for a new invite.' });
+      const ticket = inviteGuard.reserve(req.ip);
+      if (!ticket) {
+        logger.event('invite_locked', { reqId: req.id, ip: req.ip });
+        return res.status(429).json({ success: false, error: 'invite_locked', message: 'Too many incorrect invite codes. Try again later or ask for a new invite.' });
+      }
+      // An invalid code ends here: no user lookup and no mail, so a leaked code cannot probe addresses.
       const invite = await Invite.exists({ codeHash: { $in: inviteHashes }, ...usableInviteFilter() });
-      if (!invite) return res.status(400).json({ success: false, error: 'invite_invalid' });
+      if (!invite) {
+        logger.event('invite_failed', { reqId: req.id, ip: req.ip });
+        return res.status(400).json({ success: false, error: 'invite_invalid', message: 'That invite code is invalid or has expired' });
+      }
       inviteGuard.release(ticket);
     }
-    const passwordHash = await bcrypt.hash(password, 10);
-    const existing = await User.findOne({ email, status: 'active' });
+    // Reserve the mail unit before looking at the account so an over-budget 503 is the same for every address.
+    if (!(await reserveMail())) {
+      logger.event('mail_budget_exhausted', { reqId: req.id, template: 'verification' });
+      return res.status(503).json({ success: false, error: 'mail_budget', message: 'We cannot send more email today. Please try again tomorrow.' });
+    }
+    const consent = { acceptedTermsAt: new Date(), acceptedTermsVersion: TERMS_VERSION, acceptedPrivacyAt: new Date(), acceptedPrivacyVersion: PRIVACY_VERSION };
+
+    let existing = await User.findOne({ email }).select('_id status emailVerifiedAt accountExistsNoticeAt');
+    if (existing?.status === 'deleted') {
+      // A deletion whose cascade is still pending must not block the address forever: finish it now.
+      await cascadeDeletedOwner(existing._id);
+      existing = null;
+    }
     if (existing) {
-      try {
-        const resetToken = await issueEmailToken(existing._id, 'reset');
-        await mailer.sendAccountExistsNotice(existing, resetToken);
-      } catch { /* Never reveal account state or mail delivery outcome. */ }
+      if (existing.status !== 'active') {
+        await refundMail();
+        logger.event('signup_suspended_account', { reqId: req.id, userId: String(existing._id) });
+      } else if (!existing.emailVerifiedAt) {
+        if (recipientAllowed('verify', email)) {
+          await User.updateOne({ _id: existing._id }, { $set: consent });
+          const token = await issueEmailToken(existing._id, 'verify');
+          sendInBackground(mailer.sendVerification({ email }, token), 'verification', req);
+          logger.event('signup_resent', { reqId: req.id, userId: String(existing._id) });
+        } else {
+          await refundMail();
+        }
+      } else {
+        const noticedAt = existing.accountExistsNoticeAt ? new Date(existing.accountExistsNoticeAt).getTime() : 0;
+        if (Date.now() - noticedAt > ACCOUNT_EXISTS_NOTICE_GAP_MS) {
+          await User.updateOne({ _id: existing._id }, { $set: { accountExistsNoticeAt: new Date() } });
+          const resetToken = await issueEmailToken(existing._id, 'reset');
+          sendInBackground(mailer.sendAccountExistsNotice({ email }, resetToken), 'account-exists', req);
+          logger.event('signup_existing_account', { reqId: req.id, userId: String(existing._id) });
+        } else {
+          await refundMail();
+        }
+      }
       return res.status(200).json(GENERIC_SIGNUP);
     }
+
     let user;
     try {
-      user = await User.create({ email, passwordHash, acceptedTermsAt: new Date(), status: 'active' });
+      user = await User.create({ email, passwordHash: null, emailVerifiedAt: null, status: 'active', ...consent });
     } catch (error) {
-      if (error.code === 11000) return res.status(200).json(GENERIC_SIGNUP);
+      if (error.code === 11000) { await refundMail(); return res.status(200).json(GENERIC_SIGNUP); }
       throw error;
     }
-    if (inviteHash) {
+    if (inviteHashes.length) {
       const consumed = await Invite.findOneAndUpdate(
         { codeHash: { $in: inviteHashes }, ...usableInviteFilter() },
         { $inc: { usedCount: 1 }, $set: { usedBy: user._id } }, { returnDocument: 'after' },
       );
       if (!consumed) {
         await User.deleteOne({ _id: user._id });
-        return res.status(400).json({ success: false, error: 'invite_invalid' });
+        await refundMail();
+        return res.status(400).json({ success: false, error: 'invite_invalid', message: 'That invite code is invalid or has expired' });
       }
     }
-    try {
-      const token = await issueEmailToken(user._id, 'verify');
-      await mailer.sendVerification(user, token);
-    } catch { /* Signup remains enumeration-safe; resend is available after mail setup. */ }
+    recipientAllowed('verify', email);
+    const token = await issueEmailToken(user._id, 'verify');
+    sendInBackground(mailer.sendVerification(user, token), 'verification', req);
+    logger.event('signup', { reqId: req.id, userId: String(user._id), mode });
     return res.status(200).json(GENERIC_SIGNUP);
   } catch (error) { return next(error); }
 }
 
+// Consumes the link, sets the password chosen by whoever holds the inbox, and signs them in.
 async function verifyEmail(req, res, next) {
   try {
+    const password = req.body?.password;
+    if (!validPassword(password)) return res.status(400).json({ success: false, error: 'password_invalid', message: 'Choose a password of at least 10 characters' });
     const consumed = await consumeEmailToken(req.body?.token, 'verify');
-    if (!consumed) return res.status(400).json({ success: false, error: 'token_invalid' });
-    await User.updateOne({ _id: consumed.user, status: 'active', emailVerifiedAt: null }, { $set: { emailVerifiedAt: new Date() } });
-    return res.json({ success: true, verified: true });
+    if (!consumed) return res.status(400).json({ success: false, error: 'token_invalid', message: 'This link is invalid, expired, or already used' });
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await User.findOneAndUpdate(
+      { _id: consumed.user, status: 'active', emailVerifiedAt: null },
+      { $set: { passwordHash, emailVerifiedAt: new Date() }, $inc: { tokenVersion: 1 } },
+      { returnDocument: 'after' },
+    ).select('_id email emailVerifiedAt role tokenVersion');
+    if (!user) return res.status(400).json({ success: false, error: 'token_invalid', message: 'This link is invalid, expired, or already used' });
+    evictOwner(user._id);
+    setSessionCookie(res, signSession(user));
+    logger.event('email_verified', { reqId: req.id, userId: String(user._id) });
+    return res.json({ success: true, verified: true, user: identityOf(user) });
   } catch (error) { return next(error); }
 }
 
+// Public: re-sends the verification link only when an unverified account exists. Always the generic 200.
 async function resendVerification(req, res, next) {
   try {
-    if (req.user.emailVerifiedAt) return res.json({ success: true, message: 'If verification is needed, an email will be sent' });
-    const token = await issueEmailToken(req.userId, 'verify');
-    try { await mailer.sendVerification(req.user, token); } catch { /* Generic response prevents delivery-state disclosure. */ }
-    return res.json({ success: true, message: 'If verification is needed, an email will be sent' });
+    const email = normalizeEmail(req.body?.email);
+    if (!validEmail(email)) return res.status(400).json({ success: false, error: 'validation_failed', message: 'Enter a valid email address' });
+    const user = await User.findOne({ email, status: 'active', emailVerifiedAt: null }).select('_id email');
+    if (user && recipientAllowed('verify', email)) {
+      if (await reserveMail()) {
+        const token = await issueEmailToken(user._id, 'verify');
+        sendInBackground(mailer.sendVerification(user, token), 'verification', req);
+        logger.event('verification_resent', { reqId: req.id, userId: String(user._id) });
+      } else {
+        logger.event('mail_budget_exhausted', { reqId: req.id, template: 'verification' });
+        return res.status(503).json({ success: false, error: 'mail_budget', message: 'We cannot send more email today. Please try again tomorrow.' });
+      }
+    }
+    return res.json(GENERIC_RESEND);
   } catch (error) { return next(error); }
 }
 
 async function forgotPassword(req, res, next) {
   try {
-    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254) {
-      const user = await User.findOne({ email, status: 'active' });
-      if (user) {
-        try {
+    const email = normalizeEmail(req.body?.email);
+    if (validEmail(email)) {
+      const user = await User.findOne({ email, status: 'active' }).select('_id email');
+      // Cooldown first (cheap, in memory), then the reserved part of the daily budget. Both keep the generic answer.
+      if (user && recipientAllowed('reset', email)) {
+        if (await reserveMail({ reset: true })) {
           const token = await issueEmailToken(user._id, 'reset');
-          await mailer.sendPasswordReset(user, token);
-        } catch { /* Keep response identical for known and unknown emails. */ }
+          sendInBackground(mailer.sendPasswordReset(user, token), 'password-reset', req);
+          logger.event('password_reset_requested', { reqId: req.id, userId: String(user._id) });
+        } else {
+          logger.event('mail_budget_exhausted', { reqId: req.id, template: 'password-reset', userId: String(user._id) });
+        }
       }
     }
     return res.status(200).json(GENERIC_RECOVERY);
   } catch (error) { return next(error); }
 }
 
+// Proving the inbox through a reset link verifies the address too. API tokens are left alone on purpose:
+// revoking them would take the tenant's live sites down on a routine reset.
 async function resetPassword(req, res, next) {
   try {
     if (!validPassword(req.body?.newPassword)) return res.status(400).json({ success: false, error: 'password_invalid', message: 'Password must be at least 10 characters' });
     const consumed = await consumeEmailToken(req.body?.token, 'reset');
     if (!consumed) return res.status(400).json({ success: false, error: 'token_invalid' });
     const passwordHash = await bcrypt.hash(req.body.newPassword, 10);
-    const user = await User.findOneAndUpdate({ _id: consumed.user, status: 'active' }, { $set: { passwordHash }, $inc: { tokenVersion: 1 } }, { returnDocument: 'after' }).select('_id');
+    const user = await User.findOneAndUpdate({ _id: consumed.user, status: 'active' }, { $set: { passwordHash }, $inc: { tokenVersion: 1 } }, { returnDocument: 'after' }).select('_id emailVerifiedAt');
     if (!user) return res.status(400).json({ success: false, error: 'token_invalid' });
+    if (!user.emailVerifiedAt) await User.updateOne({ _id: user._id, emailVerifiedAt: null }, { $set: { emailVerifiedAt: new Date() } });
     evictOwner(user._id);
+    logger.event('password_reset', { reqId: req.id, userId: String(user._id) });
     return res.json({ success: true, message: 'Password updated. Please sign in again.' });
   } catch (error) { return next(error); }
 }
@@ -176,8 +283,8 @@ async function changePassword(req, res, next) {
     user.tokenVersion += 1;
     await user.save();
     evictOwner(user._id);
-    const token = jwt.sign({ sub: user._id, tv: user.tokenVersion }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    setSessionCookie(res, token);
+    setSessionCookie(res, signSession(user));
+    logger.event('password_changed', { reqId: req.id, userId: String(user._id) });
     return res.json({ success: true });
   } catch (error) { return next(error); }
 }
@@ -189,11 +296,12 @@ async function logout(req, res, next) {
     const token = readSessionCookie(req);
     if (token) {
       try {
-        const payload = jwt.verify(token, process.env.JWT_SECRET);
+        const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
         // Bumping the version revokes this JWT everywhere, so a copied cookie stops working too.
         if (payload.sub && typeof payload.tv === 'number') {
           await User.updateOne({ _id: payload.sub, tokenVersion: payload.tv }, { $inc: { tokenVersion: 1 } });
           evictOwner(payload.sub);
+          logger.event('logout', { reqId: req.id, userId: String(payload.sub) });
         }
       } catch { /* expired or invalid token: nothing to revoke */ }
     }
@@ -203,7 +311,14 @@ async function logout(req, res, next) {
 }
 
 function me(req, res) {
-  return res.json({ success: true, user: { id: req.user._id, email: req.user.email, emailVerified: Boolean(req.user.emailVerifiedAt), acceptedTermsAt: req.user.acceptedTermsAt || null, role: req.user.role } });
+  const user = req.user;
+  return res.json({ success: true, user: {
+    ...identityOf(user),
+    acceptedTermsAt: user.acceptedTermsAt || null,
+    acceptedTermsVersion: user.acceptedTermsVersion || null,
+    acceptedPrivacyAt: user.acceptedPrivacyAt || null,
+    acceptedPrivacyVersion: user.acceptedPrivacyVersion || null,
+  } });
 }
 
-module.exports = { login, verify, signup, signupConfig, verifyEmail, resendVerification, forgotPassword, resetPassword, changePassword, logout, me };
+module.exports = { login, verify, signup, signupConfig, verifyEmail, resendVerification, forgotPassword, resetPassword, changePassword, logout, me, normalizeInviteCode };

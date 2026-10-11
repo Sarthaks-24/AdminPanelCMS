@@ -31,4 +31,35 @@ const WRITABLE_FIELDS = {
   Certification: ['title', 'issuer', 'issueDate', 'expirationDate', 'credentialId', 'credentialUrl', 'skills', 'order', 'featured', 'visibility'],
 };
 
-module.exports = { WRITABLE_FIELDS, PUBLIC_FIELDS, DEFAULT_FIELDS };
+// Skill categories are a free string per owner (contract §2.6). These seven are only the
+// suggestions shown to an owner who has not created any category yet.
+const LEGACY_SKILL_CATEGORIES = Object.freeze([
+  'Languages', 'Frontend', 'Backend & Systems', 'Databases & Caching',
+  'DevOps & Cloud', 'Hardware & Electronics', 'Tools & Frameworks',
+]);
+
+// Upper bound used by the App schema for any section's `fields[]`; validateApp applies the exact per-model cap.
+const MAX_FIELDS_PER_SECTION = Math.max(...Object.values(PUBLIC_FIELDS).map((fields) => fields.length));
+
+const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const SLUG_MAX_LENGTH = 80;
+
+// Schema helper for capped string arrays (contract §4): at most `maxItems` entries, each at most `maxLength` chars.
+// A single array-level validator so the same rule runs for document saves and `$set` update validators.
+function boundedStringArray(maxItems, maxLength, extra = {}) {
+  return {
+    type: [{ type: String, trim: true }],
+    default: [],
+    validate: {
+      validator: (value) => Array.isArray(value) && value.length <= maxItems
+        && value.every((entry) => typeof entry === 'string' && entry.length <= maxLength),
+      message: `Must contain at most ${maxItems} entries of at most ${maxLength} characters each`,
+    },
+    ...extra,
+  };
+}
+
+module.exports = {
+  WRITABLE_FIELDS, PUBLIC_FIELDS, DEFAULT_FIELDS, LEGACY_SKILL_CATEGORIES,
+  MAX_FIELDS_PER_SECTION, SLUG_PATTERN, SLUG_MAX_LENGTH, boundedStringArray,
+};

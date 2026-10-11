@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
 
 const AuthContext = createContext();
@@ -24,13 +24,17 @@ export const AuthProvider = ({ children }) => {
     return res.data;
   };
 
+  // Used after the verify-email page signs the user in: the server already set the session cookie
+  // and returned the identity, so no second round trip is needed.
+  const applySession = useCallback((identity) => { setUser(identity || null); setLoading(false); }, []);
+
   const logout = async () => {
     try { await api.post('/auth/logout'); } catch { /* the cookie expires on its own */ }
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, admin: user, loading, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, admin: user, loading, login, logout, setUser, applySession, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

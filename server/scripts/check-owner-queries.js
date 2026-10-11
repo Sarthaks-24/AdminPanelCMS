@@ -13,9 +13,12 @@ function walk(dir) {
       const source = fs.readFileSync(fullPath, 'utf8');
       const relative = path.relative(process.cwd(), fullPath);
       const normalized = relative.replace(/\\/g, '/');
-      const migrationExempt = normalized === 'scripts/migrate-legacy-tenancy.js' &&
-        source.includes('ownerGuard-exemption: legacy tenant migration requires native collection updates');
-      if (/\.collection\b/.test(source) && !migrationExempt) violations.push(`${relative}: raw collection access bypasses ownerGuard`);
+      const collectionExemptions = {
+        'scripts/migrate-legacy-tenancy.js': 'ownerGuard-exemption: legacy tenant migration requires native collection updates',
+        'lib/activeTokens.js': 'ownerGuard-exemption: active-token hash set boot load reads only hash, owner and app of unrevoked tokens',
+      };
+      const collectionExempt = collectionExemptions[normalized] && source.includes(collectionExemptions[normalized]);
+      if (/\.collection\b/.test(source) && !collectionExempt) violations.push(`${relative}: raw collection access bypasses ownerGuard`);
       const nativeDbExemptions = {
         'scripts/migrate-legacy-tenancy.js': 'ownerGuard-exemption: legacy tenant migration requires native collection updates',
         'scripts/audit-db.js': 'ownerGuard-exemption: read-only database inventory uses native commands',
