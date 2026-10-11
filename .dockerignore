@@ -1,0 +1,17 @@
+# Build context for deploy/web.Dockerfile (repository root). The API image builds from server/ with
+# its own server/.dockerignore.
+**/node_modules
+**/dist
+**/coverage
+.git
+.github
+.claude
+cache
+backup
+server/.env
+server/.env.*
+server/cache
+server/tests
+# client/.env is kept on purpose: it holds the public VITE_* build inputs (no secrets by design).
+client/.env.*
+!client/.env.example

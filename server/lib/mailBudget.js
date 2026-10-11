@@ -1,16 +1,15 @@
 const Setting = require('../models/Setting');
 const logger = require('./logger');
 const { burstAlert } = require('./alerts');
+const { envNumber } = require('./envNumber');
 
 // Daily outbound mail budget. The counter lives in Setting key `mail:YYYY-MM-DD` and is advanced with an
 // atomic, filtered $inc so concurrent sends cannot overshoot the cap. The last MAIL_RESET_RESERVE units of
 // the cap are spendable only by password-reset mail, so a signup flood cannot lock existing users out.
-const nonNegativeInt = (value, fallback) => {
-  const number = Number(value);
-  return value !== undefined && value !== '' && Number.isInteger(number) && number >= 0 ? number : fallback;
-};
-const dailyCap = () => nonNegativeInt(process.env.MAIL_DAILY_CAP, 500);
-const resetReserve = () => Math.min(nonNegativeInt(process.env.MAIL_RESET_RESERVE, 50), dailyCap());
+// Defaults (95 a day, 20 for resets) sit under the Resend free tier of 100 a day, so the provider never
+// refuses before the budget does (BE-04). Blank means the default; see lib/envNumber.js.
+const dailyCap = () => envNumber('MAIL_DAILY_CAP');
+const resetReserve = () => Math.min(envNumber('MAIL_RESET_RESERVE'), dailyCap());
 const dayOf = (now = new Date()) => now.toISOString().slice(0, 10);
 const keyFor = (day) => `mail:${day}`;
 

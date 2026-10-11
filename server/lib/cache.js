@@ -120,18 +120,22 @@ function bumpOwnerVersion(id) {
   ownerVersions.set(key, getOwnerVersion(key) + 1);
   purgeOwnerResponses(key);
 }
-function evictTokensWhere(predicate) { for (const [hash, entry] of tokenCache.entries()) if (predicate(entry)) tokenCache.delete(hash); }
-function evictTokenByHash(hash) { tokenCache.delete(hash); removeActiveToken(hash); }
+// Bumped by every token eviction. A resolve that started before an eviction may have read the old
+// token, App or owner, so requireToken does not cache its result when the generation moved (BE-01).
+let tokenGeneration = 0;
+function tokenGen() { return tokenGeneration; }
+function evictTokensWhere(predicate) { tokenGeneration += 1; for (const [hash, entry] of tokenCache.entries()) if (predicate(entry)) tokenCache.delete(hash); }
+function evictTokenByHash(hash) { tokenGeneration += 1; tokenCache.delete(hash); removeActiveToken(hash); }
 // An App edit drops the resolved token entries so the next request re-reads the App (name, origins,
 // sections, type). The hashes stay in the active set: the keys are still live. Revoking a key or
 // deleting the App removes its hashes through evictTokenByHash.
-function evictApp(appId) { tokenCache.deleteIndexed(`app:${appId}`); }
+function evictApp(appId) { tokenGeneration += 1; tokenCache.deleteIndexed(`app:${appId}`); }
 // Owner-level eviction drops the resolved token entries so the next request re-reads the account's
 // status, but deliberately keeps the hashes in the active set: a hash outside the set answers
 // `token_invalid`, and a suspended or deleted owner must answer `account_unavailable` (contract §2.4).
 // The next lookup (bounded by the pre-DB bucket) caches that status for 60 s and prunes hashes whose
 // tokens the account cascade has already deleted.
-function evictOwner(ownerId) { tokenCache.deleteIndexed(`owner:${ownerId}`); }
+function evictOwner(ownerId) { tokenGeneration += 1; tokenCache.deleteIndexed(`owner:${ownerId}`); }
 function shouldWriteLastUsed(tokenId) {
   const key = String(tokenId), now = Date.now(), previous = lastUsedWrites.get(key) || 0;
   if (now - previous < 60_000) return false;
@@ -171,9 +175,11 @@ function filterQuery(filters) {
 }
 // One entry per owner + version + App + section. Filters never reach the key: a section is loaded
 // (and charged) once and stack/featured/category/slug are applied in memory, so random filter
-// values cannot turn into charged misses or fill the cache (SEC3).
+// values cannot turn into charged misses or fill the cache (SEC3). The App's updatedAt is part of the key, so
+// a request holding an App read from before an edit can never file its view under the current key (BE-01).
 function buildCacheKey(req, name = req.path) {
-  return `${req.ownerId}:${getOwnerVersion(req.ownerId)}:${req.cmsApp._id}:${name}`;
+  const appStamp = req.cmsApp.updatedAt ? new Date(req.cmsApp.updatedAt).getTime() : 0;
+  return `${req.ownerId}:${getOwnerVersion(req.ownerId)}:${req.cmsApp._id}:${appStamp}:${name}`;
 }
 
 module.exports = {
@@ -181,6 +187,6 @@ module.exports = {
   tokenCache, badTokenCache, responseCache, ownerVersions, lastUsedWrites,
   RESPONSE_CACHE_MAX_BYTES, RESPONSE_CACHE_MAX_ITEM_BYTES, RESPONSE_TTL_MS, NEGATIVE_TTL_MS,
   activeTokens, addActiveToken, removeActiveToken, isActiveToken, markActiveTokensReady, activeTokensLoaded,
-  getOwnerVersion, bumpOwnerVersion, evictTokensWhere, evictTokenByHash, evictApp, evictOwner,
+  getOwnerVersion, bumpOwnerVersion, tokenGen, evictTokensWhere, evictTokenByHash, evictApp, evictOwner,
   shouldWriteLastUsed, filterError, normalizedFilters, filterQuery, buildCacheKey,
 };

@@ -8,7 +8,10 @@ const MAX_OUTSTANDING = 3;
 
 function digest(value) { return crypto.createHash('sha256').update(value).digest('hex'); }
 
+// BE-03: production never falls back to JWT_SECRET. A CLI run without the pepper would hash codes with a key
+// the server does not use, and every invite would then fail as "invalid code" with no error anywhere.
 function inviteDigest(value) {
+  if (process.env.NODE_ENV === 'production' && !process.env.INVITE_CODE_PEPPER) throw new Error('INVITE_CODE_PEPPER is required in production to hash invite codes');
   const pepper = process.env.INVITE_CODE_PEPPER || process.env.JWT_SECRET;
   if (!pepper) throw new Error('JWT_SECRET or INVITE_CODE_PEPPER is required to hash invite codes');
   return crypto.createHmac('sha256', pepper).update(`portfolio-invite:v1:${value}`).digest('hex');

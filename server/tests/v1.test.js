@@ -6,7 +6,7 @@ const ApiToken = require('../models/ApiToken');
 const { generateToken, hashToken } = require('../lib/tokens');
 const cache = require('../lib/cache');
 const { tokenCache, badTokenCache, responseCache, getOwnerVersion } = cache;
-const { preAuthLimiter, resetV1Limiters, globalMissBucket, preDbBucket } = require('../middleware/v1Limiters');
+const { preAuthLimiter, resetV1Limiters, globalMissBucket, preDbBucket, LIMITS } = require('../middleware/v1Limiters');
 const { createUser, createApp, createToken, loginAs, seedContent } = require('./helpers/factory');
 
 const models = {
@@ -176,8 +176,9 @@ describe('versioned public API and dashboard token lifecycle', () => {
     await preAuthLimiter.resetKey('127.0.0.1');
     const querySpy = vi.spyOn(ApiToken, 'findOne');
     try {
-      for (let index = 0; index < 300; index += 1) {
-        await request(appServer).get('/v1/app').set('Authorization', 'Bearer malformed').expect(401);
+      // Batches keep the 1,200 calls inside the test timeout.
+      for (let sent = 0; sent < LIMITS.PRE_AUTH_PER_MIN; sent += 100) {
+        await Promise.all(Array.from({ length: 100 }, () => request(appServer).get('/v1/app').set('Authorization', 'Bearer malformed').expect(401)));
       }
       const limited = await request(appServer).get('/v1/app').set('Origin', 'https://portfolio.test').set('Authorization', 'Bearer malformed').expect(429);
       expect(limited.body).toMatchObject({ ...v1ErrorShape, error: 'rate_limited' });
@@ -189,6 +190,23 @@ describe('versioned public API and dashboard token lifecycle', () => {
       querySpy.mockRestore();
       await preAuthLimiter.resetKey('127.0.0.1');
     }
+  });
+
+  it('lets one server reach the sk limit before the per-IP pre-auth limit (BE-09)', async () => {
+    expect(LIMITS.PRE_AUTH_PER_MIN).toBeGreaterThanOrEqual(2 * LIMITS.SK_PER_MIN);
+    await preAuthLimiter.resetKey('127.0.0.1');
+    const user = await createUser(User);
+    const cmsApp = await createApp(App, user, { type: 'protected', allowedOrigins: [] });
+    const { rawToken } = await createToken(ApiToken, cmsApp, 'sk');
+    const call = () => request(appServer).get('/v1/app').set('Authorization', `Bearer ${rawToken}`);
+    try {
+      for (let sent = 0; sent < LIMITS.SK_PER_MIN; sent += 100) {
+        await Promise.all(Array.from({ length: 100 }, () => call().expect(200)));
+      }
+      const limited = await call().expect(429);
+      // The per-key limiter answered (it is the one that advertises its limit), not the pre-auth one.
+      expect(limited.headers.ratelimit).toMatch(/^limit=600,/);
+    } finally { await preAuthLimiter.resetKey('127.0.0.1'); }
   });
 
   it('applies the publishable token rate limit (120/min per token and IP) after authentication', async () => {

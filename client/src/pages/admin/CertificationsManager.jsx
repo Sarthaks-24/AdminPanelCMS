@@ -96,7 +96,7 @@ export default function CertificationsManager() {
     setSuccessMsg(null);
 
     // Enter keeps the certification's current visibility; only the two buttons change it.
-    const visibility = chosenVisibility(e, editingId ? editingVisibility : 'published');
+    const visibility = chosenVisibility(e, editingId ? editingVisibility : 'draft');
     const payload = {
       ...form,
       visibility,

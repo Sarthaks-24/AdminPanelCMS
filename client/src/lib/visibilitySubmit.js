@@ -10,7 +10,7 @@
  *    form with no submitter, instead of "clicking" whichever button happens to come first;
  *  - `chosenVisibility(event, fallback)` in the submit handler: a click on one of the two buttons
  *    is an explicit choice; anything else (Enter) keeps `fallback`, which is the item's current
- *    visibility when editing and "published" when creating (the primary button's action).
+ *    visibility when editing and "draft" when creating, so Enter never publishes anything (FE-02).
  */
 
 const NON_TEXT_INPUTS = new Set(['submit', 'button', 'reset', 'image', 'file']);
@@ -35,11 +35,11 @@ export function submitKeepingVisibility(event) {
 export function chosenVisibility(event, fallback) {
   const value = (event?.nativeEvent ?? event)?.submitter?.value;
   if (value === 'draft' || value === 'published') return value;
-  return fallback === 'draft' ? 'draft' : 'published';
+  return fallback === 'published' ? 'published' : 'draft';
 }
 
 /** The fallback for an item being edited (or `null` when creating). */
 export function currentVisibility(item) {
-  if (!item) return 'published';
+  if (!item) return 'draft';
   return item.visibility === 'published' ? 'published' : 'draft';
 }

@@ -1,15 +1,7 @@
-# Netlify / Cloudflare Pages redirects, read from the build output. Rules match top to bottom.
+# Netlify / Cloudflare Pages redirects, read from the build output.
 #
-# The API never lives on this static host. A /v1 or /api request that lands here was sent to the
-# wrong host, so it gets a real 404 instead of the SPA's HTML with a 200 (which a first curl would
-# mistake for success). If the API is ever proxied through this origin, replace these two lines with
-#   /v1/*   https://api.<domain>/v1/:splat   200
-#   /api/*  https://api.<domain>/api/:splat  200
-/v1/*  /404.html  404
-/v1    /404.html  404
-/api/*  /404.html  404
-/api    /404.html  404
-
-# Deep links such as /docs/api are client-side routes, so every other path serves index.html and
-# React Router resolves it.
+# Deep links such as /docs/api, /verify-email and /dashboard/apps are client-side routes, so every
+# path serves index.html and React Router resolves it. A /v1 or /api request that lands here was
+# sent to the wrong host; the SPA's not-found page says where the API lives. There is deliberately no
+# 404.html: on Cloudflare Pages its presence turns off SPA fallback.
 /*  /index.html  200

@@ -1,0 +1,29 @@
+# VPS layout: dashboard on the apex, API on api.<apex>, both with automatic HTTPS.
+# VITE_SITE_DOMAIN comes from client/.env (docker-compose env_file), so the domain is typed once.
+# Point the DNS A (and AAAA) records for <apex>, www.<apex> and api.<apex> at this machine first.
+
+{$VITE_SITE_DOMAIN} {
+	root * /srv
+	encode zstd gzip
+	import /etc/caddy/headers.caddy
+
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	@html not path /assets/*
+	header @html Cache-Control "no-cache"
+
+	try_files {path} /index.html
+	file_server
+}
+
+www.{$VITE_SITE_DOMAIN} {
+	redir https://{$VITE_SITE_DOMAIN}{uri} permanent
+}
+
+api.{$VITE_SITE_DOMAIN} {
+	# No caching here: /v1 URLs carry no tenant, so a URL-keyed cache would leak one tenant's data
+	# to another. The API sets its own Cache-Control: private.
+	reverse_proxy api:5000 {
+		health_uri /livez
+	}
+}

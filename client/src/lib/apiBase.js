@@ -13,13 +13,13 @@ import { api } from '../api/client';
  * scripts/check-docs.mjs asserts the docs follow this.
  *
  * Source of truth is the server: `GET /api/auth/config` returns `publicApiBase` (PUBLIC_API_URL, a
- * bare https origin). When the server has none configured, fall back to the dashboard API URL
- * compiled into this bundle with its trailing `/api` removed, resolved against the page origin.
+ * bare https origin). When the server has none configured, fall back to the origin of the dashboard
+ * API URL compiled into this bundle (vite.config.js always compiles an absolute `<origin>/api`).
  * That fallback is a guess, so callers render `…` until `resolved` and can tell a configured base
  * from a guessed one with `configured`.
  */
 export function fallbackApiOrigin() {
-  const compiled = import.meta.env.VITE_RESOLVED_API_URL || '/api';
+  const compiled = import.meta.env.VITE_RESOLVED_API_URL || '';
   let absolute;
   try {
     absolute = new URL(compiled, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
@@ -37,10 +37,6 @@ export function resolveApiOrigin(publicApiBase) {
 }
 
 export const v1BaseFor = (origin) => `${origin}/v1`;
-
-/** Kept for existing callers: the `/v1` base for a configured value, or the fallback. */
-export const fallbackApiBase = () => v1BaseFor(fallbackApiOrigin());
-export const resolveV1Base = (publicApiBase) => v1BaseFor(resolveApiOrigin(publicApiBase));
 
 let configPromise = null;
 // One fetch per page load; every caller shares it.

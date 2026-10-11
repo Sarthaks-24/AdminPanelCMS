@@ -1,6 +1,6 @@
 # Runs on every push and pull request. Council 2026-10-11, backend A1 / master plan Phase 0 item 3.
 # server: npm ci, npm test (vitest + mongodb-memory-server), npm run lint:security
-# client: npm ci, npm run lint (oxlint + parity + docs check), npm run build (+ dist check) with VITE_MODE=prod, check:launch (non-blocking)
+# client: npm ci, npm run lint (oxlint + parity + docs check), npm test, npm run build (+ dist check) with VITE_MODE=prod and example identity, check:launch (non-blocking)
 # Actions are pinned to full commit SHAs (tag in the trailing comment); Dependabot (.github/dependabot.yml) bumps them.
 name: CI
 
@@ -61,9 +61,17 @@ jobs:
       run:
         working-directory: client
     env:
-      # A prod-mode build is what gets deployed; without VITE_PROD_API_URL it falls back to /api,
-      # which is fine for a build check (the deploy host sets the real value).
+      # A prod-mode build is what gets deployed. It fails without an https API URL and the site
+      # identity, so CI passes example values; the deploy host's build settings carry the real ones.
+      # check:launch below reports these example values by design.
       VITE_MODE: prod
+      VITE_PROD_API_URL: https://api.example.com
+      VITE_SITE_DOMAIN: example.com
+      VITE_SITE_OPERATOR: Example Operator
+      VITE_SITE_JURISDICTION: Example Jurisdiction
+      VITE_SITE_HOSTING_PROVIDER: Example Hosting
+      VITE_SITE_BACKUP_PROVIDER: Example Backups
+      VITE_SITE_LOG_PROVIDER: Example Logs
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -71,7 +79,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: client/package-lock.json
+          cache-dependency-path: |
+            client/package-lock.json
+            server/package-lock.json
+
+      # check-field-parity (inside `npm run lint`) loads server/models, which need mongoose (CB-04).
+      - name: Server runtime deps for the parity check
+        working-directory: server
+        run: npm ci --omit=dev --ignore-scripts
 
       - run: npm ci
 
@@ -81,12 +96,13 @@ jobs:
       # Component tests in jsdom (vitest + Testing Library), e.g. Enter in a content form keeps visibility.
       - run: npm test
 
-      # `build` ends with scripts/check-dist.mjs: dist/_headers exists, its CSP allows the inline
-      # theme script by hash, _redirects 404s /v1 and /api, and no operator runbook text is bundled.
+      # `build` ends with scripts/check-dist.mjs: no template token left, the CSP (_headers and the
+      # <meta>) allows the API origin and the inline theme script, SPA fallback without 404.html,
+      # security.txt, and no operator runbook text is bundled.
       - run: npm run build
 
-      # Launch gate: lists the owner placeholders ([your-domain], [Operator legal name], …) still on
-      # the public site. They are expected until the owner supplies the facts, so this step reports
+      # Launch gate: lists the owner placeholders and example identity values (VITE_SITE_*, the API
+      # URL, [Operator legal name] in README/SECURITY/docs, …) still on the public site. They are expected until the owner supplies the facts, so this step reports
       # without failing the job. Make it blocking (drop continue-on-error) before the first invite.
       - name: Owner placeholders (non-blocking until launch)
         run: npm run check:launch

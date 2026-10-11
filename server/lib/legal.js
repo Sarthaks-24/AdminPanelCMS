@@ -1,7 +1,10 @@
-// Versions of the legal text the dashboard serves (client/src/pages/auth/LegalPage.jsx, which takes
-// its operator facts from client/src/content/site.js `SITE.legal`). Bump a version whenever the
-// corresponding text or one of those facts changes; signup stores the versions it accepted.
-const TERMS_VERSION = '2026-10-12';
-const PRIVACY_VERSION = '2026-10-12';
+// Versions of the legal text the dashboard serves (client/src/pages/auth/LegalPage.jsx). Both tiers
+// read them from server/contract/legal.json, so one edit there moves the server and the next client
+// build together (CB-06). Bump a version whenever the text or one of its operator facts changes;
+// signup stores the versions it accepted.
+const { termsVersion, privacyVersion } = require('../contract/legal.json');
+
+const TERMS_VERSION = termsVersion;
+const PRIVACY_VERSION = privacyVersion;
 
 module.exports = { TERMS_VERSION, PRIVACY_VERSION };

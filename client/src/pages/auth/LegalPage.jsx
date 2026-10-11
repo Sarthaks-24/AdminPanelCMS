@@ -2,11 +2,12 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import AuthShell from './AuthShell';
 import { SITE } from '../../content/site';
+import LEGAL from '../../../../server/contract/legal.json';
 
-// Keep these in step with server/lib/legal.js. Bump a version whenever the matching text changes,
-// including when a fact in SITE.legal changes.
-export const TERMS_VERSION = '2026-10-12';
-export const PRIVACY_VERSION = '2026-10-12';
+// One source for both tiers: server/contract/legal.json. Bump a version there whenever the matching
+// text changes, including when a fact in SITE.legal changes.
+export const TERMS_VERSION = LEGAL.termsVersion;
+export const PRIVACY_VERSION = LEGAL.privacyVersion;
 
 // Every operator fact comes from SITE.legal (src/content/site.js), the one place the owner fills them in.
 const { operator: OPERATOR, jurisdiction: JURISDICTION, abuseEmail: ABUSE_EMAIL, privacyEmail: PRIVACY_EMAIL,

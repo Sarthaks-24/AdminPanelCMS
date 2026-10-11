@@ -1,6 +1,7 @@
 require('../config/loadEnv');
 const mongoose = require('mongoose');
 const { connectMongo, databaseNameFor } = require('../lib/mongoConnect');
+const { assertDataSafety } = require('../lib/validateEnv');
 const User = require('../models/User');
 
 function argument(name) {
@@ -12,6 +13,7 @@ async function main() {
   const email = String(argument('--email') || '').trim().toLowerCase();
   const confirmedDatabase = argument('--confirm-db');
   if (!email || !process.env.MONGODB_URI) throw new Error('Provide --email and configure MONGODB_URI.');
+  assertDataSafety(); // X-06: same database checks as the server's production boot
   const database = databaseNameFor(process.env.MONGODB_URI);
   if (!database || confirmedDatabase !== database) throw new Error(`Refusing role grant. Re-run with --confirm-db ${database} after checking the target database.`);
   await connectMongo(process.env.MONGODB_URI, { maxPoolSize: 2 });

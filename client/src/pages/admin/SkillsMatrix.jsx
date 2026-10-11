@@ -44,6 +44,8 @@ const fieldClass = 'w-full px-3 py-2 rounded bg-t-bg border border-t-border-hi t
 const labelClass = 'block text-xs font-medium text-t-muted mb-1';
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-t-accent';
 
+const countSkills = (n) => `${n} ${n === 1 ? 'skill' : 'skills'}`;
+
 export default function SkillsMatrix() {
   const [confirm, confirmDialog] = useConfirm();
   const uid = useId();
@@ -190,20 +192,18 @@ export default function SkillsMatrix() {
           updates,
         });
 
-        const updatedList = res.data.skills || [];
-        const updatedMap = new Map(updatedList.map((s) => [s._id, s]));
-        setSkills((prev) => prev.map((s) => (updatedMap.has(s._id) ? updatedMap.get(s._id) : s)));
-        setSuccessMsg(`Updated ${res.data.count || selectedIds.length} skills.`);
+        // The server answers { matchedCount } only, so re-read the list instead of patching it locally
+        // (a stale grid saved later via "Edit as a table" would undo this change, CB-05).
+        await fetchSkills();
+        setSuccessMsg(`Updated ${countSkills(res.data?.matchedCount ?? selectedIds.length)}.`);
       } else {
         // Table / Grid Mode
         const res = await api.patch('/skills/bulk', {
           items: editableSkills,
         });
 
-        const updatedList = res.data.skills || [];
-        const updatedMap = new Map(updatedList.map((s) => [s._id, s]));
-        setSkills((prev) => prev.map((s) => (updatedMap.has(s._id) ? updatedMap.get(s._id) : s)));
-        setSuccessMsg(`Updated ${updatedList.length} skills.`);
+        await fetchSkills();
+        setSuccessMsg(`Updated ${countSkills(res.data?.matchedCount ?? editableSkills.length)}.`);
       }
 
       setShowBulkModal(false);
@@ -226,10 +226,8 @@ export default function SkillsMatrix() {
         ids: selectedIds,
         updates: { featured },
       });
-      const updatedList = res.data.skills || [];
-      const updatedMap = new Map(updatedList.map((s) => [s._id, s]));
-      setSkills((prev) => prev.map((s) => (updatedMap.has(s._id) ? updatedMap.get(s._id) : s)));
-      setSuccessMsg(`${featured ? 'Featured' : 'Unfeatured'} ${updatedList.length} skills.`);
+      await fetchSkills();
+      setSuccessMsg(`${featured ? 'Featured' : 'Unfeatured'} ${countSkills(res.data?.matchedCount ?? selectedIds.length)}.`);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       setErrorMsg(apiErrorMessage(err, 'Could not update the featured flag.'));
@@ -243,9 +241,9 @@ export default function SkillsMatrix() {
     setBulkSaving(true);
     setErrorMsg(null);
     try {
-      await api.patch('/skills/bulk', { ids: selectedIds, updates: { visibility: 'published' } });
-      setSkills((prev) => prev.map((skill) => selectedIds.includes(skill._id) ? { ...skill, visibility: 'published' } : skill));
-      setSuccessMsg(`Published ${selectedIds.length} skills.`);
+      const res = await api.patch('/skills/bulk', { ids: selectedIds, updates: { visibility: 'published' } });
+      await fetchSkills();
+      setSuccessMsg(`Published ${countSkills(res.data?.matchedCount ?? selectedIds.length)}.`);
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       setErrorMsg(apiErrorMessage(err, 'Could not publish the selected skills.'));
@@ -336,7 +334,7 @@ export default function SkillsMatrix() {
   const handleModalSubmit = async (e) => {
     e.preventDefault();
     // A click on either button is a choice; Enter keeps the skill's current visibility.
-    const visibility = chosenVisibility(e, editingId ? editingVisibility : 'published');
+    const visibility = chosenVisibility(e, editingId ? editingVisibility : 'draft');
     setModalSaving(true);
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -362,7 +360,7 @@ export default function SkillsMatrix() {
 
   const handleBatchSubmit = async (e) => {
     e.preventDefault();
-    const visibility = chosenVisibility(e, 'published');
+    const visibility = chosenVisibility(e, 'draft');
     if (!batchInput.trim()) return;
     setBatchSaving(true);
     setErrorMsg(null);

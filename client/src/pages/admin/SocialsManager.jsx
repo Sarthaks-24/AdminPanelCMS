@@ -104,7 +104,7 @@ export default function SocialsManager() {
     setSuccessMsg(null);
 
     // Enter keeps the link's current visibility; only the two buttons change it.
-    const visibility = chosenVisibility(e, editingId ? editingVisibility : 'published');
+    const visibility = chosenVisibility(e, editingId ? editingVisibility : 'draft');
     const payload = { ...form, visibility };
     if (payload.platform?.toLowerCase() === 'email') {
       if (payload.url && !payload.url.startsWith('mailto:') && !payload.url.startsWith('http')) {

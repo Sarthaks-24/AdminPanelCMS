@@ -11,7 +11,18 @@ function setMailTransport(next) {
 
 // The example placeholder (re_xxxxxxxxx) is not a key; treating it as one would accept signups whose emails can never send.
 const isRealMailKey = (key) => { const value = String(key || '').trim(); return value.length > 3 && !/^re_x+$/i.test(value); };
-function isConfigured() { return Boolean(transport || (isRealMailKey(process.env.RESEND_MAIL_KEY) && process.env.RESEND_FROM_EMAIL)); }
+
+// NF-17: MAIL_TRANSPORT=console prints each email (recipient, subject, text with its links) to stdout instead
+// of sending it, so the email-first signup can be walked locally. Development also falls back to it when no
+// Resend key is set. Never in production: validateEnv refuses MAIL_TRANSPORT=console there, and this ignores it.
+const MAIL_TRANSPORTS = ['resend', 'console'];
+function consoleMailActive(env = process.env) {
+  if (env.NODE_ENV === 'production') return false;
+  const chosen = String(env.MAIL_TRANSPORT || '').trim().toLowerCase();
+  if (chosen) return chosen === 'console';
+  return env.NODE_ENV === 'development' && !isRealMailKey(env.RESEND_MAIL_KEY);
+}
+function isConfigured() { return Boolean(transport || consoleMailActive() || (isRealMailKey(process.env.RESEND_MAIL_KEY) && process.env.RESEND_FROM_EMAIL)); }
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
@@ -86,6 +97,16 @@ async function sendMail(message) {
     await transport.send(message);
     return { delivered: true };
   }
+  if (consoleMailActive()) {
+    const { text } = template(message);
+    console.log(`[Mail:console] Not sent (MAIL_TRANSPORT=console)
+To: ${message.to}
+Subject: ${message.subject}
+
+${text}
+[Mail:console] end`);
+    return { delivered: true };
+  }
   const apiKey = process.env.RESEND_MAIL_KEY;
   if (!isRealMailKey(apiKey)) throw new Error('Resend email delivery is not configured');
   // No fallback sender: the Resend test address only delivers to the account owner, which would look like success.
@@ -139,4 +160,4 @@ async function sendTokenExpiryWarning(user, tokens) {
   });
 }
 
-module.exports = { setMailTransport, isConfigured, isRealMailKey, sendVerification, sendPasswordReset, sendAccountExistsNotice, sendTokenExpiryWarning, renderMail: template };
+module.exports = { setMailTransport, isConfigured, isRealMailKey, consoleMailActive, MAIL_TRANSPORTS, sendVerification, sendPasswordReset, sendAccountExistsNotice, sendTokenExpiryWarning, renderMail: template };

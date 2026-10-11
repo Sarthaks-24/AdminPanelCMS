@@ -102,7 +102,7 @@ export default function EducationManager() {
     setSuccessMsg(null);
 
     // Enter keeps the entry's current visibility; only the two buttons change it.
-    const visibility = chosenVisibility(e, editingId ? editingVisibility : 'published');
+    const visibility = chosenVisibility(e, editingId ? editingVisibility : 'draft');
     const payload = {
       ...form,
       visibility,

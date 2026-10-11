@@ -119,7 +119,7 @@ describe('superadmin user management', () => {
     const admin = await freshAdmin();
     await Setting.create({ key: `mail:${new Date().toISOString().slice(0, 10)}`, value: 7 });
     const budget = await request(app).get('/api/admin/mail-budget').set('Authorization', loginAs(admin)).expect(200);
-    expect(budget.body).toMatchObject({ success: true, sent: 7, cap: 500, reserve: 50 });
+    expect(budget.body).toMatchObject({ success: true, sent: 7, cap: 95, reserve: 20 });
     expect(budget.body.day).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });

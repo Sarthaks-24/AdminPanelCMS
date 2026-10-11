@@ -23,7 +23,7 @@ const ResumeSchema = new mongoose.Schema(
   }
 );
 
-// Virtual for client backward compatibility
+// Deprecated alias of resumeUrl, kept because /v1 Apps may have opted into it (CB-12). It is never a second link.
 ResumeSchema.virtual('driveUrl').get(function () {
   return this.resumeUrl;
 });

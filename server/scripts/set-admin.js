@@ -2,6 +2,7 @@ require('../config/loadEnv');
 const mongoose = require('mongoose');
 const readline = require('node:readline/promises');
 const { connectMongo, databaseNameFor } = require('../lib/mongoConnect');
+const { assertDataSafety } = require('../lib/validateEnv');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 
@@ -40,6 +41,7 @@ async function setAdmin() {
   const email = String(positional[0] || process.env.ADMIN_EMAIL || '').trim().toLowerCase();
   if (!email || !process.env.MONGODB_URI) throw new Error('Provide the email as the first argument (or ADMIN_EMAIL) and configure MONGODB_URI.');
   if (positional[1]) throw new Error('Do not pass the password on the command line; set ADMIN_PASSWORD or pipe it on stdin.');
+  assertDataSafety(); // X-06: same database checks as the server's production boot
   const password = await readPassword();
   if (password.length < 10) throw new Error('The password must be at least 10 characters.');
   const database = databaseNameFor(process.env.MONGODB_URI);

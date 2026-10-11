@@ -68,4 +68,18 @@ describe('ProjectForm: Enter never changes visibility', () => {
     await waitFor(() => expect(api.put).toHaveBeenCalledTimes(1));
     expect(api.put.mock.calls[0][1]).toMatchObject({ visibility: 'draft' });
   });
+
+  it('saves a new project as a draft when Enter is pressed (FE-02)', async () => {
+    const user = userEvent.setup();
+    const { container } = renderAt('/dashboard/projects/new');
+    const summary = await waitFor(() => {
+      const el = container.querySelector('#project-summary');
+      if (!el) throw new Error('form not rendered');
+      return el;
+    });
+    await user.type(summary, 'A new project.');
+    await user.type(container.querySelector('#project-title'), 'Café Übersicht{Enter}');
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    expect(api.post.mock.calls[0][1]).toMatchObject({ title: 'Café Übersicht', slug: 'cafe-ubersicht', visibility: 'draft' });
+  });
 });

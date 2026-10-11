@@ -73,7 +73,11 @@ describe('superadmin controls', () => {
 });
 
 describe('signup mode setting', () => {
-  afterEach(() => { delete process.env.SIGNUP_MODE; delete process.env.LEGAL_POLICIES_APPROVED; process.env.NODE_ENV = 'test'; });
+  const MAIL_READY = { RESEND_MAIL_KEY: 're_live_key', RESEND_FROM_EMAIL: 'CMS <no-reply@example.com>', OPERATOR_NAME: 'Example Ltd', SUPPORT_EMAIL: 'support@example.com' };
+  afterEach(() => {
+    delete process.env.SIGNUP_MODE; delete process.env.LEGAL_POLICIES_APPROVED; process.env.NODE_ENV = 'test';
+    for (const key of Object.keys(MAIL_READY)) delete process.env[key];
+  });
 
   it('is superadmin-only and rejects unknown modes', async () => {
     const regular = await createUser(User);
@@ -118,9 +122,31 @@ describe('signup mode setting', () => {
   it('stays closed in production until legal policies are approved, even when set to open', async () => {
     const admin = await createUser(User, { role: 'superadmin', adminReauthAt: new Date() });
     await request(app).put('/api/admin/settings').set('Authorization', loginAs(admin)).send({ signupMode: 'open' }).expect(200);
+    Object.assign(process.env, MAIL_READY);
     process.env.NODE_ENV = 'production';
     expect((await request(app).get('/api/auth/config').expect(200)).body).toMatchObject({ signupEnabled: false, signupMode: 'closed' });
     process.env.LEGAL_POLICIES_APPROVED = 'true';
     expect((await request(app).get('/api/auth/config').expect(200)).body).toMatchObject({ signupEnabled: true, signupMode: 'open' });
+  });
+
+  it('refuses to open signup in production while account mail is not ready (CB-01)', async () => {
+    const admin = await createUser(User, { role: 'superadmin', adminReauthAt: new Date() });
+    const auth = loginAs(admin);
+    process.env.NODE_ENV = 'production';
+    process.env.LEGAL_POLICIES_APPROVED = 'true';
+    Object.assign(process.env, MAIL_READY, { SUPPORT_EMAIL: '' });
+    const refused = await request(app).put('/api/admin/settings').set('Authorization', auth).send({ signupMode: 'invite' }).expect(409);
+    expect(refused.body).toMatchObject({ success: false, error: 'mail_not_ready' });
+    expect(refused.body.reasons).toEqual([expect.stringMatching(/SUPPORT_EMAIL/)]);
+    // Closing is always allowed, and the settings payload tells the panel why opening is blocked.
+    const closed = await request(app).put('/api/admin/settings').set('Authorization', auth).send({ signupMode: 'closed' }).expect(200);
+    expect(closed.body.settings).toMatchObject({ blockedByMail: true, mailProblems: [expect.stringMatching(/SUPPORT_EMAIL/)] });
+    // A setting saved while mail worked does not take effect after mail breaks.
+    process.env.SUPPORT_EMAIL = MAIL_READY.SUPPORT_EMAIL;
+    await request(app).put('/api/admin/settings').set('Authorization', auth).send({ signupMode: 'invite' }).expect(200);
+    expect((await request(app).get('/api/auth/config').expect(200)).body).toMatchObject({ signupEnabled: true, signupMode: 'invite' });
+    process.env.RESEND_FROM_EMAIL = 'onboarding@resend.dev';
+    expect((await request(app).get('/api/auth/config').expect(200)).body).toMatchObject({ signupEnabled: false, signupMode: 'closed' });
+    await request(app).post('/api/auth/signup').send({ email: 'new@example.com', inviteCode: 'ABCDEFGHJKLM', acceptTerms: true }).expect(503);
   });
 });

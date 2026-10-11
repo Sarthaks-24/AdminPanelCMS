@@ -200,7 +200,7 @@ export default function AppsPage() {
       {pendingDelete && (
         <ConfirmDialog
           title={`Delete ${pendingDelete.name}?`}
-          consequence="Its keys stop working immediately: every site or build that fetches with them gets 401 from the next request. Your content is not touched."
+          consequence="Its keys stop working within a minute (browsers may keep a copy for up to 60 s): after that, every site or build that fetches with them gets 401. Your content is not touched."
           confirmLabel="Delete App"
           busy={deleting}
           onConfirm={() => removeApp(pendingDelete)}

@@ -1,6 +1,6 @@
 const mailer = require('../lib/mailer');
 const Setting = require('../models/Setting');
-const { reserveMail, refundMail, mailBudgetStatus, recipientAllowed, resetRecipientCooldowns } = require('../lib/mailBudget');
+const { reserveMail, refundMail, mailBudgetStatus, recipientAllowed, resetRecipientCooldowns, dailyCap, resetReserve } = require('../lib/mailBudget');
 
 describe('transactional mail adapter', () => {
   let messages;
@@ -118,6 +118,21 @@ describe('daily mail budget', () => {
     await refundMail();
     expect((await mailBudgetStatus()).sent).toBe(4);
     expect(await reserveMail({ reset: true })).toBe(true);
+  });
+
+  it('defaults to 95 a day with 20 kept for resets, below the Resend free tier (BE-04, CB-14)', async () => {
+    // Blank and non-numeric values keep the default; they never switch the budget off.
+    for (const value of [undefined, '', '  ', 'fifty']) {
+      if (value === undefined) delete process.env.MAIL_DAILY_CAP; else process.env.MAIL_DAILY_CAP = value;
+      expect([dailyCap(), resetReserve()]).toEqual([95, 20]);
+    }
+    delete process.env.MAIL_DAILY_CAP;
+    for (let sent = 0; sent < 75; sent += 1) expect(await reserveMail()).toBe(true);
+    expect(await reserveMail()).toBe(false);
+    for (let sent = 75; sent < 95; sent += 1) expect(await reserveMail({ reset: true })).toBe(true);
+    expect(await reserveMail({ reset: true })).toBe(false);
+    process.env.MAIL_DAILY_CAP = '0';
+    expect(dailyCap()).toBe(0);
   });
 
   it('applies a per-recipient cooldown of one send per five minutes and three per day', () => {

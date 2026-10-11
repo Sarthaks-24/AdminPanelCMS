@@ -14,6 +14,9 @@ const MODE_KEYS = [
   'ADMIN_PASSWORD',
   'BACKUP_REMOTE_DESTINATION',
   'INVITE_CODE_PEPPER',
+  'TURNSTILE_SECRET_KEY',
+  'TURNSTILE_SITE_KEY',
+  'MAIL_TRANSPORT',
 ];
 
 const ALIASES = { dev: 'dev', development: 'dev', prod: 'prod', production: 'prod' };

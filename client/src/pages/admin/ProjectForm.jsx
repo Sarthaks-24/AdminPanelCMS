@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { PENDING_BASE, useApiBase } from '../../lib/apiBase';
 import { apiErrorMessage } from '../../lib/apiErrors';
 import { chosenVisibility, submitKeepingVisibility } from '../../lib/visibilitySubmit';
+import { slugify, slugifyTyping } from '../../lib/slug';
 import { useToast } from '../../components/admin/Toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -17,14 +18,6 @@ import {
   Heading2,
   Quote,
 } from 'lucide-react';
-
-const slugify = (text) =>
-  text
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/[\s\W-]+/g, '-')
-    .replace(/(^-|-$)/g, '');
 
 // Blank, not the previous owner's project. Helpful examples live in placeholders only.
 const EMPTY = {
@@ -112,7 +105,7 @@ export default function ProjectForm() {
     setFormData((prev) => {
       const next = { ...prev, title: val };
       if (!slugManuallyEdited && !isEdit) {
-        next.slug = slugify(val);
+        next.slug = slugify(val, '');
       }
       return next;
     });
@@ -134,8 +127,9 @@ export default function ProjectForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     // A click on either button is a choice. Enter (no submitter) keeps what the project already is,
-    // so editing a published project and pressing Enter never unpublishes it (FX-38).
-    const chosen = chosenVisibility(e, isEdit ? visibility : 'published');
+    // so editing a published project and pressing Enter never unpublishes it (FX-38), and a new
+    // project is saved as a draft: Enter never publishes (FE-02).
+    const chosen = chosenVisibility(e, isEdit ? visibility : 'draft');
     setLoading(true);
 
     const isTeam = formData.mode === 'team';
@@ -146,7 +140,7 @@ export default function ProjectForm() {
 
     const payload = {
       title: formData.title,
-      slug: formData.slug || slugify(formData.title),
+      slug: slugify(formData.slug || formData.title),
       mode: formData.mode,
       shortDescription: formData.shortDescription,
       thumbnail: formData.thumbnail,
@@ -302,8 +296,9 @@ export default function ProjectForm() {
                 value={formData.slug}
                 onChange={(e) => {
                   setSlugManuallyEdited(true);
-                  setFormData({ ...formData, slug: slugify(e.target.value) });
+                  setFormData({ ...formData, slug: slugifyTyping(e.target.value) });
                 }}
+                onBlur={() => setFormData((prev) => ({ ...prev, slug: slugify(prev.slug, '') }))}
                 placeholder="e.g. order-flow-dashboard"
                 aria-describedby="project-slug-hint"
                 autoComplete="off"

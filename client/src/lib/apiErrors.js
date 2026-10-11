@@ -186,6 +186,14 @@ const API = {
     message: body.message || 'That item no longer exists. It may have been deleted in another tab.',
     fix: null,
   }),
+  mail_not_ready: (body) => {
+    const reasons = [body.reasons, body.details].find((list) => Array.isArray(list) && list.length);
+    return {
+      title: 'Email is not ready',
+      message: `Registration can’t be opened until the service can send verification email.${reasons ? ` ${reasons.join(' · ')}` : (body.message ? ` ${body.message}` : '')}`,
+      fix: null,
+    };
+  },
   invite_locked: () => ({
     title: 'Too many attempts',
     message: 'Too many invite attempts from this network. Try again in an hour.',

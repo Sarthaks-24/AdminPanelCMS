@@ -2,7 +2,9 @@ const { rateLimit, ipKeyGenerator, MemoryStore } = require('express-rate-limit')
 const { v1Error } = require('../lib/v1Errors');
 
 // /v1 rate limits (contract §1). Numbers here are the ones the docs and the UI quote.
-const PRE_AUTH_PER_MIN = 300;      // per IP (IPv6 /48), before any token work
+// Per IP (IPv6 /48), before any token work. At least twice SK_PER_MIN so one build server can reach its sk
+// limit with room to spare; it only guards a sha256 and a Map lookup (BE-09). All keys from one IP share it.
+const PRE_AUTH_PER_MIN = 1200;
 const PK_PER_MIN = 120;            // per token + IP
 const PK_CEILING_PER_MIN = 3000;   // per token, every IP combined
 const SK_PER_MIN = 600;            // per token

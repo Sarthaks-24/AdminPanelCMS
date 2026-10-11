@@ -1,43 +1,46 @@
+import path from 'node:path'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
-import { SITE } from './src/content/site.js'
-
-// index.html is static, so it cannot import SITE. This fills its %SITE_URL% (canonical and social-card
-// URLs) from the same constant the app uses, keeping the public domain in one place.
-const siteHtml = () => ({
-  name: 'site-html',
-  transformIndexHtml: { order: 'pre', handler: (html) => html.replaceAll('%SITE_URL%', SITE.url) },
-})
-
-const MODES = { dev: 'dev', development: 'dev', prod: 'prod', production: 'prod' }
+import { resolveBuildEnv, SITE_VARS } from './config/buildEnv.js'
+import { deployFiles, siteHtml } from './config/deployFiles.js'
 
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
-  // Read client/.env next to this file, so the result is the same wherever the build is started from.
-  const env = loadEnv(mode, import.meta.dirname, 'VITE_')
-  // VITE_MODE picks which API the bundle talks to; without it a production build means prod.
-  const apiMode = MODES[String(env.VITE_MODE || '').trim().toLowerCase()] || (command === 'build' ? 'prod' : 'dev')
-  const apiUrl = (apiMode === 'prod' ? env.VITE_PROD_API_URL : env.VITE_DEV_API_URL)
-    // The old single variable is a fallback only where no mode-specific URL exists, so a stale dev value cannot become a prod build's API.
-    || (apiMode === 'prod' && env.VITE_DEV_API_URL ? '' : env.VITE_API_URL)
-    || (apiMode === 'prod' ? '/api' : 'http://localhost:5000/api')
+  // Tests always see the dev defaults and the bracketed identity placeholders, whatever client/.env says.
+  const testing = Boolean(process.env.VITEST)
+  // Read client/.env (and VITE_* from the process env, e.g. the host's build settings) next to this
+  // file, so the result is the same wherever the build is started from.
+  const env = testing ? {} : loadEnv(mode, import.meta.dirname, 'VITE_')
+  // VITE_MODE is the one switch. Every input it selects is validated here: an unknown mode, a bad API
+  // URL or (in a prod build) missing identity throws, so a broken prod bundle is never produced.
+  const build = resolveBuildEnv(env, command)
 
-  if (command === 'build') {
-    const warn = (message) => console.warn(`\n[env] ${message}\n`)
-    if (apiMode === 'dev') warn(`VITE_MODE=dev: this build will call the development API (${apiUrl}). Set VITE_MODE=prod in client/.env before a production deploy.`)
-    else if (/\/\/(localhost|127\.0\.0\.1)[:/]/.test(apiUrl)) warn(`This production build will call ${apiUrl}. Set VITE_PROD_API_URL.`)
-    else if (!env.VITE_PROD_API_URL) warn('VITE_PROD_API_URL is not set, so this build calls /api on its own origin. Set it if the API is on another host.')
+  if (!testing) {
+    const how = build.explicit ? `VITE_MODE=${build.mode}` : `VITE_MODE unset, so ${command === 'build' ? 'a build' : 'the dev server'} defaults to ${build.mode}`
+    console.info(`\n[env] ${how}; API ${build.apiUrl}${build.site.domain ? `; site https://${build.site.domain}` : ''}\n`)
+    if (command === 'build' && build.mode === 'dev') console.warn(`[env] This build calls the development API. Set VITE_MODE=prod for a production deploy.\n`)
   }
+
+  const define = {
+    // Resolved here so only the chosen values are compiled into the bundle.
+    'import.meta.env.VITE_RESOLVED_API_URL': JSON.stringify(build.apiUrl),
+    'import.meta.env.VITE_RESOLVED_MODE': JSON.stringify(build.mode),
+  }
+  // src/content/site.js reads these; '' means "not set" and shows the dev placeholder.
+  for (const [key, name] of Object.entries(SITE_VARS)) define[`import.meta.env.${name}`] = JSON.stringify(build.site[key] || '')
 
   return {
     envDir: import.meta.dirname,
-    plugins: [react(), siteHtml()],
-    // Resolved here so only the chosen URL is compiled into the bundle.
-    define: { 'import.meta.env.VITE_RESOLVED_API_URL': JSON.stringify(apiUrl) },
+    plugins: [
+      react(),
+      siteHtml({ site: build.site }),
+      deployFiles({ apiOrigin: build.apiOrigin, site: build.site, publicDir: path.join(import.meta.dirname, 'public') }),
+    ],
+    define,
     // The public docs render consumer docs from ../docs, which sit above this package. Vite inlines
     // them at build time; the dev server needs permission to read them.
     server: { fs: { allow: ['..'] } },
     // `npm test`: component tests in jsdom. e2e/ is Playwright's and runs against a live stack instead.
-    test: { environment: 'jsdom', include: ['src/**/*.test.{js,jsx}'] },
+    test: { environment: 'jsdom', include: ['src/**/*.test.{js,jsx}', 'config/**/*.test.js', 'scripts/**/*.test.js'] },
   }
 })

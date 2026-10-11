@@ -6,6 +6,7 @@ const App = require('../models/App');
 const ApiToken = require('../models/ApiToken');
 const { inviteDigest } = require('../lib/emailTokens');
 const { getSignupSetting, setSignupMode, legalBlocked, MODES } = require('../lib/signupMode');
+const { mailReadinessProblems } = require('../lib/mailReadiness');
 const { capacityFilter, usableInviteFilter, inviteUsage } = require('../lib/inviteUses');
 const { evictOwner, bumpOwnerVersion } = require('../lib/cache');
 const { mailBudgetStatus } = require('../lib/mailBudget');
@@ -87,7 +88,8 @@ async function revokeInvite(req, res, next) {
 
 async function settingsPayload() {
   const { dashboard, env, effective } = await getSignupSetting();
-  return { signupMode: effective || 'closed', source: dashboard ? 'dashboard' : 'environment', environmentDefault: env || 'closed', blockedByLegalApproval: legalBlocked() };
+  const mailProblems = process.env.NODE_ENV === 'production' ? mailReadinessProblems() : [];
+  return { signupMode: effective || 'closed', source: dashboard ? 'dashboard' : 'environment', environmentDefault: env || 'closed', blockedByLegalApproval: legalBlocked(), blockedByMail: mailProblems.length > 0, mailProblems };
 }
 
 async function getSettings(_req, res, next) {
@@ -98,6 +100,11 @@ async function updateSettings(req, res, next) {
   try {
     const mode = req.body?.signupMode;
     if (!MODES.includes(mode)) return res.status(400).json({ success: false, error: 'validation_failed', message: `signupMode must be one of: ${MODES.join(', ')}` });
+    // CB-01: opening signup while account mail cannot work would strand every new user at "check your email".
+    if (mode !== 'closed' && process.env.NODE_ENV === 'production') {
+      const reasons = mailReadinessProblems();
+      if (reasons.length) return res.status(409).json({ success: false, error: 'mail_not_ready', message: 'Signup cannot be opened until account email works. Fix the server settings below and restart.', reasons });
+    }
     await setSignupMode(mode, req.userId);
     logger.event('signup_mode_changed', { reqId: req.id, by: String(req.userId), mode });
     return res.json({ success: true, settings: await settingsPayload() });

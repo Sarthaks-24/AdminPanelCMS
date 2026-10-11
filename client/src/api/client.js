@@ -22,11 +22,23 @@ export const api = axios.create({
 // sends the visitor to /login with a way back, without a full page reload.
 export const SESSION_EXPIRED_EVENT = 'pc:session-expired';
 
+// The 401 codes that mean "your session is gone" (server/middleware/requireSession.js). Any other 401
+// with a code, such as credentials_invalid from a mistyped re-auth password, is an answer to that one
+// request: it must not sign the user out (FE-01).
+export const SESSION_ERROR_CODES = new Set(['auth_required', 'invalid_session', 'session_expired', 'account_inactive', 'invalid_token_type']);
+
+/** True when an axios error says the session ended: a 401 with a session code, or with no code at all. */
+export function endsSession(error) {
+  if (error?.response?.status !== 401) return false;
+  const code = error.response.data?.error;
+  return typeof code !== 'string' || !code || SESSION_ERROR_CODES.has(code);
+}
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     // The startup session probe expects a 401 when signed out and must not trigger a redirect.
-    if (error.response?.status === 401 && !error.config?.skipAuthRedirect && window.location.pathname.startsWith('/dashboard')) {
+    if (endsSession(error) && !error.config?.skipAuthRedirect && window.location.pathname.startsWith('/dashboard')) {
       window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
     }
     return Promise.reject(error);

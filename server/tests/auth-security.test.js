@@ -109,7 +109,7 @@ describe('password reset and API tokens', () => {
 });
 
 describe('production mail configuration', () => {
-  const goodEnv = { JWT_SECRET: 'x'.repeat(40) + 'randomSecretValue', NODE_ENV: 'production', CLIENT_ORIGIN: 'https://admin.example.com', MONGODB_URI: 'mongodb://127.0.0.1:27017/Test', TRUST_PROXY_HOPS: '1', RESEND_MAIL_KEY: 're_live_key', RESEND_FROM_EMAIL: 'CMS <no-reply@example.com>', INVITE_CODE_PEPPER: 'k'.repeat(48), PUBLIC_API_URL: 'https://api.example.com' };
+  const goodEnv = { JWT_SECRET: 'x'.repeat(40) + 'randomSecretValue', NODE_ENV: 'production', CLIENT_ORIGIN: 'https://admin.example.com', MONGODB_URI: 'mongodb://127.0.0.1:27017/Test', TRUST_PROXY_HOPS: '1', RESEND_MAIL_KEY: 're_live_key', RESEND_FROM_EMAIL: 'CMS <no-reply@example.com>', INVITE_CODE_PEPPER: 'k'.repeat(48), PUBLIC_API_URL: 'https://api.example.com', OPERATOR_NAME: 'Example Ltd', SUPPORT_EMAIL: 'support@example.com' };
 
   it('is fatal when signup is enabled and only a warning when signup is closed', () => {
     expect(() => validateEnv({ ...goodEnv, SIGNUP_MODE: 'invite', RESEND_MAIL_KEY: 're_xxxxxxxxx' })).toThrow(/RESEND_MAIL_KEY/);

@@ -1,3 +1,5 @@
+// Resume.driveUrl (CB-12) is a deprecated read-only alias of resumeUrl, not a separate or private link. It stays
+// grantable so Apps that already opted in keep receiving it (/v1 is additive-only); it is not writable.
 const PUBLIC_FIELDS = {
   Profile: ['name', 'initials', 'headline', 'shortBio', 'aboutMarkdown', 'email', 'location.city', 'location.country', 'location.isRemoteAvailable', 'statusText', 'isAvailableForHire', 'terminalUser', 'terminalHost', 'bootGreeting', 'metrics'],
   Resume: ['resumeUrl', 'driveUrl', 'fileName', 'version', 'lastUpdated', 'summaryText'],
@@ -22,7 +24,7 @@ const DEFAULT_FIELDS = {
 
 const WRITABLE_FIELDS = {
   Profile: ['name', 'initials', 'headline', 'shortBio', 'aboutMarkdown', 'email', 'phone', 'location.city', 'location.country', 'location.isRemoteAvailable', 'statusText', 'isAvailableForHire', 'terminalUser', 'terminalHost', 'bootGreeting', 'metrics'],
-  Resume: ['resumeUrl', 'driveUrl', 'fileName', 'version', 'lastUpdated', 'summaryText'],
+  Resume: ['resumeUrl', 'fileName', 'version', 'lastUpdated', 'summaryText'],
   Project: ['title', 'slug', 'mode', 'role', 'shortDescription', 'keyMetric', 'highlights', 'caseStudyBody', 'stack', 'teammates', 'thumbnail', 'links.github', 'links.live', 'links.demo', 'order', 'featured', 'lastUpdated', 'visibility'],
   Skill: ['name', 'category', 'proficiency', 'yearsOfExperience', 'featured', 'order', 'visibility'],
   Social: ['platform', 'label', 'url', 'username', 'icon', 'order', 'featured', 'visibility'],

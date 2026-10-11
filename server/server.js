@@ -18,10 +18,8 @@ const PORT = process.env.PORT || 5000;
 const SHUTDOWN_DRAIN_MS = 10_000;
 // After SIGTERM, /readyz answers 503 for this long before the listener closes, so the load balancer's
 // next readiness probe sees it and stops routing here first. Set it to the platform's probe interval.
-const SHUTDOWN_DELAY_MS = (() => {
-  const value = Number(process.env.SHUTDOWN_DELAY_MS ?? 5000);
-  return Number.isSafeInteger(value) && value >= 0 ? value : 5000;
-})();
+// Blank = 5000 (CB-14: a blank value used to mean 0).
+const SHUTDOWN_DELAY_MS = require('./lib/envNumber').envNumber('SHUTDOWN_DELAY_MS');
 
 let server = null;
 let sweep = null;

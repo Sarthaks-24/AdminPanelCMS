@@ -2,7 +2,7 @@ require('../config/loadEnv');
 const mongoose = require('mongoose');
 const { connectMongo } = require('../lib/mongoConnect');
 
-const CAP_BYTES = Number(process.env.DB_STORAGE_CAP_BYTES || 512 * 1024 * 1024);
+const CAP_BYTES = require('../lib/envNumber').envNumber('DB_STORAGE_CAP_BYTES');
 // ownerGuard-exemption: db stats utility uses native database stats and collection inventory
 
 async function main() {

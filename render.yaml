@@ -1,0 +1,115 @@
+# Render Blueprint: the API (Docker web service) and the dashboard (static site) in one file.
+# Render dashboard → New → Blueprint → pick this repository. Render asks for every `sync: false`
+# value on first creation; DEPLOYMENT.md (repository root) explains each one.
+# Afterwards add the custom domains: <apex> on the static site, api.<apex> on the API.
+
+services:
+  - type: web
+    name: portfolio-api
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # Free instances sleep after 15 idle minutes and lose every in-memory limit and cache; the
+    # service must be always-on, so use a paid instance type.
+    plan: starter
+    # Exactly one instance: rate limits, caches and the active-token set live in process memory.
+    numInstances: 1
+    healthCheckPath: /readyz
+    envVars:
+      - key: MODE
+        value: prod
+      # Render's router is the one proxy in front of the container.
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: SESSION_COOKIE_SAMESITE
+        value: lax
+      - key: SIGNUP_MODE
+        value: closed
+      - key: LEGAL_POLICIES_APPROVED
+        value: "false"
+      - key: LOG_LEVEL
+        value: info
+      - key: JWT_SECRET
+        generateValue: true
+      - key: INVITE_CODE_PEPPER
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: PUBLIC_API_URL
+        sync: false
+      - key: RESEND_MAIL_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: PRODUCT_NAME
+        sync: false
+      - key: OPERATOR_NAME
+        sync: false
+      - key: SUPPORT_EMAIL
+        sync: false
+
+  - type: web
+    name: portfolio-web
+    runtime: static
+    rootDir: client
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    # The build reads ../server/contract and ../docs, which Render's checkout includes.
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: VITE_MODE
+        value: prod
+      - key: VITE_PROD_API_URL
+        sync: false
+      - key: VITE_SITE_DOMAIN
+        sync: false
+      - key: VITE_SITE_NAME
+        sync: false
+      - key: VITE_SITE_OPERATOR
+        sync: false
+      - key: VITE_SITE_JURISDICTION
+        sync: false
+      - key: VITE_SITE_SUPPORT_EMAIL
+        sync: false
+      - key: VITE_SITE_HOSTING_PROVIDER
+        value: Render
+      - key: VITE_SITE_BACKUP_PROVIDER
+        sync: false
+      - key: VITE_SITE_LOG_PROVIDER
+        sync: false
+    routes:
+      # Client-side routes fall back to index.html.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    # Render static sites ignore dist/_headers. The Content-Security-Policy itself is compiled into
+    # index.html as a <meta> tag at build time; the headers a <meta> cannot carry are set here.
+    headers:
+      - path: /*
+        name: Content-Security-Policy
+        value: "frame-ancestors 'none'"
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=31536000; includeSubDomains
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=(), payment=()
+      - path: /*
+        name: Cross-Origin-Opener-Policy
+        value: same-origin
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable

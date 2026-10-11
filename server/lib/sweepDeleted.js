@@ -2,6 +2,7 @@ const User = require('../models/User');
 const EmailToken = require('../models/EmailToken');
 const { cascadeDeletedOwner } = require('../controllers/accountController');
 const logger = require('./logger');
+const { envNumber } = require('./envNumber');
 
 const UNVERIFIED_TTL_MS = 48 * 60 * 60 * 1000;
 let running = false;
@@ -41,10 +42,13 @@ async function purgeUnverified({ now = Date.now(), maxAgeMs = UNVERIFIED_TTL_MS 
   return purged;
 }
 
-// Runs once shortly after boot and then periodically. SWEEP_DELETED_INTERVAL_HOURS=0 disables it.
+// Runs once shortly after boot and then periodically (SWEEP_DELETED_INTERVAL_HOURS, blank = 6). Only an explicit 0 disables it.
 function startDeletedSweep({ log = console } = {}) {
-  const hours = process.env.SWEEP_DELETED_INTERVAL_HOURS === undefined ? 6 : Number(process.env.SWEEP_DELETED_INTERVAL_HOURS);
-  if (!Number.isFinite(hours) || hours <= 0) return null;
+  const hours = envNumber('SWEEP_DELETED_INTERVAL_HOURS');
+  if (hours <= 0) {
+    if (process.env.NODE_ENV === 'production') log.warn('[Sweep] DISABLED: SWEEP_DELETED_INTERVAL_HOURS=0, deleted accounts and stale signups are not cleaned up');
+    return null;
+  }
   const run = async () => {
     try {
       const count = await sweepDeletedAccounts();

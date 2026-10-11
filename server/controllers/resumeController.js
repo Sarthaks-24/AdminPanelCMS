@@ -14,9 +14,9 @@ async function getResume(req, res, next) {
 async function updateResume(req, res, next) {
   try {
     const data = pickFields(req.body, WRITABLE_FIELDS.Resume);
-    data.resumeUrl = String(data.resumeUrl || data.driveUrl || '').trim();
-    if (!data.resumeUrl) return res.status(400).json({ success: false, message: 'resumeUrl or driveUrl is required' });
-    delete data.driveUrl;
+    // driveUrl is only a read alias of resumeUrl (CB-12); it is not accepted as input.
+    data.resumeUrl = String(data.resumeUrl || '').trim();
+    if (!data.resumeUrl) return res.status(400).json({ success: false, message: 'resumeUrl is required' });
     data.lastUpdated = new Date();
     const resume = await upsertSingleton(Resume, req.userId, data);
     await contentChanged.onContentChanged(req.userId);

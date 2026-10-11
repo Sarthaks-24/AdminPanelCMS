@@ -5,6 +5,7 @@ import { api } from '../../api/client';
 import Wordmark from '../../components/Wordmark';
 import { describeApiError } from '../../lib/apiErrors';
 import { SITE } from '../../content/site';
+import { hostOf, provablyCrossSite } from '../../lib/sameSite';
 import { LockKeyhole, Mail, Eye, EyeOff, ShieldCheck, ArrowRight } from 'lucide-react';
 
 const ERROR_COPY = {
@@ -12,6 +13,11 @@ const ERROR_COPY = {
   account_suspended: `This account is suspended. If you think this is a mistake, email ${SITE.support.email}.`,
   rate_limited: 'Too many sign-in attempts for this address from your connection. Try again in 15 minutes.',
 };
+
+// FE-09: in a prod build, a dashboard and API on different sites cannot keep a session (the cookie
+// is SameSite=Lax). Say so to the operator up front instead of letting sign-in "work" and then 401.
+const API_HOST = hostOf(import.meta.env.VITE_RESOLVED_API_URL);
+const crossSiteDeployment = (pageHost) => import.meta.env.VITE_RESOLVED_MODE === 'prod' && provablyCrossSite(pageHost, API_HOST);
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('');
@@ -67,6 +73,12 @@ export default function AdminLogin() {
             <p className="mt-2 text-sm text-t-muted">Welcome back. Use the email and password for your account.</p>
           </div>
 
+          {crossSiteDeployment(window.location.hostname) && (
+            <div role="alert" className="mb-5 rounded-xl border border-t-danger/30 bg-t-danger-dim p-3.5 text-sm text-t-danger">
+              <p className="font-semibold">Sign-in cannot work on this deployment</p>
+              <p className="mt-1">This dashboard ({window.location.hostname}) and the API ({API_HOST}) are not on the same site, so the browser will not send the session cookie. The operator must serve both from one registrable domain, for example the dashboard on the apex and the API on api.&lt;domain&gt;.</p>
+            </div>
+          )}
           {location.state?.notice && !error && (
             <p role="status" className="mb-5 rounded-xl border border-t-accent/30 bg-t-accent/10 p-3.5 text-sm text-t-text">{location.state.notice}</p>
           )}

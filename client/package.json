@@ -14,7 +14,8 @@
     "check:launch": "node scripts/check-launch.mjs",
     "lint": "oxlint && node scripts/check-field-parity.mjs && node scripts/check-docs.mjs",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "smoke": "node scripts/smoke-deploy.mjs"
   },
   "dependencies": {
     "@fontsource/bricolage-grotesque": "^5.3.0",

@@ -19,6 +19,7 @@ const turnstile = require('../lib/turnstile');
 const { burstAlert, positiveInt } = require('../lib/alerts');
 const { ipKeyGenerator } = require('express-rate-limit');
 const logger = require('../lib/logger');
+const { envNumber } = require('../lib/envNumber');
 const { cascadeDeletedOwner } = require('./accountController');
 
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10);
@@ -45,11 +46,9 @@ const inviteSource = (req) => ipKeyGenerator(req.ip, 48);
 const inviteLocked = burstAlert('invite_locked', { threshold: 1, windowMs: 60 * 60 * 1000 });
 const domainCapped = burstAlert('signup_domain_capped', { threshold: 1, windowMs: 60 * 60 * 1000 });
 
-// Optional account-count cap (MAX_ACCOUNTS, unset or 0 = no cap). Counts every account that is not deleted.
-function accountCap() {
-  const cap = Number(process.env.MAX_ACCOUNTS);
-  return Number.isInteger(cap) && cap > 0 ? cap : 0;
-}
+// Optional account-count cap (MAX_ACCOUNTS, blank or 0 = no cap). Counts every account that is not deleted.
+// A value that is not a whole number is refused at production boot (lib/envNumber.js), never read as "no cap".
+function accountCap() { return envNumber('MAX_ACCOUNTS'); }
 
 const validPassword = (value) => typeof value === 'string' && value.length >= 10 && value.length <= 1024;
 const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');

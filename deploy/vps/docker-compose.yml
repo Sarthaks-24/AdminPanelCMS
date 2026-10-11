@@ -1,0 +1,57 @@
+# One-machine production: the API container plus one Caddy that serves the dashboard on the apex
+# domain and proxies api.<domain> to the API, with automatic HTTPS for both.
+#
+#   cd deploy/vps
+#   docker compose up -d --build
+#
+# Inputs, nothing else:
+#   server/.env  MODE=prod and the PROD_* values (the API reads it through env_file)
+#   client/.env  VITE_MODE=prod and the VITE_* values (baked into the build; Caddy also reads
+#                VITE_SITE_DOMAIN from it to know which hostnames to serve)
+# MongoDB stays on Atlas; this file runs no database.
+name: portfolio-control
+
+services:
+  api:
+    build:
+      context: ../../server
+    env_file: ../../server/.env
+    environment:
+      # Caddy is the one proxy in front of Node.
+      PROD_TRUST_PROXY_HOPS: "1"
+    restart: unless-stopped
+    # Exactly one replica: rate limits, caches and the active-token set live in process memory.
+    deploy:
+      replicas: 1
+    # SHUTDOWN_DELAY_MS (5 s) + time for in-flight requests to finish.
+    stop_grace_period: 20s
+    expose:
+      - "5000"
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "10" }
+
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/web.Dockerfile
+    env_file: ../../client/.env
+    depends_on:
+      - api
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and ACME account; losing them means re-issuing (rate-limited by Let's Encrypt).
+      - caddy_data:/data
+      - caddy_config:/config
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "10" }
+
+volumes:
+  caddy_data:
+  caddy_config:

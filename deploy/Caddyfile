@@ -1,0 +1,24 @@
+# Serves the built dashboard (/srv) from the cms-web image.
+# SITE_ADDRESS decides how Caddy listens:
+#   unset              :80, plain HTTP; the platform (Railway) terminates TLS in front, so point the
+#                      platform's domain at port 80.
+#   example.com        Caddy gets and renews the HTTPS certificate itself (a host with ports 80/443 open).
+# deploy/vps/Caddyfile replaces this file on the VPS, where one Caddy also fronts the API.
+
+{$SITE_ADDRESS::80} {
+	root * /srv
+	encode zstd gzip
+
+	# Security headers generated from the build's _headers (same CSP as Pages/Netlify).
+	import /etc/caddy/headers.caddy
+
+	# Hashed build assets never change; everything else is revalidated so a deploy shows at once.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	@html not path /assets/*
+	header @html Cache-Control "no-cache"
+
+	# Client-side routes (/dashboard/apps, /docs/api, /verify-email) fall back to index.html.
+	try_files {path} /index.html
+	file_server
+}

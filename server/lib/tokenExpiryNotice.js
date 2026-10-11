@@ -3,6 +3,7 @@ const User = require('../models/User');
 const mailer = require('./mailer');
 const { reserveMail, refundMail } = require('./mailBudget');
 const logger = require('./logger');
+const { envNumber } = require('./envNumber');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -39,11 +40,14 @@ async function notifyExpiringTokens({ now = new Date() } = {}) {
   return result;
 }
 
-// Daily in-process schedule next to the deleted-account sweep. TOKEN_EXPIRY_NOTICE_INTERVAL_HOURS=0 disables it;
+// Daily in-process schedule next to the deleted-account sweep. Only an explicit TOKEN_EXPIRY_NOTICE_INTERVAL_HOURS=0 disables it;
 // it also stays off when mail is not configured (nothing could be sent).
 function startExpiryNotices({ log = logger } = {}) {
-  const hours = process.env.TOKEN_EXPIRY_NOTICE_INTERVAL_HOURS === undefined ? 24 : Number(process.env.TOKEN_EXPIRY_NOTICE_INTERVAL_HOURS);
-  if (!Number.isFinite(hours) || hours <= 0) return null;
+  const hours = envNumber('TOKEN_EXPIRY_NOTICE_INTERVAL_HOURS');
+  if (hours <= 0) {
+    if (process.env.NODE_ENV === 'production') log.warn({ event: 'token_expiry_notices_disabled' }, 'token expiry notices DISABLED: TOKEN_EXPIRY_NOTICE_INTERVAL_HOURS=0');
+    return null;
+  }
   if (!mailer.isConfigured()) { log.warn({ event: 'token_expiry_notices_disabled' }, 'token expiry notices are off: mail is not configured'); return null; }
   warningDays();
   const run = async () => {

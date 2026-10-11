@@ -65,15 +65,16 @@ async function validateApp(ownerId, data, { verifyIdsFor = 'all', verifyCategori
   const errors = [];
   if (typeof data.name !== 'string' || !data.name.trim() || data.name.trim().length > 80) errors.push('name is required and must be at most 80 characters');
   if (!['static', 'protected'].includes(data.type)) errors.push('type must be static or protected');
-  if (data.allowedOrigins === undefined) data.allowedOrigins = data.type === 'static' ? ['*'] : [];
+  // SEC15/BE-02: "any website" is always an explicit ['*']; a static App without origins is refused below on
+  // every path (create, a protected->static flip, a PATCH that empties the list), never widened to '*'.
+  if (data.allowedOrigins === undefined) data.allowedOrigins = [];
   if (!Array.isArray(data.allowedOrigins)) errors.push('allowedOrigins must be an array');
-  if (data.type === 'static' && Array.isArray(data.allowedOrigins) && data.allowedOrigins.length === 0) data.allowedOrigins = ['*'];
   const origins = Array.isArray(data.allowedOrigins) ? data.allowedOrigins.map(normalizeOrigin) : [];
   if (origins.includes(null)) errors.push('allowedOrigins must contain valid HTTPS origins (HTTP localhost is allowed outside production)');
   if (origins.includes('*') && origins.length !== 1) errors.push('* must be the only allowed origin');
   if (new Set(origins).size !== origins.length) errors.push('allowedOrigins must not contain duplicates');
   if (origins.length > 10) errors.push('max 10 allowedOrigins');
-  if (data.type === 'static' && !origins.length) errors.push('static apps require an allowed origin or *');
+  if (data.type === 'static' && !origins.length) errors.push('static apps need at least one allowed origin, such as https://example.com; send ["*"] to allow any website');
   data.allowedOrigins = origins.filter(Boolean);
   if (data.include !== undefined && !isRecord(data.include)) errors.push('include must be an object');
   const include = isRecord(data.include) ? data.include : {};

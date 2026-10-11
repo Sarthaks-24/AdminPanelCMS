@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const logger = require('./logger');
+const { envNumber } = require('./envNumber');
 
 // Atlas M0 stops accepting writes for every tenant at 512 MB. This check runs dbStats in process every few
 // minutes; at STORAGE_BLOCK_PERCENT of DB_STORAGE_CAP_BYTES it closes signup and refuses content writes with a
@@ -45,10 +46,13 @@ function rejectWritesWhenFull(req, res, next) {
   return res.status(503).json({ ...STORAGE_FULL, requestId: req.id });
 }
 
-// Runs once shortly after boot and then every STORAGE_CHECK_INTERVAL_MINUTES (default 10; 0 disables).
+// Runs once shortly after boot and then every STORAGE_CHECK_INTERVAL_MINUTES (blank = 10; only an explicit 0 disables).
 function startStorageMonitor({ log = logger } = {}) {
-  const minutes = process.env.STORAGE_CHECK_INTERVAL_MINUTES === undefined ? 10 : Number(process.env.STORAGE_CHECK_INTERVAL_MINUTES);
-  if (!Number.isFinite(minutes) || minutes <= 0) return null;
+  const minutes = envNumber('STORAGE_CHECK_INTERVAL_MINUTES');
+  if (minutes <= 0) {
+    if (process.env.NODE_ENV === 'production') log.warn({ event: 'storage_guard_disabled' }, 'storage guard DISABLED: STORAGE_CHECK_INTERVAL_MINUTES=0, nothing stops writes before the database cap');
+    return null;
+  }
   const run = async () => {
     try { await checkStorage(); } catch (error) { log.error({ err: error }, 'storage check failed'); }
   };

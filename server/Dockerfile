@@ -1,6 +1,10 @@
 # API server image. Council 2026-10-11, master plan Phase 0 item 4: one always-on container.
 # Build from server/:   docker build -t cms-api .
-# Run:                  docker run -p 5000:5000 -e MODE=prod -e MONGODB_URI=... -e JWT_SECRET=... -e CLIENT_ORIGIN=... -e TRUST_PROXY_HOPS=1 cms-api
+# Run:                  docker run -p 5000:5000 --env-file prod.env cms-api
+#   prod.env holds the plain names (MONGODB_URI, JWT_SECRET, CLIENT_ORIGIN, PUBLIC_API_URL, TRUST_PROXY_HOPS,
+#   INVITE_CODE_PEPPER, RESEND_MAIL_KEY, RESEND_FROM_EMAIL, OPERATOR_NAME, SUPPORT_EMAIL, ...); see .env.example.
+#   The boot check lists anything missing. Keep prod.env out of the build context and out of git.
+# The image includes contract/ (legal.json: the Terms and Privacy versions shared with the client).
 # Everything stateful besides MongoDB is in process memory: run exactly ONE replica (docs/DEPLOYMENT.md).
 # Node 22 LTS (Node 20 reached end of life on 2026-04-30). Pinned to the multi-arch index digest of
 # node:22-alpine as published on 2026-10-12; Dependabot (docker ecosystem) proposes digest bumps.

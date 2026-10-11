@@ -1,6 +1,7 @@
 require('../config/loadEnv');
 const mongoose = require('mongoose');
 const { connectMongo, databaseNameFor } = require('../lib/mongoConnect');
+const { assertDataSafety } = require('../lib/validateEnv');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
@@ -32,8 +33,18 @@ async function setupDatabase() {
   const fresh = process.argv.includes('--fresh') || process.argv.includes('--clean');
   const confirmIndex = process.argv.indexOf('--confirm');
   const confirmedDatabase = confirmIndex >= 0 ? process.argv[confirmIndex + 1] : undefined;
+  const confirmDbIndex = process.argv.indexOf('--confirm-db');
+  const confirmedTarget = confirmDbIndex >= 0 ? process.argv[confirmDbIndex + 1] : undefined;
   if (!mongoUri || !email || password.length < 10) throw new Error('Configure MONGODB_URI and ADMIN_EMAIL, and set ADMIN_PASSWORD to at least 10 characters.');
   const target = getTargetDatabase(mongoUri);
+  // CB-26: this resets the admin account's password, so under MODE=prod it needs the database named on the
+  // command line. The production bootstrap is `npm run production:prepare`, not this.
+  if (process.env.NODE_ENV === 'production') {
+    assertDataSafety();
+    if (!target.database || confirmedTarget !== target.database) {
+      throw new Error(`Refusing setup with MODE=prod: it resets the password of ${email}. Use npm run production:prepare for a production database, or re-run with --confirm-db ${target.database || '<database>'} after checking the target.`);
+    }
+  }
   if (fresh && (!confirmedDatabase || confirmedDatabase !== target.database)) {
     throw new Error(`Refusing fresh setup. Re-run with --fresh --confirm ${target.database} after reviewing and backing up the target.`);
   }

@@ -34,6 +34,11 @@ async function requireToken(req, res, next) {
   if (cache.badTokenCache.has(tokenHash)) return invalid();
   try {
     let entry = cache.tokenCache.get(tokenHash);
+    // A revoke drops the hash from the active set; a cached entry must not outlive that.
+    if (entry && cache.activeTokensLoaded() && !cache.isActiveToken(tokenHash)) {
+      cache.tokenCache.delete(tokenHash);
+      return invalid();
+    }
     if (!entry) {
       // A hash outside the active set is rejected here with zero database work. Tokens written without
       // the model hooks (a script, a restore, another process) join the set at the next re-sync.
@@ -42,12 +47,20 @@ async function requireToken(req, res, next) {
       let pending = inflight.get(tokenHash);
       if (!pending) {
         if (!takePreDbSlot()) { res.setHeader('Retry-After', '1'); return v1Error(res, 503, 'busy', 'API is busy; retry shortly'); }
-        pending = resolveToken(tokenHash).finally(() => inflight.delete(tokenHash));
+        pending = { gen: cache.tokenGen(), promise: resolveToken(tokenHash).finally(() => inflight.delete(tokenHash)) };
         inflight.set(tokenHash, pending);
       }
-      entry = await pending;
+      entry = await pending.promise;
+      // An eviction (revoke, suspend, App edit) during the resolve means its reads may predate the change:
+      // read once more, outside the single-flight, and cache only a result no eviction raced (BE-01).
+      let stable = cache.tokenGen() === pending.gen;
+      if (!stable) {
+        const gen = cache.tokenGen();
+        entry = await resolveToken(tokenHash);
+        stable = cache.tokenGen() === gen;
+      }
       if (!entry) { cache.badTokenCache.set(tokenHash, true); cache.removeActiveToken(tokenHash); return invalid(); }
-      cache.tokenCache.set(tokenHash, entry);
+      if (stable) cache.tokenCache.set(tokenHash, entry);
     }
     const { tokenDoc, appDoc, ownerUser } = entry;
     if (tokenDoc.revokedAt || (tokenDoc.expiresAt && new Date(tokenDoc.expiresAt) <= new Date())) {

@@ -37,6 +37,27 @@ describe('Apps dashboard API', () => {
     expect(badField.status).toBe(400);
   });
 
+  it('never widens a static App to any website on update (BE-02)', async () => {
+    const user = await createUser(User);
+    const auth = loginAs(user);
+    const prot = await request(app).post('/api/apps').set('Authorization', auth).send({ name: 'Server', type: 'protected' }).expect(201);
+    expect(prot.body.allowedOrigins).toEqual([]);
+    // Flipping protected -> static without origins is refused, not turned into ['*'].
+    const flip = await request(app).put(`/api/apps/${prot.body._id}`).set('Authorization', auth).send({ type: 'static' });
+    expect(flip.status).toBe(400);
+    expect(flip.body.details.join(' ')).toMatch(/at least one allowed origin/);
+    const emptyFlip = await request(app).put(`/api/apps/${prot.body._id}`).set('Authorization', auth).send({ type: 'static', allowedOrigins: [] });
+    expect(emptyFlip.status).toBe(400);
+    const stat = await request(app).post('/api/apps').set('Authorization', auth).send({ name: 'Site', type: 'static', allowedOrigins: ['https://site.test'] }).expect(201);
+    const emptied = await request(app).put(`/api/apps/${stat.body._id}`).set('Authorization', auth).send({ allowedOrigins: [] });
+    expect(emptied.status).toBe(400);
+    expect((await App.findOne({ _id: stat.body._id, owner: user._id }).lean()).allowedOrigins).toEqual(['https://site.test']);
+    // An explicit wildcard is still accepted.
+    const explicit = await request(app).put(`/api/apps/${prot.body._id}`).set('Authorization', auth).send({ type: 'static', allowedOrigins: ['*'] });
+    expect(explicit.status).toBe(200);
+    expect(explicit.body.allowedOrigins).toEqual(['*']);
+  });
+
   it('rejects selected content owned by another account', async () => {
     const owner = await createUser(User);
     const other = await createUser(User);

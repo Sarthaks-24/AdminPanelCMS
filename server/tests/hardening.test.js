@@ -11,7 +11,7 @@ const pickWritable = require('../middleware/pickWritable');
 const errorHandler = require('../middleware/errorHandler');
 const { createUser, loginAs, createApp } = require('./helpers/factory');
 
-const goodEnv = { JWT_SECRET: 'x'.repeat(40) + 'randomSecretValue', NODE_ENV: 'production', CLIENT_ORIGIN: 'https://admin.example.com', MONGODB_URI: 'mongodb://127.0.0.1:27017/Test', TRUST_PROXY_HOPS: '1', RESEND_MAIL_KEY: 're_live_key', RESEND_FROM_EMAIL: 'CMS <no-reply@example.com>', INVITE_CODE_PEPPER: 'k'.repeat(48), PUBLIC_API_URL: 'https://api.example.com' };
+const goodEnv = { JWT_SECRET: 'x'.repeat(40) + 'randomSecretValue', NODE_ENV: 'production', CLIENT_ORIGIN: 'https://admin.example.com', MONGODB_URI: 'mongodb://127.0.0.1:27017/Test', TRUST_PROXY_HOPS: '1', RESEND_MAIL_KEY: 're_live_key', RESEND_FROM_EMAIL: 'CMS <no-reply@example.com>', INVITE_CODE_PEPPER: 'k'.repeat(48), PUBLIC_API_URL: 'https://api.example.com', OPERATOR_NAME: 'Example Ltd', SUPPORT_EMAIL: 'support@example.com' };
 
 describe('nested writable fields', () => {
   it('saves project links and profile location through the HTTP routes', async () => {
@@ -65,20 +65,87 @@ describe('startup validation', () => {
     expect(() => validateEnv({ ...goodEnv, NODE_ENV: 'development', CLIENT_ORIGIN: 'http://localhost:5173/', TRUST_PROXY_HOPS: undefined })).toThrow(/bare origin/);
   });
 
-  it('requires a separate INVITE_CODE_PEPPER in production and warns loudly without PUBLIC_API_URL', () => {
+  it('requires a separate INVITE_CODE_PEPPER and PUBLIC_API_URL in production', () => {
     expect(() => validateEnv({ ...goodEnv, INVITE_CODE_PEPPER: '' })).toThrow(/INVITE_CODE_PEPPER must be set/);
     expect(() => validateEnv({ ...goodEnv, INVITE_CODE_PEPPER: 'short' })).toThrow(/INVITE_CODE_PEPPER/);
     expect(() => validateEnv({ ...goodEnv, INVITE_CODE_PEPPER: goodEnv.JWT_SECRET })).toThrow(/must differ from JWT_SECRET/);
     expect(() => validateEnv({ ...goodEnv, NODE_ENV: 'development', INVITE_CODE_PEPPER: '', TRUST_PROXY_HOPS: undefined, CLIENT_ORIGIN: 'http://localhost:5173' })).not.toThrow();
-    const { warnings } = validateEnv({ ...goodEnv, PUBLIC_API_URL: '' });
-    expect(warnings).toEqual([expect.stringMatching(/PUBLIC_API_URL is NOT set/)]);
-    expect(validateEnv({ ...goodEnv, TURNSTILE_SECRET_KEY: 'secret' }).warnings[0]).toMatch(/TURNSTILE_SITE_KEY/);
+    expect(() => validateEnv({ ...goodEnv, PUBLIC_API_URL: '' })).toThrow(/PUBLIC_API_URL must be set/);
+  });
+
+  it('refuses half a Turnstile configuration and Cloudflare test keys in production (X-02, CB-18)', () => {
+    const keys = { TURNSTILE_SECRET_KEY: '0x4AAAAAAAreal-secret', TURNSTILE_SITE_KEY: '0x4AAAAAAAreal-site' };
+    expect(() => validateEnv({ ...goodEnv, ...keys })).not.toThrow();
+    expect(() => validateEnv({ ...goodEnv, TURNSTILE_SECRET_KEY: keys.TURNSTILE_SECRET_KEY })).toThrow(/TURNSTILE_SITE_KEY is not/);
+    expect(() => validateEnv({ ...goodEnv, TURNSTILE_SITE_KEY: keys.TURNSTILE_SITE_KEY })).toThrow(/TURNSTILE_SECRET_KEY is not/);
+    expect(() => validateEnv({ ...goodEnv, TURNSTILE_SECRET_KEY: '1x0000000000000000000000000000000AA', TURNSTILE_SITE_KEY: keys.TURNSTILE_SITE_KEY })).toThrow(/test keys/);
+    expect(() => validateEnv({ ...goodEnv, ...keys, TURNSTILE_SITE_KEY: '3x00000000000000000000FF' })).toThrow(/test keys/);
+    // Development only warns, and accepts the test keys.
+    const dev = { ...goodEnv, NODE_ENV: 'development', TRUST_PROXY_HOPS: undefined, CLIENT_ORIGIN: 'http://localhost:5173', PUBLIC_API_URL: '' };
+    expect(validateEnv({ ...dev, TURNSTILE_SECRET_KEY: 'secret' }).warnings.join(' ')).toMatch(/TURNSTILE/);
+    expect(() => validateEnv({ ...dev, TURNSTILE_SECRET_KEY: '1x0000000000000000000000000000000AA', TURNSTILE_SITE_KEY: '1x00000000000000000000AA' })).not.toThrow();
+  });
+
+  it('rejects unknown values for enum settings instead of coercing them (CB-02)', () => {
+    expect(() => validateEnv({ ...goodEnv, SIGNUP_MODE: 'invites' })).toThrow(/SIGNUP_MODE must be one of/);
+    expect(() => validateEnv({ ...goodEnv, LEGAL_POLICIES_APPROVED: 'TRUE' })).toThrow(/LEGAL_POLICIES_APPROVED/);
+    expect(() => validateEnv({ ...goodEnv, LEGAL_POLICIES_APPROVED: 'yes' })).toThrow(/LEGAL_POLICIES_APPROVED/);
+    expect(() => validateEnv({ ...goodEnv, SESSION_COOKIE_SAMESITE: 'relaxed' })).toThrow(/SESSION_COOKIE_SAMESITE/);
+    expect(() => validateEnv({ ...goodEnv, NODE_ENV: 'development', TRUST_PROXY_HOPS: undefined, CLIENT_ORIGIN: 'http://localhost:5173', SIGNUP_MODE: 'opne' })).toThrow(/SIGNUP_MODE/);
+    expect(() => validateEnv({ ...goodEnv, SIGNUP_MODE: 'Invite', LEGAL_POLICIES_APPROVED: 'false', SESSION_COOKIE_SAMESITE: 'Strict' })).not.toThrow();
+    expect(() => validateEnv({ ...goodEnv, SIGNUP_MODE: '', LEGAL_POLICIES_APPROVED: '', SESSION_COOKIE_SAMESITE: '' })).not.toThrow();
+  });
+
+  it('treats a non-numeric limit as a production boot problem and a dev warning, and names disabled guards (CB-14)', () => {
+    expect(() => validateEnv({ ...goodEnv, STORAGE_CHECK_INTERVAL_MINUTES: '10m' })).toThrow(/STORAGE_CHECK_INTERVAL_MINUTES must be a number/);
+    expect(() => validateEnv({ ...goodEnv, MAX_ACCOUNTS: 'fifty' })).toThrow(/MAX_ACCOUNTS must be a whole number/);
+    expect(() => validateEnv({ ...goodEnv, MAIL_DAILY_CAP: '', SWEEP_DELETED_INTERVAL_HOURS: '  ' })).not.toThrow();
+    const dev = { ...goodEnv, NODE_ENV: 'development', TRUST_PROXY_HOPS: undefined, CLIENT_ORIGIN: 'http://localhost:5173' };
+    expect(validateEnv({ ...dev, MAX_ACCOUNTS: 'fifty' }).warnings.join(' ')).toMatch(/MAX_ACCOUNTS/);
+    expect(validateEnv({ ...goodEnv, STORAGE_CHECK_INTERVAL_MINUTES: '0' }).warnings).toEqual([expect.stringMatching(/STORAGE_CHECK_INTERVAL_MINUTES=0: the storage guard is DISABLED/)]);
+  });
+
+  it('refuses a dashboard and API on provably different sites with a Lax/Strict cookie (FE-09)', () => {
+    expect(() => validateEnv({ ...goodEnv, CLIENT_ORIGIN: 'https://example.com', PUBLIC_API_URL: 'https://api.example.com' })).not.toThrow();
+    expect(() => validateEnv({ ...goodEnv, CLIENT_ORIGIN: 'https://cms.example.com', PUBLIC_API_URL: 'https://api.other.org' })).toThrow(/different sites/);
+    expect(() => validateEnv({ ...goodEnv, CLIENT_ORIGIN: 'https://cms.pages.dev', PUBLIC_API_URL: 'https://cms-api.onrender.com' })).toThrow(/different sites/);
+    expect(() => validateEnv({ ...goodEnv, CLIENT_ORIGIN: 'https://app-a.onrender.com', PUBLIC_API_URL: 'https://api-a.onrender.com' })).toThrow(/different sites/);
+    expect(() => validateEnv({ ...goodEnv, SESSION_COOKIE_SAMESITE: 'strict', CLIENT_ORIGIN: 'https://cms.example.com', PUBLIC_API_URL: 'https://api.other.org' })).toThrow(/SameSite=strict/);
+    // SameSite=None is never an escape hatch that fails boot, but it is always called out.
+    const none = validateEnv({ ...goodEnv, SESSION_COOKIE_SAMESITE: 'none', CLIENT_ORIGIN: 'https://cms.example.com', PUBLIC_API_URL: 'https://api.other.org' });
+    expect(none.warnings.join(' ')).toMatch(/SESSION_COOKIE_SAMESITE=none/);
+  });
+
+  it('refuses the console mail transport in production and announces it in development (NF-17)', () => {
+    expect(() => validateEnv({ ...goodEnv, MAIL_TRANSPORT: 'console' })).toThrow(/MAIL_TRANSPORT=console/);
+    expect(() => validateEnv({ ...goodEnv, MAIL_TRANSPORT: 'smtp' })).toThrow(/MAIL_TRANSPORT must be one of/);
+    const dev = { ...goodEnv, NODE_ENV: 'development', TRUST_PROXY_HOPS: undefined, CLIENT_ORIGIN: 'http://localhost:5173' };
+    expect(validateEnv({ ...dev, RESEND_MAIL_KEY: 're_xxxxxxxxx' }).warnings.join(' ')).toMatch(/Mail goes to the console/);
+    expect(validateEnv({ ...dev, MAIL_TRANSPORT: 'console' }).warnings.join(' ')).toMatch(/Mail goes to the console/);
+    expect(validateEnv(dev).warnings.join(' ')).not.toMatch(/console/);
+  });
+
+  it('exports the data-safety subset the production scripts run (X-06)', () => {
+    const { dataSafetyProblems, assertDataSafety } = validateEnv;
+    expect(dataSafetyProblems(goodEnv)).toEqual([]);
+    expect(() => assertDataSafety({ ...goodEnv, INVITE_CODE_PEPPER: '' })).toThrow(/Refusing to run against production[\s\S]*INVITE_CODE_PEPPER/);
+    expect(() => assertDataSafety({ ...goodEnv, MONGODB_URI: 'mongodb://h/App', DEV_MONGODB_URI: 'mongodb://h/App' })).toThrow(/DEV_MONGODB_URI/);
+    expect(() => assertDataSafety({ ...goodEnv, MONGODB_URI: 'mongodb://h/' })).toThrow(/database name/);
+    // Development scripts are not blocked by production rules.
+    expect(() => assertDataSafety({ ...goodEnv, NODE_ENV: 'development', INVITE_CODE_PEPPER: '' })).not.toThrow();
   });
 
   it('warns instead of failing when production mail is not ready', () => {
     expect(validateEnv(goodEnv).warnings).toEqual([]);
     expect(validateEnv({ ...goodEnv, RESEND_MAIL_KEY: 're_xxxxxxxxx' }).warnings[0]).toMatch(/RESEND_MAIL_KEY/);
     expect(validateEnv({ ...goodEnv, RESEND_FROM_EMAIL: 'onboarding@resend.dev' }).warnings[0]).toMatch(/RESEND_FROM_EMAIL/);
+    // CB-01: the mail identity counts as part of mail readiness; FE-08's values.
+    expect(validateEnv({ ...goodEnv, OPERATOR_NAME: ' ' }).warnings[0]).toMatch(/OPERATOR_NAME/);
+    expect(validateEnv({ ...goodEnv, SUPPORT_EMAIL: '' }).warnings[0]).toMatch(/SUPPORT_EMAIL is empty/);
+    expect(validateEnv({ ...goodEnv, SUPPORT_EMAIL: 'Support <help@example.com>' }).warnings[0]).toMatch(/SUPPORT_EMAIL is not a plain email/);
+    expect(() => validateEnv({ ...goodEnv, SIGNUP_MODE: 'invite', OPERATOR_NAME: '' })).toThrow(/OPERATOR_NAME/);
+    // BE-04: a cap above the Resend free tier is called out.
+    expect(validateEnv({ ...goodEnv, MAIL_DAILY_CAP: '500' }).warnings).toEqual([expect.stringMatching(/above the Resend free tier/)]);
   });
 });
 

@@ -8,6 +8,9 @@
 #   BACKUP_REMOTE_DESTINATION   rclone target, e.g. remote:cms-backups
 #   RCLONE_CONFIG               full contents of an rclone.conf that defines that remote
 # Optional repository variable: BACKUP_RETENTION_DAYS (default 30).
+# Optional secret: BACKUP_HEARTBEAT_URL, a dead-man's-switch URL (healthchecks.io, Better Stack, Cronitor...) pinged
+# only after the backup and the storage check succeed. Its monitor alerts when the ping stops arriving, which
+# also catches a schedule that never runs (GitHub disables cron after 60 days without repository activity).
 # Actions are pinned to full commit SHAs (tag in the trailing comment); Dependabot bumps them.
 name: Nightly backup
 
@@ -85,6 +88,14 @@ jobs:
           MODE: prod
           MONGODB_URI: ${{ secrets.PROD_MONGODB_URI }}
         run: npm run stats
+
+      # NF-01: success heartbeat. Skipped when the secret is empty; a failed ping fails the job.
+      - name: Heartbeat (optional)
+        env:
+          BACKUP_HEARTBEAT_URL: ${{ secrets.BACKUP_HEARTBEAT_URL }}
+        run: |
+          if [ -z "$BACKUP_HEARTBEAT_URL" ]; then echo "BACKUP_HEARTBEAT_URL not set; skipping the heartbeat."; exit 0; fi
+          curl -fsS --max-time 10 --retry 3 -o /dev/null "$BACKUP_HEARTBEAT_URL"
 
       - name: Remove local secrets and archives
         if: always()

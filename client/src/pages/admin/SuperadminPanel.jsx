@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/admin/ui/Modal';
+import { describeApiError } from '../../lib/apiErrors';
 import useConfirm from '../../components/admin/ui/useConfirm';
 
 function formatDate(value) { return value ? new Date(value).toLocaleString() : '—'; }
@@ -14,12 +15,18 @@ const MODES = [
 ];
 const STATUS_FILTERS = [['', 'All'], ['active', 'Active'], ['unverified', 'Unverified'], ['suspended', 'Suspended']];
 const ACTION_COPY = {
-  suspend: { title: 'Suspend this account?', body: 'Sign-in and every API key stop working at once. Their apps will get 401 until you unsuspend.', button: 'Suspend' },
-  unsuspend: { title: 'Restore this account?', body: 'Sign-in and API keys work again immediately.', button: 'Unsuspend' },
+  suspend: { title: 'Suspend this account?', body: 'Sign-in and every API key stop working within a minute (browsers may keep a copy for up to 60 s). Their apps will get 401 until you unsuspend.', button: 'Suspend' },
+  unsuspend: { title: 'Restore this account?', body: 'Sign-in and API keys work again within a minute (browsers may keep a copy for up to 60 s).', button: 'Unsuspend' },
   delete: { title: 'Delete this account permanently?', body: 'All content, apps and keys are removed. This cannot be undone.', button: 'Delete account' },
   signupMode: { title: 'Change who can register?', body: 'Applies to new signups straight away. Existing accounts are not affected.', button: 'Change registration' },
   invite: { title: 'Create an invite?', body: 'A new code is shown once, right after you confirm.', button: 'Create invite' },
 };
+// 409 mail_not_ready: the server refuses to open signup while it cannot send verification mail, and
+// says why. Show its reasons; anything else gets the generic line.
+function signupModeError(err) {
+  if (err.response?.data?.error === 'mail_not_ready') return describeApiError(err).message;
+  return 'Could not update the registration setting.';
+}
 // Outside the component: a password confirmation lasts about ten minutes on the server.
 const reauthExpired = (until) => Date.now() > until;
 const MODE_LABEL = { closed: 'Closed', invite: 'Invite only', open: 'Open to everyone' };
@@ -122,7 +129,7 @@ export default function SuperadminPanel() {
     try { await doSetSignupMode(mode); }
     catch (err) {
       if (err.response?.data?.error === 'reauth_required') { setReauthUntil(0); openAction('signupMode', null, { mode }, true); }
-      else setError('Could not update the registration setting.');
+      else setError(signupModeError(err));
     }
     finally { setSavingMode(false); }
   };
@@ -162,7 +169,7 @@ export default function SuperadminPanel() {
     } catch (err) {
       const code = err.response?.data?.error;
       if (code === 'reauth_required') { setReauthUntil(0); setNeedsReauth(true); }
-      setActionError(ERROR_COPY[code] || err.response?.data?.message || 'The action failed. Please try again.');
+      setActionError(code === 'mail_not_ready' ? signupModeError(err) : (ERROR_COPY[code] || err.response?.data?.message || 'The action failed. Please try again.'));
     } finally { setActing(false); }
   };
 
@@ -211,7 +218,7 @@ export default function SuperadminPanel() {
 
       <section className="rounded-xl border border-t-border bg-t-surface p-5 sm:p-6" aria-labelledby="users-title">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div><h2 id="users-title" className="font-semibold">Users</h2><p className="mt-1 text-sm text-t-muted">Suspending cuts sign-in and every API key at once; deleting runs the full account cascade.</p></div>
+          <div><h2 id="users-title" className="font-semibold">Users</h2><p className="mt-1 text-sm text-t-muted">Suspending cuts sign-in and every API key within a minute (browsers may keep a copy for up to 60 s); deleting runs the full account cascade.</p></div>
           <div className="flex flex-wrap items-end gap-2">
             <label className="text-xs text-t-muted">Search by email<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="name@example.com" className="mt-1 block w-56 rounded-lg border border-t-border-hi bg-t-bg px-3 py-2 text-sm text-t-text" /></label>
             <label className="text-xs text-t-muted">Status<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="mt-1 block rounded-lg border border-t-border-hi bg-t-bg px-3 py-2 text-sm text-t-text">{STATUS_FILTERS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
