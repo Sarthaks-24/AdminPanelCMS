@@ -308,9 +308,9 @@ Only the daily mail counter (`Setting` `mail:YYYY-MM-DD`) persists. This is a de
 
 ## Secrets rotation
 
-Do this once now (council 2026-10-11, §6) and then whenever a secret may have been exposed:
+Do this whenever a secret may have been exposed:
 
-1. **Rotate the dev Atlas database user's password** and every other dev secret: `DEV_JWT_SECRET`, the dev Resend key, `DEV_INVITE_CODE_PEPPER` if set. The dev Atlas password sat in a plaintext `.env.backup-*` file that was printed into a reviewer's tool output during the council run.
-2. **Delete `server/.env.backup-*` and `client/.env.backup-*`.** They are git-ignored but they are still files on disk with secrets in them. Do not create new ones; if you need a copy of a `.env`, put it in a password manager.
-3. Production secrets are never on a laptop: they live in the host's environment settings and in GitHub Actions secrets. The production Atlas users (API and backup) exist only in the production Atlas project; the sibling Portfolio never receives either credential.
+1. **Rotate the affected secret** and anything stored next to it: the Atlas database user's password, `JWT_SECRET`, the Resend key, `INVITE_CODE_PEPPER` if it leaked.
+2. **Keep no copies of `.env` files** (`.env.backup`, `.env.old`, …). Even git-ignored, they are plaintext secrets on disk. If you need a copy, put it in a password manager.
+3. Production secrets are never on a laptop: they live in the host's environment settings and in GitHub Actions secrets. The production Atlas users (API and backup) exist only in the production Atlas project, and no other application receives either credential.
 4. After rotating `JWT_SECRET`, every session ends (users sign in again); API tokens and outstanding invites are unaffected (invites are hashed with `INVITE_CODE_PEPPER`, required in production). Rotating `INVITE_CODE_PEPPER` kills every outstanding invite, so only rotate it if it leaked. After rotating the Atlas password, update the host environment and the `PROD_MONGODB_URI` secret, then run the backup workflow by hand to confirm.
