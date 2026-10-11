@@ -187,7 +187,7 @@ On **Path A** these go in `client/.env` on the server. On **Path B** you type th
 | `VITE_SITE_OPERATOR` | `Your Name` | Who runs the service; quoted in the Terms. |
 | `VITE_SITE_JURISDICTION` | `India` | Whose law governs the Terms. |
 | `VITE_SITE_SUPPORT_EMAIL` | `support@example.com` | Same as the API's `SUPPORT_EMAIL` (optional; defaults to `support@<domain>`). |
-| `VITE_SITE_HOSTING_PROVIDER` | `Hetzner` / `Render` | Quoted in the Privacy Policy. |
+| `VITE_SITE_HOSTING_PROVIDER` | `Hetzner Online GmbH` / `Render Services, Inc.` | Quoted in the Privacy Policy. |
 | `VITE_SITE_BACKUP_PROVIDER` | `Cloudflare R2` | Where backups are stored ([§11](#11-backups)). |
 | `VITE_SITE_LOG_PROVIDER` | `Render` / `Better Stack` | Where logs are kept. |
 | `VITE_SITE_STATUS_URL` | `https://status.example.com` | Optional uptime page link. |
@@ -287,6 +287,8 @@ For a private repository, use a **deploy key**: `ssh-keygen -t ed25519` on the s
 
 Protect the secrets file: `chmod 600 server/.env`.
 
+One trap: Docker Compose treats `$` inside these files as the start of a variable, so a value like `abc$def` silently becomes `abc`. The hex secrets from [§6](#6-your-production-settings) never contain `$`; if a database password does, write it as `$$` or regenerate it without one.
+
 ### 7.5 Start it
 
 ```bash
@@ -304,7 +306,7 @@ docker compose logs -f web        # watch Caddy get the certificates; Ctrl+C to 
 
 If the API exits with `Invalid configuration`, the lines under it name every setting to fix. Edit `server/.env`, then `docker compose up -d` again. If the **build** of `web` fails, the message names the `VITE_*` value to fix in `client/.env`; rerun with `--build`.
 
-Open `https://example.com` and `https://api.example.com/readyz` (should show `{"status":"ok"}`). Continue with [§9](#9-create-the-first-admin-account).
+Open `https://example.com` and `https://api.example.com/readyz` (should show `{"status":"ready"}`). Continue with [§9](#9-create-the-first-admin-account).
 
 ### 7.6 Path A, later on
 
@@ -326,7 +328,7 @@ The platform builds from GitHub and runs it for you. You only give it settings.
 `render.yaml` in this repository is a **Blueprint**: it describes both services so you don't click them together by hand.
 
 1. Render dashboard → **New → Blueprint** → connect GitHub → pick this repository and the branch to deploy.
-2. Render reads `render.yaml` and shows two services: `portfolio-api` (Docker, **Starter** plan, 1 instance) and `portfolio-web` (static site, free). It asks for every value marked "sync: false". Fill them from [§6](#6-your-production-settings); for `LEGAL_POLICIES_APPROVED` type `false`. `JWT_SECRET` and `INVITE_CODE_PEPPER` are generated for you (so always create invite codes in the Superadmin panel, never with the `npm run invite` script on your laptop, which wouldn't know that pepper).
+2. Render reads `render.yaml` and shows two services: `portfolio-api` (Docker, the smallest always-on paid instance `0.5c-512mb`, ~$7/month, 1 instance; if Render's screen offers a differently named plan, pick the smallest paid one) and `portfolio-web` (static site, free). It asks for every value marked "sync: false". Fill them from [§6](#6-your-production-settings); for `LEGAL_POLICIES_APPROVED` type `false`. `JWT_SECRET` and `INVITE_CODE_PEPPER` are generated for you (so always create invite codes in the Superadmin panel, never with the `npm run invite` script on your laptop, which wouldn't know that pepper).
    - Why not the free plan for the API? Free instances fall asleep after 15 idle minutes; the first visitor waits ~a minute and every in-memory limit resets. The API must be always on.
 3. **Apply.** The first deploy of the API will **fail** with `Invalid configuration`: that's expected until the custom domains exist, because `CLIENT_ORIGIN` and `PUBLIC_API_URL` must be on your own domain. Continue.
 4. **Custom domains.**
@@ -334,7 +336,7 @@ The platform builds from GitHub and runs it for you. You only give it settings.
    - `portfolio-api` → Settings → Custom Domains → add `api.example.com`.
    - Render shows the DNS records to create at your registrar (a CNAME for `api` and `www`, and an A or ALIAS record for the bare domain). Add them, wait for Render to show "Certificate issued".
 5. Make sure `CLIENT_ORIGIN=https://example.com`, `PUBLIC_API_URL=https://api.example.com` (API service → Environment) and `VITE_PROD_API_URL=https://api.example.com`, `VITE_SITE_DOMAIN=example.com` (web service → Environment). Then **Manual Deploy → Deploy latest commit** on both.
-6. API → **Logs** should show `[Env] MODE=prod · database Portfolio_prod` and no errors. `https://api.example.com/readyz` → `{"status":"ok"}`.
+6. API → **Logs** should show `[Env] MODE=prod · database Portfolio_prod` and no errors. `https://api.example.com/readyz` → `{"status":"ready"}`.
 7. API → Settings: set **Pre-Deploy/Shutdown delay** ("Max shutdown delay") to at least 20 seconds if offered, so deploys don't cut requests.
 
 Render deploys again on every push to that branch. Changing a `VITE_*` value needs a new deploy of `portfolio-web` (it is baked in at build).
@@ -353,7 +355,7 @@ Railway is great for the API. For the dashboard you can either use a free static
 4. **Settings → Networking → Custom Domain:** `api.example.com`. Railway shows a CNAME (and a TXT for verification): add them at your registrar. Port: Railway passes `PORT` to the app, which listens on it.
 5. Deploy. Logs should show `[Env] MODE=prod · database Portfolio_prod`.
 
-Make sure **App Sleeping / Serverless** is off (it is, via `railway.json`) and replicas stay at 1. The Hobby plan (~$5/month including some usage) is enough.
+Make sure **App Sleeping / Serverless** is off (it is, via `railway.json`) and replicas stay at 1. If Railway ever stops reading `railway.json` (it has announced changes to config-as-code), set the same values by hand in the service settings: 1 replica, serverless off, health check path `/readyz`, draining 20 s. The Hobby plan (~$5/month including some usage) is enough.
 
 **The dashboard, option 1: Cloudflare Pages (free, recommended).**
 1. Cloudflare dashboard → **Workers & Pages → Create → Pages → Connect to Git** → pick the repository.
@@ -392,7 +394,7 @@ cd client
 npm run smoke -- https://example.com https://api.example.com
 ```
 
-It checks that the dashboard is allowed to call the API (security policy), that the API accepts the dashboard's login cookie (CORS), that reloading deep pages works, that the two are on the same site, and that the public API answers. Every line should say `PASS`.
+It checks that the dashboard is allowed to call the API (security policy), that the API accepts the dashboard's login cookie (CORS), that reloading deep pages works, that the two are on the same site, that the public API answers, that the security headers are present, and that `/readyz` and `security.txt` respond. Every line should say `PASS`.
 
 **The walk-through.** In a private browser window:
 
@@ -408,6 +410,7 @@ It checks that the dashboard is allowed to call the API (security policy), that 
 4. Revoke that key in the dashboard; the same `curl` should answer `401` within a few seconds.
 5. Log out, use **Forgot password** with your email. The email should arrive within a minute and its link should open your site.
 6. Open `https://example.com/dashboard/apps` directly and reload: the page should load, not a 404.
+7. **Check the proxy count once.** Find your own public IP (search "what is my IP"), then find one of your requests in the API log: its `"ip"` field must be **your** IP. If it shows a private address like `10.x.x.x` or `172.x.x.x`, there is one more proxy than `TRUST_PROXY_HOPS` says: raise it by 1 and restart. If it's wrong in the other direction you'd see an address you don't recognise; lower it. Getting this right is what keeps one noisy visitor from rate-limiting everybody.
 
 ## 11. Backups
 
@@ -465,7 +468,7 @@ Until now nobody else can register. In order:
 | You see | It means | Fix |
 | :--- | :--- | :--- |
 | API exits with `Invalid configuration` and a list | A setting is missing or wrong; each line names it | Fix those settings, restart |
-| `…is not on the same site as CLIENT_ORIGIN…` | Dashboard and API are on different domains (e.g. `*.onrender.com`) | Put both on your domain: `example.com` + `api.example.com` |
+| `CLIENT_ORIGIN (…) and PUBLIC_API_URL (…) are on different sites…` | Dashboard and API are on different domains (e.g. `*.onrender.com`) | Put both on your domain: `example.com` + `api.example.com` |
 | `TRUST_PROXY_HOPS must be set explicitly` | Missing setting | `1` on Render, Railway and Path A |
 | Dashboard build fails: `VITE_PROD_API_URL is not set` / `Invalid site identity` | A `VITE_*` value is missing | Add it to `client/.env` or the build settings, rebuild |
 | `VITE_MODE="prd" is not a mode` | Typo in the switch | `dev` or `prod` |
