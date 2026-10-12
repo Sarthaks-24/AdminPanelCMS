@@ -8,6 +8,7 @@
 
 export const DASHBOARD = '/dashboard';
 export const LOGIN = '/login';
+export const APPEARANCE = `${DASHBOARD}/appearance`;
 
 const ACCOUNT_PAGES = new Set(['login', 'signup', 'check-email', 'verify-email', 'forgot-password', 'reset-password']);
 

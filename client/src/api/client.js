@@ -34,8 +34,16 @@ export function endsSession(error) {
   return typeof code !== 'string' || !code || SESSION_ERROR_CODES.has(code);
 }
 
+// A successful write to a content section. The sidebar listens and refreshes its counts.
+export const CONTENT_CHANGED_EVENT = 'pc:content-changed';
+const CONTENT_PATH = /^\/?(profile|socials|skills|projects|experience|education|certifications|resume)(\/|$)/;
+
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const { method, url } = response.config || {};
+    if (method && method !== 'get' && CONTENT_PATH.test(url || '') && typeof window !== 'undefined') window.dispatchEvent(new Event(CONTENT_CHANGED_EVENT));
+    return response;
+  },
   (error) => {
     // The startup session probe expects a 401 when signed out and must not trigger a redirect.
     if (endsSession(error) && !error.config?.skipAuthRedirect && window.location.pathname.startsWith('/dashboard')) {

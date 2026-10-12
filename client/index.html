@@ -9,8 +9,10 @@
     <title>%SITE_NAME%: your portfolio content as an API</title>
     <!-- Applies the saved theme before first paint so the page never flashes the default one. It is one
          line so its hash does not depend on line endings. The build hashes it into the CSP (config/csp.js),
-         and `npm run check:dist` fails the build if the policy and the script drift apart. -->
-    <script>try { var t = localStorage.getItem('pc_theme') || localStorage.getItem('admin_dashboard_theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}</script>
+         and `npm run check:dist` fails the build if the policy and the script drift apart.
+         A custom theme is a set of colours: each name must be lowercase letters, digits and dashes and
+         each value a hex colour, or nothing is applied (the same rule as validateStored in src/theme/derive.js). -->
+    <script>try { var s = localStorage, t = s.getItem('pc_theme') || s.getItem('admin_dashboard_theme'), d = document.documentElement; if (t === 'custom') { var c = JSON.parse(s.getItem('pc_theme_custom')), v = c && c.vars, k, ok = !!v && typeof v === 'object'; for (k in v) if (!/^[a-z0-9-]{1,24}$/.test(k) || !/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(v[k])) ok = false; if (ok) { for (k in v) d.style.setProperty('--theme-' + k, v[k]); d.style.colorScheme = c.light ? 'light' : 'dark'; d.setAttribute('data-theme', 'custom'); } } else if (t) d.setAttribute('data-theme', t); } catch (e) {}</script>
     <meta name="description" content="Write your profile, projects and skills once. Every site you build reads them from one JSON API, and each site sees only what you grant it." />
     <!-- Social cards. The card is a 1200x630 PNG because Facebook and LinkedIn ignore SVG. -->
     <meta property="og:type" content="website" />

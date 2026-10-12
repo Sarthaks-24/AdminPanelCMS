@@ -58,6 +58,7 @@ export default {
         't-danger-dim':   themeColor('--theme-danger-dim'),
         't-code':         themeColor('--theme-code-bg'),
         't-warn':         themeColor('--theme-warn'),
+        't-focus':        themeColor('--theme-focus'),
       },
       boxShadow: {
         // Shadows take their tint from the active theme instead of pure black.

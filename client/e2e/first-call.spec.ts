@@ -17,13 +17,13 @@
  *      MODE=dev) that returns `{ token }` for `?email=`. The test calls it after signup and opens
  *      /verify-email?token=… itself. Until it exists the signup branch is skipped with a clear message.
  *
- * Runs once per theme in THEMES (council ruling A22/A26: powershell + clean-studio). No screenshots are
+ * Runs once per theme in THEMES (powershell, clean-studio, and hc-light since the 2026-10-12 theme council). No screenshots are
  * compared; the assertion is a 200 with `{ data: [...] }` from the public API using the key the UI minted.
  */
 import { test, expect, type Page } from '@playwright/test';
 
 const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
-const THEMES = ['powershell', 'clean-studio'] as const;
+const THEMES = ['powershell', 'clean-studio', 'hc-light'] as const;
 
 const PASSWORD = process.env.E2E_PASSWORD ?? 'correct-horse-battery-staple';
 const EXISTING_EMAIL = process.env.E2E_EMAIL;

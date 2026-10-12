@@ -32,6 +32,26 @@ async function exportAccount(req, res, next) {
   } catch (error) { return next(error); }
 }
 
+// One request for the dashboard sidebar: how many items each content section holds. Counting is cheap
+// (owner index) and keeps the sidebar from issuing a GET per section on every navigation.
+const COUNTED = { projects: Project, skills: Skill, socials: Social, experience: Experience, education: Education, certifications: Certification };
+
+async function contentSummary(req, res, next) {
+  try {
+    const owner = req.userId;
+    const [counts, profile, resume] = await Promise.all([
+      Promise.all(Object.entries(COUNTED).map(async ([key, Model]) => [key, await Model.countDocuments({ owner })])),
+      Profile.findOne({ owner }).select('name headline').lean(),
+      Resume.findOne({ owner }).select('resumeUrl').lean(),
+    ]);
+    return res.json({
+      ...Object.fromEntries(counts),
+      profile: Boolean(profile?.name && profile?.headline),
+      resume: Boolean(resume?.resumeUrl),
+    });
+  } catch (error) { return next(error); }
+}
+
 async function cascadeDeletedOwner(ownerId) {
   // The account is marked deleted before this cascade, so it cannot authenticate or access data.
   // These owner-scoped deletes are idempotent; the sweep can safely retry after any interruption.
@@ -81,4 +101,4 @@ async function deleteAccount(req, res, next) {
   } catch (error) { return next(error); }
 }
 
-module.exports = { exportAccount, deleteAccount, cascadeDeletedOwner, retireAccount, isLastSuperadmin };
+module.exports = { exportAccount, contentSummary, deleteAccount, cascadeDeletedOwner, retireAccount, isLastSuperadmin };

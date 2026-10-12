@@ -36,6 +36,7 @@ const ResumeManager = lazy(() => import('./pages/admin/ResumeManager'));
 const AppsPage = lazy(() => import('./pages/admin/AppsPage'));
 const AppEditorPage = lazy(() => import('./pages/admin/AppEditorPage'));
 const AccountSettings = lazy(() => import('./pages/admin/AccountSettings'));
+const AppearancePage = lazy(() => import('./pages/admin/AppearancePage'));
 const SuperadminPanel = lazy(() => import('./pages/admin/SuperadminPanel'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
@@ -101,6 +102,7 @@ export default function App() {
               <Route path="apps" element={<AppsPage />} />
               <Route path="apps/:id" element={<AppEditorPage />} />
               <Route path="account" element={<AccountSettings />} />
+              <Route path="appearance" element={<AppearancePage />} />
               <Route path="superadmin" element={<SuperadminPanel />} />
             </Route>
 

@@ -4,7 +4,7 @@
 
 /* ═══════════════════════════════════════════════════════════════
    Universal Designer Themes — Balanced & Softened Contrast
-   Groups: Modern Dark (7) · Refined Light (5) · Funky (4) · Unique (4)
+   Groups: Dark · Light · Bold · Atmospheric · Accessible (28, see ThemeContext.jsx)
    ═══════════════════════════════════════════════════════════════ */
 
 /* ════════════════════ MODERN DARK THEMES ══════════════════════ */
@@ -29,7 +29,7 @@
   --theme-text-dim:      #758398;
   --theme-brand:         #3b82f6;
   --theme-brand-glow:    rgba(59, 130, 246, 0.25);
-  --theme-danger:        #ef4444;
+  --theme-danger:#fa4f4d;
   --theme-danger-dim:    rgba(239, 68, 68, 0.14);
   --theme-warn:          #fbbf24;
   --theme-code-bg:       #0f1520;
@@ -43,18 +43,18 @@
   --theme-surface-hi:    #181b26;
   --theme-border:        #222636;
   --theme-border-hi:     #32384e;
-  --theme-accent:        #6366f1;
+  --theme-accent:#6264ef;
   --theme-accent-bright: #818cf8;
   --theme-on-accent:     #ffffff;
-  --theme-accent2:       #a855f7;
+  --theme-accent2:#ab69f0;
   --theme-accent2-dim:   rgba(168, 85, 247, 0.12);
-  --theme-on-accent2:    #ffffff;
+  --theme-on-accent2:#08090d;
   --theme-text:          #f3f4f8;
   --theme-text-muted:    #9096ad;
   --theme-text-dim:      #797f93;
   --theme-brand:         #6366f1;
   --theme-brand-glow:    rgba(99, 102, 241, 0.25);
-  --theme-danger:        #f43f5e;
+  --theme-danger:#f84361;
   --theme-danger-dim:    rgba(244, 63, 94, 0.14);
   --theme-warn:          #fbbf24;
   --theme-code-bg:       #0e1017;
@@ -79,7 +79,7 @@
   --theme-text-dim:      #7d7d86;
   --theme-brand:         #0070f3;
   --theme-brand-glow:    rgba(0, 112, 243, 0.25);
-  --theme-danger:        #ef4444;
+  --theme-danger:#f44a49;
   --theme-danger-dim:    rgba(239, 68, 68, 0.14);
   --theme-warn:          #fbbf24;
   --theme-code-bg:       #101014;
@@ -105,7 +105,7 @@
   --theme-text-dim:      #708491;
   --theme-brand:         #3ecf8e;
   --theme-brand-glow:    rgba(62, 207, 142, 0.25);
-  --theme-danger:        #f43f5e;
+  --theme-danger:#fb4764;
   --theme-danger-dim:    rgba(244, 63, 94, 0.14);
   --theme-warn:          #fbbf24;
   --theme-code-bg:       #0e1519;
@@ -122,16 +122,16 @@
   --theme-border-hi:     #43386b;
   --theme-accent:        #8b5cf6;
   --theme-accent-bright: #a78bfa;
-  --theme-on-accent:     #ffffff;
+  --theme-on-accent:#0c0a14;
   --theme-accent2:       #ec4899;
   --theme-accent2-dim:   rgba(236, 72, 153, 0.12);
-  --theme-on-accent2:    #ffffff;
+  --theme-on-accent2:#0c0a14;
   --theme-text:          #f5f3ff;
   --theme-text-muted:    #9e94be;
   --theme-text-dim:      #81799d;
   --theme-brand:         #8b5cf6;
   --theme-brand-glow:    rgba(139, 92, 246, 0.25);
-  --theme-danger:        #f43f5e;
+  --theme-danger:#fa4562;
   --theme-danger-dim:    rgba(244, 63, 94, 0.14);
   --theme-warn:          #fbbf24;
   --theme-code-bg:       #110e1c;
@@ -206,7 +206,7 @@
   --theme-accent:        #2563eb;
   --theme-accent-bright: #1d4ed8;
   --theme-on-accent:     #ffffff;
-  --theme-accent2:       #059669;
+  --theme-accent2:#0f7c57;
   --theme-accent2-dim:   #d1fae5;
   --theme-on-accent2:    #ffffff;
   --theme-text:          #090d16;
@@ -214,7 +214,7 @@
   --theme-text-dim:      #475569;
   --theme-brand:         #2563eb;
   --theme-brand-glow:    rgba(37, 99, 235, 0.15);
-  --theme-danger:        #dc2626;
+  --theme-danger:#cf1019;
   --theme-danger-dim:    #fee2e2;
   --theme-warn:          #b45309;
   --theme-code-bg:       #f1f5f9;
@@ -233,7 +233,7 @@
   --theme-accent:        #c2410c;
   --theme-accent-bright: #9a3412;
   --theme-on-accent:     #ffffff;
-  --theme-accent2:       #d97706;
+  --theme-accent2:#a05d21;
   --theme-accent2-dim:   #fef3c7;
   --theme-on-accent2:    #ffffff;
   --theme-text:          #1c120c;
@@ -241,9 +241,9 @@
   --theme-text-dim:      #685542;
   --theme-brand:         #c2410c;
   --theme-brand-glow:    rgba(194, 65, 12, 0.15);
-  --theme-danger:        #dc2626;
+  --theme-danger:#cf1019;
   --theme-danger-dim:    #fee2e2;
-  --theme-warn:          #b45309;
+  --theme-warn:#b15002;
   --theme-code-bg:       #f4eee3;
 }
 
@@ -258,8 +258,8 @@
   --theme-border-hi:     #829ab1;
   --theme-accent:        #0284c7;
   --theme-accent-bright: #0369a1;
-  --theme-on-accent:     #ffffff;
-  --theme-accent2:       #0d9488;
+  --theme-on-accent:#0a0c10;
+  --theme-accent2:#137b71;
   --theme-accent2-dim:   #ccfbf1;
   --theme-on-accent2:    #ffffff;
   --theme-text:          #081726;
@@ -267,9 +267,9 @@
   --theme-text-dim:      #486581;
   --theme-brand:         #0284c7;
   --theme-brand-glow:    rgba(2, 132, 199, 0.15);
-  --theme-danger:        #dc2626;
+  --theme-danger:#cf1019;
   --theme-danger-dim:    #fee2e2;
-  --theme-warn:          #b45309;
+  --theme-warn:#a2511e;
   --theme-code-bg:       #e2e8f0;
 }
 
@@ -284,8 +284,8 @@
   --theme-border-hi:     #8ea797;
   --theme-accent:        #059669;
   --theme-accent-bright: #047857;
-  --theme-on-accent:     #ffffff;
-  --theme-accent2:       #10b981;
+  --theme-on-accent:#0a0c10;
+  --theme-accent2:#147c56;
   --theme-accent2-dim:   #d1fae5;
   --theme-on-accent2:    #ffffff;
   --theme-text:          #0a1c12;
@@ -293,9 +293,9 @@
   --theme-text-dim:      #446352;
   --theme-brand:         #059669;
   --theme-brand-glow:    rgba(5, 150, 105, 0.15);
-  --theme-danger:        #dc2626;
+  --theme-danger:#cf1019;
   --theme-danger-dim:    #fee2e2;
-  --theme-warn:          #b45309;
+  --theme-warn:#a3521f;
   --theme-code-bg:       #e3ebe6;
 }
 
@@ -312,7 +312,7 @@
   --theme-accent:        #7c3aed;
   --theme-accent-bright: #6d28d9;
   --theme-on-accent:     #ffffff;
-  --theme-accent2:       #a855f7;
+  --theme-accent2:#913add;
   --theme-accent2-dim:   #ede9fe;
   --theme-on-accent2:    #ffffff;
   --theme-text:          #140b24;
@@ -320,9 +320,9 @@
   --theme-text-dim:      #5b497a;
   --theme-brand:         #7c3aed;
   --theme-brand-glow:    rgba(124, 58, 237, 0.15);
-  --theme-danger:        #e11d48;
+  --theme-danger:#c62c45;
   --theme-danger-dim:    #ffe4e6;
-  --theme-warn:          #b45309;
+  --theme-warn:#a2511e;
   --theme-code-bg:       #eae5f5;
 }
 
@@ -367,16 +367,16 @@
   --theme-border-hi:     #563496;
   --theme-accent:        #f43f5e;
   --theme-accent-bright: #fb7185;
-  --theme-on-accent:     #ffffff;
-  --theme-accent2:       #8b5cf6;
+  --theme-on-accent:#0f081c;
+  --theme-accent2:#9472f3;
   --theme-accent2-dim:   rgba(139, 92, 246, 0.12);
-  --theme-on-accent2:    #ffffff;
+  --theme-on-accent2:#0f081c;
   --theme-text:          #fdf2f8;
   --theme-text-muted:    #b59db8;
   --theme-text-dim:      #8b7991;
   --theme-brand:         #f43f5e;
   --theme-brand-glow:    rgba(244, 63, 94, 0.25);
-  --theme-danger:        #ff2a6d;
+  --theme-danger:#f34a74;
   --theme-danger-dim:    rgba(255, 42, 109, 0.14);
   --theme-warn:          #fbbf24;
   --theme-code-bg:       #140c26;
@@ -402,7 +402,7 @@
   --theme-text-dim:      #8789a6;
   --theme-brand:         #bd93f9;
   --theme-brand-glow:    rgba(189, 147, 249, 0.25);
-  --theme-danger:        #ff5555;
+  --theme-danger:#f76965;
   --theme-danger-dim:    rgba(255, 85, 85, 0.14);
   --theme-warn:          #fbbf24;
   --theme-code-bg:       #1c1c2b;
@@ -420,7 +420,7 @@
   --theme-border-hi:     #364c76;
   --theme-accent:        #ff2a6d;
   --theme-accent-bright: #ff6090;
-  --theme-on-accent:     #ffffff;
+  --theme-on-accent:#0a0c10;
   --theme-accent2:       #05d9e8;
   --theme-accent2-dim:   rgba(5, 217, 232, 0.12);
   --theme-on-accent2:    #011d20;
@@ -429,7 +429,7 @@
   --theme-text-dim:      #70839b;
   --theme-brand:         #ff2a6d;
   --theme-brand-glow:    rgba(255, 42, 109, 0.25);
-  --theme-danger:        #ff2a6d;
+  --theme-danger:#f34a74;
   --theme-danger-dim:    rgba(255, 42, 109, 0.14);
   --theme-warn:          #fbbf24;
   --theme-code-bg:       #0c121e;
@@ -449,9 +449,9 @@
   --theme-accent:        #00d2d3;
   --theme-accent-bright: #48dbfb;
   --theme-on-accent:     #02121c;
-  --theme-accent2:       #2e86de;
+  --theme-accent2:#378ee7;
   --theme-accent2-dim:   rgba(46, 134, 222, 0.12);
-  --theme-on-accent2:    #ffffff;
+  --theme-on-accent2:#050c14;
   --theme-text:          #e3fafc;
   --theme-text-muted:    #7da7c4;
   --theme-text-dim:      #5f849d;
@@ -474,15 +474,15 @@
   --theme-accent:        #e5a93c;
   --theme-accent-bright: #f5be58;
   --theme-on-accent:     #140d02;
-  --theme-accent2:       #9b7a42;
+  --theme-accent2:#ac8b52;
   --theme-accent2-dim:   rgba(229, 169, 60, 0.12);
-  --theme-on-accent2:    #ffffff;
+  --theme-on-accent2:#0a0c10;
   --theme-text:          #fdfaf3;
   --theme-text-muted:    #b5a997;
   --theme-text-dim:      #877e70;
   --theme-brand:         #e5a93c;
   --theme-brand-glow:    rgba(229, 169, 60, 0.25);
-  --theme-danger:        #e74c3c;
+  --theme-danger:#f05544;
   --theme-danger-dim:    rgba(231, 76, 60, 0.14);
   --theme-warn:          #fbbf24;
   --theme-code-bg:       #13110f;
@@ -501,13 +501,13 @@
   --theme-on-accent:     #021411;
   --theme-accent2:       #818cf8;
   --theme-accent2-dim:   rgba(129, 140, 248, 0.12);
-  --theme-on-accent2:    #ffffff;
+  --theme-on-accent2:#0a0c10;
   --theme-text:          #f0fdf9;
   --theme-text-muted:    #7fa7a2;
   --theme-text-dim:      #658883;
   --theme-brand:         #2dd4bf;
   --theme-brand-glow:    rgba(45, 212, 191, 0.25);
-  --theme-danger:        #f43f5e;
+  --theme-danger:#fa4562;
   --theme-danger-dim:    rgba(244, 63, 94, 0.14);
   --theme-warn:          #fbbf24;
   --theme-code-bg:       #08151f;
@@ -533,10 +533,221 @@
   --theme-text-dim:      #818189;
   --theme-brand:         #e4e4e7;
   --theme-brand-glow:    rgba(228, 228, 231, 0.20);
-  --theme-danger:        #ef4444;
+  --theme-danger:#f84d4c;
   --theme-danger-dim:    rgba(239, 68, 68, 0.14);
   --theme-warn:          #fbbf24;
   --theme-code-bg:       #131316;
+}
+
+/* ════════════════════ ADDED 2026-10-12 ════════════════════════
+   Generated with src/theme/derive.js and checked by src/theme/themes.test.js,
+   like every block above: edit a value, run the tests. */
+
+/* ── High Contrast Dark ────────────────────────────────────── */
+[data-theme="hc-dark"] {
+  color-scheme: dark;
+  --theme-bg:                  #000000;
+  --theme-surface:             #0d0d0d;
+  --theme-surface-hi:          #1a1a1a;
+  --theme-border:              #5c5c5c;
+  --theme-border-hi:           #9a9a9a;
+  --theme-accent:              #ffd400;
+  --theme-accent-bright:       #feefbb;
+  --theme-on-accent:           #080a0e;
+  --theme-accent2:             #00e5ff;
+  --theme-accent2-dim:         rgba(0, 229, 255, 0.12);
+  --theme-on-accent2:          #080a0e;
+  --theme-text:                #ffffff;
+  --theme-text-muted:          #e6e6e6;
+  --theme-text-dim:            #cccccc;
+  --theme-brand:               #feefbb;
+  --theme-brand-glow:          rgba(255, 212, 0, 0.25);
+  --theme-danger:              #f87171;
+  --theme-danger-dim:          rgba(248, 113, 113, 0.14);
+  --theme-warn:                #fbbf24;
+  --theme-code-bg:             #0d0d0d;
+}
+
+/* ── High Contrast Light ───────────────────────────────────── */
+[data-theme="hc-light"] {
+  color-scheme: light;
+  --theme-bg:                  #ffffff;
+  --theme-surface:             #ffffff;
+  --theme-surface-hi:          #f0f0f0;
+  --theme-border:              #767676;
+  --theme-border-hi:           #3d3d3d;
+  --theme-accent:              #0033cc;
+  --theme-accent-bright:       #0025a2;
+  --theme-on-accent:           #ffffff;
+  --theme-accent2:             #8a1c5c;
+  --theme-accent2-dim:         rgba(138, 28, 92, 0.12);
+  --theme-on-accent2:          #ffffff;
+  --theme-text:                #000000;
+  --theme-text-muted:          #1f1f1f;
+  --theme-text-dim:            #333333;
+  --theme-brand:               #0025a2;
+  --theme-brand-glow:          rgba(0, 51, 204, 0.15);
+  --theme-danger:              #c4181a;
+  --theme-danger-dim:          rgba(196, 24, 26, 0.14);
+  --theme-warn:                #a14a07;
+  --theme-code-bg:             #f2f2f2;
+}
+
+/* ── Signal (colour-blind safe) ────────────────────────────── */
+[data-theme="cb-signal"] {
+  color-scheme: dark;
+  --theme-bg:                  #1d2129;
+  --theme-surface:             #252931;
+  --theme-surface-hi:          #2e323a;
+  --theme-border:              #3a3e46;
+  --theme-border-hi:           #4b4f57;
+  --theme-accent:              #e69f00;
+  --theme-accent-bright:       #feb534;
+  --theme-on-accent:           #080a0e;
+  --theme-accent2:             #56b4e9;
+  --theme-accent2-dim:         rgba(86, 180, 233, 0.12);
+  --theme-on-accent2:          #080a0e;
+  --theme-text:                #eef2fa;
+  --theme-text-muted:          #b3b7c0;
+  --theme-text-dim:            #969aa2;
+  --theme-brand:               #feb534;
+  --theme-brand-glow:          rgba(230, 159, 0, 0.25);
+  --theme-danger:              #e3a0c6;
+  --theme-danger-dim:          rgba(227, 160, 198, 0.14);
+  --theme-warn:                #f0e442;
+  --theme-code-bg:             #22262e;
+}
+
+/* ── OLED Black ────────────────────────────────────────────── */
+[data-theme="oled-black"] {
+  color-scheme: dark;
+  --theme-bg:                  #000000;
+  --theme-surface:             #0a0a0a;
+  --theme-surface-hi:          #141313;
+  --theme-border:              #232122;
+  --theme-border-hi:           #373435;
+  --theme-accent:              #ff8a3d;
+  --theme-accent-bright:       #fab187;
+  --theme-on-accent:           #080a0e;
+  --theme-accent2:             #7dd3fc;
+  --theme-accent2-dim:         rgba(125, 211, 252, 0.12);
+  --theme-on-accent2:          #080a0e;
+  --theme-text:                #f9eff1;
+  --theme-text-muted:          #b3acae;
+  --theme-text-dim:            #918a8c;
+  --theme-brand:               #fab187;
+  --theme-brand-glow:          rgba(255, 138, 61, 0.25);
+  --theme-danger:              #f87171;
+  --theme-danger-dim:          rgba(248, 113, 113, 0.14);
+  --theme-warn:                #fbbf24;
+  --theme-code-bg:             #060606;
+}
+
+/* ── Solar Dark ────────────────────────────────────────────── */
+[data-theme="solar-dark"] {
+  color-scheme: dark;
+  --theme-bg:                  #002b36;
+  --theme-surface:             #09333e;
+  --theme-surface-hi:          #133b45;
+  --theme-border:              #214751;
+  --theme-border-hi:           #335761;
+  --theme-accent:              #b58900;
+  --theme-accent-bright:       #cc9f2e;
+  --theme-on-accent:           #080a0e;
+  --theme-accent2:             #4abab1;
+  --theme-accent2-dim:         rgba(74, 186, 177, 0.12);
+  --theme-on-accent2:          #080a0e;
+  --theme-text:                #e9f4f7;
+  --theme-text-muted:          #a8bcc1;
+  --theme-text-dim:            #87a0a6;
+  --theme-brand:               #cc9f2e;
+  --theme-brand-glow:          rgba(181, 137, 0, 0.25);
+  --theme-danger:              #fb8785;
+  --theme-danger-dim:          rgba(251, 135, 133, 0.14);
+  --theme-warn:                #fbbf24;
+  --theme-code-bg:             #06303b;
+}
+
+/* ── Solar Light ───────────────────────────────────────────── */
+[data-theme="solar-light"] {
+  color-scheme: light;
+  --theme-bg:                  #fdf6e3;
+  --theme-surface:             #fefcf7;
+  --theme-surface-hi:          #f3ecd9;
+  --theme-border:              #d8d2c1;
+  --theme-border-hi:           #b8b3a4;
+  --theme-accent:              #209b92;
+  --theme-accent-bright:       #197d76;
+  --theme-on-accent:           #080a0e;
+  --theme-accent2:             #be1c70;
+  --theme-accent2-dim:         rgba(190, 28, 112, 0.12);
+  --theme-on-accent2:          #ffffff;
+  --theme-text:                #181610;
+  --theme-text-muted:          #58554b;
+  --theme-text-dim:            #726e63;
+  --theme-brand:               #197d76;
+  --theme-brand-glow:          rgba(32, 155, 146, 0.15);
+  --theme-danger:              #c4181a;
+  --theme-danger-dim:          rgba(196, 24, 26, 0.14);
+  --theme-warn:                #a14a07;
+  --theme-code-bg:             #f5eedc;
+}
+
+/* ── Riso ──────────────────────────────────────────────────── */
+[data-theme="riso-print"] {
+  color-scheme: light;
+  --theme-bg:                  #f6f1e7;
+  --theme-surface:             #fcfbf8;
+  --theme-surface-hi:          #ece7dd;
+  --theme-border:              #d3cec5;
+  --theme-border-hi:           #b4afa6;
+  --theme-accent:              #d6246e;
+  --theme-accent-bright:       #b2225c;
+  --theme-on-accent:           #ffffff;
+  --theme-accent2:             #1d4ed8;
+  --theme-accent2-dim:         rgba(29, 78, 216, 0.12);
+  --theme-on-accent2:          #ffffff;
+  --theme-text:                #191610;
+  --theme-text-muted:          #57534c;
+  --theme-text-dim:            #706c65;
+  --theme-brand:               #b2225c;
+  --theme-brand-glow:          rgba(214, 36, 110, 0.15);
+  --theme-danger:              #c4181a;
+  --theme-danger-dim:          rgba(196, 24, 26, 0.14);
+  --theme-warn:                #a14a07;
+  --theme-code-bg:             #eee9df;
+}
+
+/* ── Overcast ──────────────────────────────────────────────── */
+[data-theme="overcast"] {
+  color-scheme: dark;
+  --theme-bg:                  #22272e;
+  --theme-surface:             #2a2f37;
+  --theme-surface-hi:          #32373f;
+  --theme-border:              #3e434b;
+  --theme-border-hi:           #4f535b;
+  --theme-accent:              #8ddb8c;
+  --theme-accent-bright:       #a3f2a2;
+  --theme-on-accent:           #080a0e;
+  --theme-accent2:             #f69d50;
+  --theme-accent2-dim:         rgba(246, 157, 80, 0.12);
+  --theme-on-accent2:          #080a0e;
+  --theme-text:                #edf2fa;
+  --theme-text-muted:          #b4b9c1;
+  --theme-text-dim:            #989da5;
+  --theme-brand:               #a3f2a2;
+  --theme-brand-glow:          rgba(141, 219, 140, 0.25);
+  --theme-danger:              #fe8a88;
+  --theme-danger-dim:          rgba(254, 138, 136, 0.14);
+  --theme-warn:                #fbbf24;
+  --theme-code-bg:             #272c34;
+}
+
+/* The focus ring colour. No preset sets it, so it follows accent-bright; a custom theme sets it inline.
+   Checked at 3:1 against bg and surface for every theme. */
+:root,
+[data-theme] {
+  --theme-focus: var(--theme-accent-bright);
 }
 
 /* ════════════════════ UNIVERSAL THEME UTILITIES ════════════════ */
@@ -590,7 +801,7 @@ html, body {
 
 /* Consistent keyboard focus treatment across dashboard forms and navigation. */
 :where(a, button, input, select, textarea, summary, [role="switch"]):focus-visible {
-  outline: 2px solid var(--theme-accent-bright);
+  outline: 2px solid var(--theme-focus);
   outline-offset: 2px;
 }
 
@@ -765,7 +976,7 @@ html {
 
 /* ═══════════════════════════════════════════════════════════════
    Design layer — typography, depth, motion and states.
-   Everything below reads theme tokens only, so all 20 themes keep working.
+   Everything below reads theme tokens only, so every theme keeps working.
    ═══════════════════════════════════════════════════════════════ */
 
 ::selection {
@@ -785,7 +996,7 @@ html {
 
 /* Interaction: every control answers hover, press and keyboard focus. */
 :where(a, button, input, select, textarea, summary, [role="switch"], [role="radio"]):focus-visible {
-  outline: 2px solid var(--theme-accent-bright);
+  outline: 2px solid var(--theme-focus);
   outline-offset: 2px;
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--theme-accent) 22%, transparent);
 }
@@ -866,7 +1077,7 @@ html {
 
 /* ═══════════════════════════════════════════════════════════════
    Public pages — the typography for the repository's own markdown.
-   Reads theme tokens only, so all 18 themes keep working.
+   Reads theme tokens only, so every theme keeps working.
    ═══════════════════════════════════════════════════════════════ */
 
 .doc-prose {
