@@ -218,6 +218,17 @@ Any of these works. You want **Ubuntu 24.04**, at least **1 vCPU and 2 GB RAM** 
 2. Authentication: SSH public key. Inbound ports: allow **SSH (22), HTTP (80), HTTPS (443)** (this creates a *network security group*).
 3. After creation, open the VM's **public IP address** resource → Configuration → set assignment to **Static**. Log in with the admin username you chose.
 
+**Oracle Cloud (Always Free)**:
+1. Compute → Instances → Create → image **Ubuntu 24.04** → shape **VM.Standard.A1.Flex** (Ampere ARM; the free tier allows up to 4 OCPU / 24 GB, and 2 OCPU / 12 GB is plenty). Both Docker images used here support ARM. Paste your SSH public key and log in as user `ubuntu`.
+2. Open the ports in **two** places. In the console: the instance's subnet → Security List → add ingress rules from `0.0.0.0/0` for TCP 80, TCP 443 and UDP 443. On the machine, Oracle's Ubuntu image has its own firewall that blocks everything except SSH. In §7.3, **skip step 2 (ufw)** and run this instead:
+   ```bash
+   sudo iptables -I INPUT -p tcp -m multiport --dports 80,443 -j ACCEPT
+   sudo iptables -I INPUT -p udp --dport 443 -j ACCEPT
+   sudo netfilter-persistent save
+   ```
+3. The public IP stays the same for as long as the instance exists. To keep it after the instance is deleted, reserve it under Networking → Reserved public IPs.
+4. Oracle reclaims Always Free instances that look idle for 7 days (CPU, network and memory all under 20%). A small admin panel will look idle, so after §7.4 run `sudo bash deploy/vps/oracle-keepalive.sh install`. It holds the CPU near 30% at the lowest priority and gives the CPU back whenever the app needs it. Check it with `bash deploy/vps/oracle-keepalive.sh status`; remove it with `sudo bash deploy/vps/oracle-keepalive.sh uninstall`. Upgrading the account to Pay As You Go also stops reclamation, and Always Free resources stay free.
+
 Now add this IP to Atlas **Network Access** ([§4](#4-the-production-database-mongodb-atlas)).
 
 ### 7.2 Point your domain at it
@@ -314,7 +325,7 @@ Open `https://example.com` and `https://api.example.com/readyz` (should show `{"
 - **Change an API setting:** edit `server/.env`, then `docker compose up -d` (recreates the API).
 - **Change a dashboard setting:** edit `client/.env`, then `docker compose up -d --build web`.
 - **Logs:** `docker compose logs --since 1h api`. They rotate automatically (10 × 20 MB).
-- **Reboots:** both containers restart by themselves (`restart: unless-stopped`).
+- **Reboots:** both containers restart by themselves (`restart: unless-stopped`), and so does the Oracle keep-alive service if you installed it.
 - **Server snapshots:** turn on your provider's weekly backups/snapshots (a few cents a month). They don't replace database backups ([§11](#11-backups)).
 
 ---
