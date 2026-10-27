@@ -6,7 +6,7 @@
 # The build reads client/.env if it exists, and any VITE_* build argument (Railway passes service
 # variables as build arguments). VITE_MODE=prod is the switch; the build fails if an input is missing.
 
-FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS build
+FROM node:26-alpine@sha256:40cd011b55415bc894e45b02fdd5a5dfde056921b7d23a64c74f80497af48797 AS build
 WORKDIR /repo
 
 COPY client/package.json client/package-lock.json client/
