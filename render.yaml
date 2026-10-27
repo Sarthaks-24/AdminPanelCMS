@@ -35,6 +35,13 @@ services:
       # Signup is opened later from the Superadmin panel (the panel's choice wins over this value).
       - key: SIGNUP_MODE
         value: closed
+      # No verified Resend sending domain exists for this deployment, and the Resend test sender only
+      # delivers to the account owner. Without this, /signup would create accounts nobody could finish:
+      # the password is only set from the verification link. `disabled` hands that link back to the browser
+      # instead. It proves nothing about who owns the address, so anyone who can type one gets a working
+      # account at it. Remove it the moment a real sending domain exists. See server/.env.example.
+      - key: MAIL_DELIVERY
+        value: disabled
       # Asked on creation: type false. Change it to true in the service's Environment tab once the
       # legal pages are final (DEPLOYMENT.md §12).
       - key: LEGAL_POLICIES_APPROVED

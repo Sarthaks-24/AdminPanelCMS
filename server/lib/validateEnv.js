@@ -1,4 +1,4 @@
-const { MAIL_TRANSPORTS, consoleMailActive } = require('./mailer');
+const { MAIL_TRANSPORTS, consoleMailActive, mailDeliveryDisabled } = require('./mailer');
 const { envMode, MODES } = require('./signupMode');
 const { mailReadinessProblems } = require('./mailReadiness');
 const { numericEnvProblems, disabledGuards, envNumber } = require('./envNumber');
@@ -116,7 +116,8 @@ function validateEnv(env = process.env) {
     if (siteKey && !secretKey) problems.push('TURNSTILE_SITE_KEY is set but TURNSTILE_SECRET_KEY is not: the dashboard would show a captcha the server never checks. Set both keys or neither.');
     // CB-18: Cloudflare's test keys pass (or fail) every challenge.
     if (TURNSTILE_TEST_KEY.test(secretKey) || TURNSTILE_TEST_KEY.test(siteKey)) problems.push('TURNSTILE_SECRET_KEY / TURNSTILE_SITE_KEY are Cloudflare test keys; use the keys of your Turnstile widget in production');
-    if (String(env.MAIL_TRANSPORT || '').trim().toLowerCase() === 'console') problems.push('MAIL_TRANSPORT=console only prints email to the log and is for development; remove it (or set it to resend) in production');
+    if (mailDeliveryDisabled(env)) warnings.push('MAIL_DELIVERY=disabled: no account email is sent, and /signup hands the verification link straight back to the browser that asked for it. Anyone who can type an address gets a working account at it, so this must not run a service real people sign up to. Unset it once a verified sending domain exists.');
+    else if (String(env.MAIL_TRANSPORT || '').trim().toLowerCase() === 'console') problems.push('MAIL_TRANSPORT=console only prints email to the log and is for development; remove it (or set it to resend) in production');
     for (const guard of disabledGuards(env)) warnings.push(guard);
     // Left at the default behind a proxy, every visitor shares one IP and the rate limits lock everyone out together.
     if (env.TRUST_PROXY_HOPS === undefined || env.TRUST_PROXY_HOPS === '') problems.push('TRUST_PROXY_HOPS must be set explicitly in production (0 if Node is reached directly, 1 behind one reverse proxy)');

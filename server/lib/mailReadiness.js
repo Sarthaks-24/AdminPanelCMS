@@ -1,4 +1,4 @@
-const { isRealMailKey } = require('./mailer');
+const { isRealMailKey, mailDeliveryDisabled } = require('./mailer');
 const { envNumber } = require('./envNumber');
 
 const EMAIL = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
@@ -9,6 +9,9 @@ const EMAIL = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 // email names who runs the service and where to write, so a missing identity counts like a missing key.
 function mailReadinessProblems(env = process.env) {
   const problems = [];
+  // MAIL_DELIVERY=disabled hands verification links back to the browser instead of sending them, so a missing
+  // sender is the stated configuration rather than a fault. validateEnv warns loudly about the mode itself.
+  if (mailDeliveryDisabled(env)) return problems;
   if (!isRealMailKey(env.RESEND_MAIL_KEY)) problems.push('RESEND_MAIL_KEY is missing or still the placeholder: no verification or password-reset email can be sent');
   else if (!env.RESEND_FROM_EMAIL) problems.push('RESEND_FROM_EMAIL must be set to a sender on a domain verified with Resend');
   else if (/@resend\.dev>?$/i.test(env.RESEND_FROM_EMAIL)) problems.push('RESEND_FROM_EMAIL is the Resend test sender, which only delivers to your own address; use an address on your verified domain');

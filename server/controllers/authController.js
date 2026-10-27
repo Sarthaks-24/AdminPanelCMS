@@ -241,6 +241,12 @@ async function signup(req, res, next) {
     const token = await issueEmailToken(user._id, 'verify');
     sendInBackground(mailer.sendVerification(user, token), 'verification', req);
     logger.event('signup', { reqId: req.id, userId: String(user._id), mode });
+    // With delivery off the link has nowhere to go, so it goes back to the browser that just asked for it.
+    // Only on this path: the branches above answer for addresses that already exist, and a link there would
+    // say so. The address is still unproved, which is the whole cost of MAIL_DELIVERY=disabled (lib/mailer.js).
+    if (mailer.mailDeliveryDisabled()) {
+      return res.status(200).json({ ...GENERIC_SIGNUP, mailDelivery: 'disabled', verifyUrl: mailer.verificationLink(token) });
+    }
     return res.status(200).json(GENERIC_SIGNUP);
   } catch (error) { return next(error); }
 }

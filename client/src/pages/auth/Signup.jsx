@@ -42,7 +42,7 @@ export default function Signup() {
     setLoading(true);
     try {
       const email = form.email.trim();
-      await api.post('/auth/signup', {
+      const { data } = await api.post('/auth/signup', {
         email,
         inviteCode: config?.signupMode === 'invite' ? form.inviteCode.trim() : undefined,
         acceptedTerms: true,
@@ -51,6 +51,13 @@ export default function Signup() {
         privacyVersion: PRIVACY_VERSION,
         captchaToken: siteKey ? captchaToken : undefined,
       });
+      // A deployment running MAIL_DELIVERY=disabled has no inbox to send people to: it answers with the
+      // verification link itself, so go straight to the page that link would have opened.
+      if (data?.mailDelivery === 'disabled' && data?.verifyUrl) {
+        const { pathname, search } = new URL(data.verifyUrl);
+        navigate(`${pathname}${search}`, { replace: true });
+        return;
+      }
       navigate('/check-email', { replace: true, state: { email } });
     } catch (err) {
       const code = err.response?.data?.error;

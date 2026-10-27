@@ -12,11 +12,21 @@ function setMailTransport(next) {
 // The example placeholder (re_xxxxxxxxx) is not a key; treating it as one would accept signups whose emails can never send.
 const isRealMailKey = (key) => { const value = String(key || '').trim(); return value.length > 3 && !/^re_x+$/i.test(value); };
 
+// MAIL_DELIVERY=disabled turns account email off on purpose, production included. It exists for a deployment
+// with no verified sending domain, where the alternative is a signup form that creates accounts nobody can
+// ever finish: the password is only set from the verification link (authController.verifyEmail), so an
+// undeliverable link is a dead account. With it on, the link is handed back to the browser that asked for it
+// instead (authController.signup), and every email is printed to the log. It is NOT a way to run a public
+// service: anyone who can type an address gets a working account at it, so email ownership is never proved.
+const mailDeliveryDisabled = (env = process.env) => String(env.MAIL_DELIVERY || '').trim().toLowerCase() === 'disabled';
+
 // NF-17: MAIL_TRANSPORT=console prints each email (recipient, subject, text with its links) to stdout instead
 // of sending it, so the email-first signup can be walked locally. Development also falls back to it when no
-// Resend key is set. Never in production: validateEnv refuses MAIL_TRANSPORT=console there, and this ignores it.
+// Resend key is set. In production only MAIL_DELIVERY=disabled reaches it: validateEnv still refuses a bare
+// MAIL_TRANSPORT=console there.
 const MAIL_TRANSPORTS = ['resend', 'console'];
 function consoleMailActive(env = process.env) {
+  if (mailDeliveryDisabled(env)) return true;
   if (env.NODE_ENV === 'production') return false;
   const chosen = String(env.MAIL_TRANSPORT || '').trim().toLowerCase();
   if (chosen) return chosen === 'console';
@@ -99,7 +109,7 @@ async function sendMail(message) {
   }
   if (consoleMailActive()) {
     const { text } = template(message);
-    console.log(`[Mail:console] Not sent (MAIL_TRANSPORT=console)
+    console.log(`[Mail:console] Not sent (${mailDeliveryDisabled() ? 'MAIL_DELIVERY=disabled' : 'MAIL_TRANSPORT=console'})
 To: ${message.to}
 Subject: ${message.subject}
 
@@ -160,4 +170,6 @@ async function sendTokenExpiryWarning(user, tokens) {
   });
 }
 
-module.exports = { setMailTransport, isConfigured, isRealMailKey, consoleMailActive, MAIL_TRANSPORTS, sendVerification, sendPasswordReset, sendAccountExistsNotice, sendTokenExpiryWarning, renderMail: template };
+const verificationLink = (token) => link(VERIFY_PATH, token);
+
+module.exports = { setMailTransport, isConfigured, isRealMailKey, consoleMailActive, mailDeliveryDisabled, verificationLink, MAIL_TRANSPORTS, sendVerification, sendPasswordReset, sendAccountExistsNotice, sendTokenExpiryWarning, renderMail: template };
