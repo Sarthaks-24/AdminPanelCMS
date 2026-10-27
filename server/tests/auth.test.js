@@ -55,6 +55,24 @@ describe('session compatibility', () => {
     expect(verify.body).toMatchObject({ success: true, valid: true, admin: { id: user._id.toString(), email: user.email } });
   });
 
+  it('marks a SameSite=None session cookie Partitioned and expires the unpartitioned copy', async () => {
+    const previous = process.env.SESSION_COOKIE_SAMESITE;
+    process.env.SESSION_COOKIE_SAMESITE = 'none';
+    try {
+      const passwordHash = await bcrypt.hash('correct horse battery', 4);
+      await User.create({ email: 'split@test.com', passwordHash, tokenVersion: 0, emailVerifiedAt: new Date() });
+      const login = await request(app).post('/api/auth/login').send({ email: 'split@test.com', password: 'correct horse battery' });
+      expect(login.status).toBe(200);
+      const [session, legacy] = login.headers['set-cookie'];
+      expect(session).toMatch(/^session=[^;]+;.*SameSite=None; Secure; Partitioned/);
+      expect(legacy).toMatch(/^session=;.*Max-Age=0/);
+      expect(legacy).not.toMatch(/Partitioned/);
+    } finally {
+      if (previous === undefined) delete process.env.SESSION_COOKIE_SAMESITE;
+      else process.env.SESSION_COOKIE_SAMESITE = previous;
+    }
+  });
+
   it('only accepts HS256 session tokens', async () => {
     const user = await User.create({ email: 'alg@test.com', passwordHash: 'x', emailVerifiedAt: new Date(), tokenVersion: 0 });
     const forged = jwt.sign({ sub: user._id.toString(), tv: 0 }, process.env.JWT_SECRET, { algorithm: 'HS512' });

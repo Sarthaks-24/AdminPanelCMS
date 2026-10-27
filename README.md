@@ -56,7 +56,7 @@ The core idea is the per-App field allowlist. Apps never copy your data. They ar
 | Email | Resend (falls back to printing emails to the log in development) | Verification and password-reset mail |
 | Logging | pino, pino-http, request IDs | Structured logs for debugging the hosted service |
 | Dashboard | React 19, Vite 8, React Router 7, Tailwind CSS 3, Axios | Lazy-loaded routes, built-in themes plus a custom theme builder |
-| Tests | Vitest, Supertest, mongodb-memory-server; oxlint | About 270 server tests run against an in-memory database |
+| Tests | Vitest, Supertest, mongodb-memory-server; oxlint | 320+ server tests run against an in-memory database |
 | Hosting | Render (API, Docker), Netlify (dashboard), GitHub Actions (CI, heartbeat) | Free tiers; CI must pass before deploy |
 
 ## Architecture
@@ -142,7 +142,7 @@ The full walkthrough is in [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md).
 ### Tests and checks
 
 ```bash
-cd server && npm test                 # ~270 tests against an in-memory MongoDB
+cd server && npm test                 # 320+ tests against an in-memory MongoDB
 cd server && npm run lint:security    # static tenant-isolation check
 cd client && npm run lint && npm run build
 cd client && npm run smoke -- https://portfolio-control-sst.netlify.app https://portfolio-api-2oie.onrender.com
@@ -195,7 +195,7 @@ The full reference, including every tuning variable (rate limits, mail budget, s
 
 Both hosts auto-deploy on push. Health endpoints: `/livez` (process is up) and `/readyz` (database is reachable).
 
-The dashboard (`*.netlify.app`) and the API (`*.onrender.com`) are on different sites, so the session cookie uses `SameSite=None; Secure`. Browsers that block all third-party cookies (Safari by default, or Chrome with that setting turned on) won't keep you signed in on this free-hostname setup. Use Chrome, Edge or Firefox with default settings. Putting both behind one owned domain removes this limit.
+The dashboard (`*.netlify.app`) and the API (`*.onrender.com`) are on different sites, so the session cookie is `SameSite=None; Secure; Partitioned`. The `Partitioned` attribute keeps sign-in working in Chrome and Edge even when third-party cookies are blocked (for example in Incognito). Safari doesn't keep this cookie on this free-hostname setup, so use Chrome, Edge or Firefox. Putting both hosts behind one owned domain removes this limit.
 
 Step-by-step deployment guides: [DEPLOYMENT.md](DEPLOYMENT.md) (Render + Netlify, Railway, or a VPS with Docker and Caddy) and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Operations (backups, restore drill, monitoring): [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
