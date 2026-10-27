@@ -1,7 +1,7 @@
-# Render Blueprint: the API (Docker web service) and the dashboard (static site) in one file.
+# Render Blueprint: the API only. The dashboard is a Netlify project (see netlify.toml), so this
+# file no longer declares a static site.
 # Render dashboard → New → Blueprint → pick this repository. Render asks for every `sync: false`
 # value on first creation; DEPLOYMENT.md at the repository root (§6, §8.1) explains each one.
-# Afterwards add the custom domains: <apex> on the static site, api.<apex> on the API.
 
 services:
   - type: web
@@ -25,8 +25,13 @@ services:
       # Render's router is the one proxy in front of the container.
       - key: TRUST_PROXY_HOPS
         value: "1"
+      # The dashboard (*.netlify.app) and the API (*.onrender.com) are separate sites, so a Lax
+      # cookie is never sent with the dashboard's requests and nobody can stay signed in. `none`
+      # (always paired with Secure) is what makes the split work. Browsers that block third-party
+      # cookies outright, Safari among them, still will not keep the session; putting both behind
+      # one domain you own (app.example.com + api.example.com) is the fix, and lets this go back to `lax`.
       - key: SESSION_COOKIE_SAMESITE
-        value: lax
+        value: none
       # Signup is opened later from the Superadmin panel (the panel's choice wins over this value).
       - key: SIGNUP_MODE
         value: closed
@@ -56,71 +61,3 @@ services:
         sync: false
       - key: SUPPORT_EMAIL
         sync: false
-
-  - type: web
-    name: portfolio-web
-    runtime: static
-    # No rootDir: the build also reads server/contract and docs, outside client/.
-    buildCommand: cd client && npm ci && npm run build
-    staticPublishPath: client/dist
-    # A legal-version bump in server/contract must rebuild the dashboard too.
-    buildFilter:
-      paths:
-        - client/**
-        - server/contract/**
-        - docs/**
-    envVars:
-      - key: NODE_VERSION
-        value: "22"
-      - key: VITE_MODE
-        value: prod
-      - key: VITE_PROD_API_URL
-        sync: false
-      - key: VITE_SITE_DOMAIN
-        sync: false
-      - key: VITE_SITE_NAME
-        sync: false
-      - key: VITE_SITE_OPERATOR
-        sync: false
-      - key: VITE_SITE_JURISDICTION
-        sync: false
-      - key: VITE_SITE_SUPPORT_EMAIL
-        sync: false
-      - key: VITE_SITE_HOSTING_PROVIDER
-        value: Render Services, Inc.
-      - key: VITE_SITE_BACKUP_PROVIDER
-        sync: false
-      - key: VITE_SITE_LOG_PROVIDER
-        sync: false
-    routes:
-      # Client-side routes fall back to index.html.
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    # Render static sites ignore dist/_headers. The Content-Security-Policy itself is compiled into
-    # index.html as a <meta> tag at build time; the headers a <meta> cannot carry are set here.
-    headers:
-      - path: /*
-        name: Content-Security-Policy
-        value: "frame-ancestors 'none'"
-      - path: /*
-        name: X-Frame-Options
-        value: DENY
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
-      - path: /*
-        name: Referrer-Policy
-        value: no-referrer
-      - path: /*
-        name: Strict-Transport-Security
-        value: max-age=31536000; includeSubDomains
-      - path: /*
-        name: Permissions-Policy
-        value: camera=(), microphone=(), geolocation=(), payment=()
-      - path: /*
-        name: Cross-Origin-Opener-Policy
-        value: same-origin
-      - path: /assets/*
-        name: Cache-Control
-        value: public, max-age=31536000, immutable
