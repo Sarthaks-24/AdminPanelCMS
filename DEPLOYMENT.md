@@ -334,24 +334,81 @@ Open `https://example.com` and `https://api.example.com/readyz` (should show `{"
 
 The platform builds from GitHub and runs it for you. You only give it settings.
 
-### 8.1 Render (both programs in one place)
+### 8.1 Render (API) + Netlify (dashboard) — what this repository is deployed on today
 
-`render.yaml` in this repository is a **Blueprint**: it describes both services so you don't click them together by hand.
+`render.yaml` is a **Blueprint** describing the API service; `netlify.toml` describes the dashboard
+build. The two live on different hosts, which has one consequence worth understanding before you
+start (step 5).
 
-1. Render dashboard → **New → Blueprint** → connect GitHub → pick this repository and the branch to deploy.
-2. Render reads `render.yaml` and shows two services: `portfolio-api` (Docker, free plan, 1 instance) and `portfolio-web` (static site, free). The API free plan sleeps after 15 idle minutes; the first request after sleep may be delayed and in-memory limits reset after restarts. The repository's `.github/workflows/render-heartbeat.yml` can call `/livez` every 10 minutes to reduce idle sleeping, but it does not guarantee 24/7 uptime. Use a paid Render instance when uninterrupted availability is required.
-   It asks for every value marked "sync: false". Fill them from [§6](#6-your-production-settings); for `LEGAL_POLICIES_APPROVED` type `false`. `JWT_SECRET` and `INVITE_CODE_PEPPER` are generated for you (so always create invite codes in the Superadmin panel, never with the `npm run invite` script on your laptop, which wouldn't know that pepper).
-3. **Apply.** The first deploy of the API will **fail** with `Invalid configuration`: that's expected until the custom domains exist, because `CLIENT_ORIGIN` and `PUBLIC_API_URL` must be on your own domain. Continue.
-4. **Custom domains.**
-   - `portfolio-web` → Settings → Custom Domains → add `example.com` (and `www.example.com`).
-   - `portfolio-api` → Settings → Custom Domains → add `api.example.com`.
-   - Render shows the DNS records to create at your registrar (a CNAME for `api` and `www`, and an A or ALIAS record for the bare domain). Add them, wait for Render to show "Certificate issued".
-5. Make sure `CLIENT_ORIGIN=https://example.com`, `PUBLIC_API_URL=https://api.example.com` (API service → Environment) and `VITE_PROD_API_URL=https://api.example.com`, `VITE_SITE_DOMAIN=example.com` (web service → Environment). Then **Manual Deploy → Deploy latest commit** on both.
-6. API → **Logs** should show `[Env] MODE=prod · database Portfolio_prod` and no errors. `https://api.example.com/readyz` → `{"status":"ready"}`.
-7. API → Settings: set **Pre-Deploy/Shutdown delay** ("Max shutdown delay") to at least 20 seconds if offered, so deploys don't cut requests.
-8. For the optional heartbeat, add a GitHub repository secret named `RENDER_HEALTHCHECK_URL` with the full liveness URL, for example `https://api.example.com/livez`. The workflow runs every 10 minutes and fails if the API cannot be reached. GitHub may disable scheduled workflows in repositories with no activity, so treat this as a convenience monitor, not an uptime guarantee.
+**The API on Render.**
 
-Render deploys again on every push to that branch. Changing a `VITE_*` value needs a new deploy of `portfolio-web` (it is baked in at build).
+1. Render dashboard → **New → Blueprint** → connect GitHub → pick this repository and the branch
+   to deploy.
+2. Render reads `render.yaml` and shows `portfolio-api` (Docker, free plan, 1 instance). The free
+   plan sleeps after 15 idle minutes; the first request after a sleep is delayed by roughly 50
+   seconds, and the in-memory rate limits and token cache reset on every restart.
+   `.github/workflows/render-heartbeat.yml` calls `/livez` every 10 minutes to keep it awake most of
+   the time. That is a convenience, not uptime: GitHub delays and drops scheduled runs when its
+   runners are busy, and disables schedules entirely after 60 days with no repository activity. Use
+   a paid instance when you need uninterrupted availability.
+3. Render asks for every value marked `sync: false`. Fill them from [§6](#6-your-production-settings);
+   for `LEGAL_POLICIES_APPROVED` type `false`. `JWT_SECRET` and `INVITE_CODE_PEPPER` are generated
+   for you, so always create invite codes in the Superadmin panel, never with `npm run invite` on
+   your laptop, which would not know that pepper.
+4. The first deploy fails with `Invalid configuration` until `CLIENT_ORIGIN` and `PUBLIC_API_URL`
+   are set, and `CLIENT_ORIGIN` is not known until the dashboard exists. Continue to Netlify and
+   come back.
+
+**The dashboard on Netlify.**
+
+1. Netlify → **Add new project → Import an existing project → GitHub** → pick this repository.
+   If the repository is not listed, "Configure the Netlify app on GitHub" and grant it access.
+2. Netlify reads `netlify.toml`: build `cd client && npm ci && npm run build`, publish `client/dist`,
+   Node 22. Leave the base directory empty — the build also reads `server/contract` and `docs/`.
+3. Set the project name; the default URL is `https://<name>.netlify.app`.
+4. **Environment variables:** every `VITE_*` value from [§6](#dashboard-settings). "Import from a
+   .env file" takes them all at once.
+5. The build writes `dist/_headers` and `dist/_redirects` in Netlify's own syntax, so the security
+   headers and the SPA fallback need no configuration.
+
+**5. Connect the two.** On the API service set `CLIENT_ORIGIN` to the Netlify URL and
+`PUBLIC_API_URL` to the Render URL, then deploy again.
+
+> **The cross-site cookie.** `*.netlify.app` and `*.onrender.com` are separate sites, so the session
+> cookie has to be `SameSite=None; Secure` or the browser never sends it and nobody can stay signed
+> in. `render.yaml` sets `SESSION_COOKIE_SAMESITE=none` for exactly that reason. Browsers that block
+> third-party cookies outright, Safari among them, will still not keep the session. The real fix is
+> one registrable domain for both — `app.example.com` for the dashboard, `api.example.com` for the
+> API — after which this goes back to `lax`. `npm run smoke` reports this split as a failure; that
+> check assumes `lax`, so with `none` it is the one expected red line.
+
+6. API → **Logs** should show `[Env] MODE=prod · database Portfolio_prod` and no errors, and
+   `https://<api>.onrender.com/readyz` should answer `{"status":"ready"}`.
+7. API → Settings: set the shutdown delay to at least 20 seconds if offered, so deploys do not cut
+   requests.
+8. The heartbeat workflow defaults to this deployment's `/livez` URL. Pointing it elsewhere needs no
+   edit: set a repository secret named `RENDER_HEALTHCHECK_URL` and it wins. Scheduled workflows
+   only run from the repository's **default branch**, so the branch you deploy has to be merged into
+   it for the heartbeat to fire on its own.
+
+Both hosts redeploy on every push to the branch they watch. Changing a `VITE_*` value needs a new
+Netlify deploy, since it is baked in at build time.
+
+> **Creating the first admin without a Shell.** Render's free plan has no Shell tab, so
+> `npm run production:prepare` cannot be run on the service. Use the "Anything else" row of
+> [§9](#9-create-the-first-admin-account) instead, or its non-interactive equivalent from your
+> laptop, with the production values passed as `PROD_`-prefixed variables (`envMode` copies those
+> over the plain names, and would otherwise delete a plain `MONGODB_URI` because `server/.env`
+> defines `DEV_MONGODB_URI`):
+>
+> ```bash
+> cd server
+> MODE=prod PROD_MONGODB_URI=... PROD_JWT_SECRET=... PROD_INVITE_CODE_PEPPER=... >   PROD_ADMIN_PASSWORD=... node scripts/set-admin.js you@example.com --yes
+> MODE=prod PROD_MONGODB_URI=... PROD_JWT_SECRET=... PROD_INVITE_CODE_PEPPER=... >   node scripts/grant-superadmin.js --email you@example.com --confirm-db Portfolio_prod
+> ```
+>
+> `ADMIN_PASSWORD` is mode-prefixed too: unprefixed it gets dropped and the script waits forever on
+> stdin. The server connects with `autoIndex: true`, so it builds the indexes itself on first boot.
 
 ### 8.2 Railway (API) + a static host (dashboard)
 
