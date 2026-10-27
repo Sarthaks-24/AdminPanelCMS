@@ -6,7 +6,7 @@
 | :--- | :--- |
 | **Live dashboard** | https://portfolio-control-sst.netlify.app |
 | **Live API** | https://portfolio-api-2oie.onrender.com (health: [`/livez`](https://portfolio-api-2oie.onrender.com/livez)) |
-| **Demo video** | DEMO_VIDEO_LINK |
+| **Demo video** | https://drive.google.com/file/d/1yJ2gbaponcffXqlOh1LISknND9fQiCv0/view?usp=sharing |
 | **Source** | https://github.com/Sarthaks-24/AdminPanelCMS |
 
 > The API runs on Render's free plan. After 15 idle minutes it sleeps, and the first request can take up to a minute to wake it. If the dashboard says it can't reach the server, wait a moment and retry.
