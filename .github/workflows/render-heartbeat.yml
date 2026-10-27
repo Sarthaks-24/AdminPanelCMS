@@ -1,3 +1,15 @@
+# Keeps the free Render instance awake by calling its liveness probe on a schedule.
+#
+# Free Render web services sleep after 15 idle minutes and then take ~50s to answer the next
+# request. A ping every 10 minutes keeps that from happening most of the time; Render's free plan
+# still makes no uninterrupted-availability promise, and GitHub delays or drops scheduled runs when
+# its runners are busy, so treat this as "usually warm", not as uptime.
+#
+# GitHub disables scheduled workflows after 60 days with no repository activity; push anything (or
+# press "Run workflow" here) to re-arm them.
+#
+# The URL is public and not a secret. Set the repository secret RENDER_HEALTHCHECK_URL to override
+# it without editing this file.
 name: Render heartbeat
 
 on:
@@ -5,13 +17,20 @@ on:
     - cron: "*/10 * * * *"
   workflow_dispatch:
 
+# Overlapping runs would be pointless; a slow ping should not queue up behind itself.
+concurrency:
+  group: render-heartbeat
+  cancel-in-progress: false
+
 jobs:
   heartbeat:
     runs-on: ubuntu-latest
     steps:
-      - name: Check Render API
+      - name: Ping the API liveness probe
         env:
-          HEALTHCHECK_URL: ${{ secrets.RENDER_HEALTHCHECK_URL }}
+          HEALTHCHECK_URL: ${{ secrets.RENDER_HEALTHCHECK_URL || 'https://portfolio-api-2oie.onrender.com/livez' }}
         run: |
           test -n "$HEALTHCHECK_URL"
-          curl --fail --silent --show-error --max-time 20 "$HEALTHCHECK_URL" > /dev/null
+          # --max-time 90: a cold instance spends ~50s waking before it answers.
+          curl --fail --silent --show-error --max-time 90 --retry 2 --retry-delay 15 "$HEALTHCHECK_URL" > /dev/null
+          echo "Awake: $HEALTHCHECK_URL"

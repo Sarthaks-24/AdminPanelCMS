@@ -1,0 +1,12 @@
+# Netlify build for the dashboard (the API lives on Render; see DEPLOYMENT.md §8).
+#
+# No `base`: the build also reads server/contract and docs/, outside client/.
+# dist/_headers and dist/_redirects are written by the build (client/config/deployFiles.js) in
+# Netlify's own syntax, so the security headers and the SPA fallback need no entries here.
+
+[build]
+  command = "cd client && npm ci && npm run build"
+  publish = "client/dist"
+
+[build.environment]
+  NODE_VERSION = "22"
