@@ -54,7 +54,7 @@ cd client && npm install && cp .env.example .env
 npm run dev                                        # http://localhost:5173
 ```
 
-Deploying the service: the step-by-step guide is [DEPLOYMENT.md](DEPLOYMENT.md) (Render, Railway, or one VPS with Docker and Caddy). Operator reference (environment variables, deployment, operations, architecture, data model) is in `docs/` and is not published on the site: [ENVIRONMENT.md](docs/ENVIRONMENT.md), [DEPLOYMENT.md](docs/DEPLOYMENT.md), [OPERATIONS.md](docs/OPERATIONS.md), [ARCHITECTURE.md](docs/ARCHITECTURE.md), [DATA_MODEL.md](docs/DATA_MODEL.md).
+Deploying the service: the step-by-step guide is [DEPLOYMENT.md](DEPLOYMENT.md) (Render, Railway, or one VPS with Docker and Caddy). For Render plus a Netlify or Vercel dashboard, see [DEPLOYMENT_RENDER_NETLIFY_VERCEL.md](docs/DEPLOYMENT_RENDER_NETLIFY_VERCEL.md). Operator reference (environment variables, deployment, operations, architecture, data model) is in `docs/` and is not published on the site: [ENVIRONMENT.md](docs/ENVIRONMENT.md), [DEPLOYMENT.md](docs/DEPLOYMENT.md), [OPERATIONS.md](docs/OPERATIONS.md), [ARCHITECTURE.md](docs/ARCHITECTURE.md), [DATA_MODEL.md](docs/DATA_MODEL.md).
 
 ## Scripts
 

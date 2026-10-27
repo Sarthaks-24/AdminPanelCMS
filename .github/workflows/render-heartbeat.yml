@@ -1,0 +1,17 @@
+name: Render heartbeat
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Render API
+        env:
+          HEALTHCHECK_URL: ${{ secrets.RENDER_HEALTHCHECK_URL }}
+        run: |
+          test -n "$HEALTHCHECK_URL"
+          curl --fail --silent --show-error --max-time 20 "$HEALTHCHECK_URL" > /dev/null
