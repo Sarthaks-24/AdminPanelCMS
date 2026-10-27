@@ -13,9 +13,9 @@ services:
     buildFilter:
       paths:
         - server/**
-    # Free instances sleep after 15 idle minutes and lose every in-memory limit and cache; the
-    # service must be always-on, so use a paid instance type.
-    plan: 0.5c-512mb
+    # Free instances sleep after 15 idle minutes. The heartbeat workflow can reduce sleeping,
+    # but Render free does not guarantee uninterrupted 24/7 availability.
+    plan: free
     # Exactly one instance: rate limits, caches and the active-token set live in process memory.
     numInstances: 1
     healthCheckPath: /readyz

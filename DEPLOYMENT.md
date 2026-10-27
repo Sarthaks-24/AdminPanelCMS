@@ -339,8 +339,8 @@ The platform builds from GitHub and runs it for you. You only give it settings.
 `render.yaml` in this repository is a **Blueprint**: it describes both services so you don't click them together by hand.
 
 1. Render dashboard → **New → Blueprint** → connect GitHub → pick this repository and the branch to deploy.
-2. Render reads `render.yaml` and shows two services: `portfolio-api` (Docker, the smallest always-on paid instance `0.5c-512mb`, ~$7/month, 1 instance; if Render's screen offers a differently named plan, pick the smallest paid one) and `portfolio-web` (static site, free). It asks for every value marked "sync: false". Fill them from [§6](#6-your-production-settings); for `LEGAL_POLICIES_APPROVED` type `false`. `JWT_SECRET` and `INVITE_CODE_PEPPER` are generated for you (so always create invite codes in the Superadmin panel, never with the `npm run invite` script on your laptop, which wouldn't know that pepper).
-   - Why not the free plan for the API? Free instances fall asleep after 15 idle minutes; the first visitor waits ~a minute and every in-memory limit resets. The API must be always on.
+2. Render reads `render.yaml` and shows two services: `portfolio-api` (Docker, free plan, 1 instance) and `portfolio-web` (static site, free). The API free plan sleeps after 15 idle minutes; the first request after sleep may be delayed and in-memory limits reset after restarts. The repository's `.github/workflows/render-heartbeat.yml` can call `/livez` every 10 minutes to reduce idle sleeping, but it does not guarantee 24/7 uptime. Use a paid Render instance when uninterrupted availability is required.
+   It asks for every value marked "sync: false". Fill them from [§6](#6-your-production-settings); for `LEGAL_POLICIES_APPROVED` type `false`. `JWT_SECRET` and `INVITE_CODE_PEPPER` are generated for you (so always create invite codes in the Superadmin panel, never with the `npm run invite` script on your laptop, which wouldn't know that pepper).
 3. **Apply.** The first deploy of the API will **fail** with `Invalid configuration`: that's expected until the custom domains exist, because `CLIENT_ORIGIN` and `PUBLIC_API_URL` must be on your own domain. Continue.
 4. **Custom domains.**
    - `portfolio-web` → Settings → Custom Domains → add `example.com` (and `www.example.com`).
@@ -349,6 +349,7 @@ The platform builds from GitHub and runs it for you. You only give it settings.
 5. Make sure `CLIENT_ORIGIN=https://example.com`, `PUBLIC_API_URL=https://api.example.com` (API service → Environment) and `VITE_PROD_API_URL=https://api.example.com`, `VITE_SITE_DOMAIN=example.com` (web service → Environment). Then **Manual Deploy → Deploy latest commit** on both.
 6. API → **Logs** should show `[Env] MODE=prod · database Portfolio_prod` and no errors. `https://api.example.com/readyz` → `{"status":"ready"}`.
 7. API → Settings: set **Pre-Deploy/Shutdown delay** ("Max shutdown delay") to at least 20 seconds if offered, so deploys don't cut requests.
+8. For the optional heartbeat, add a GitHub repository secret named `RENDER_HEALTHCHECK_URL` with the full liveness URL, for example `https://api.example.com/livez`. The workflow runs every 10 minutes and fails if the API cannot be reached. GitHub may disable scheduled workflows in repositories with no activity, so treat this as a convenience monitor, not an uptime guarantee.
 
 Render deploys again on every push to that branch. Changing a `VITE_*` value needs a new deploy of `portfolio-web` (it is baked in at build).
 
