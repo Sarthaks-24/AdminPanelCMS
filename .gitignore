@@ -82,3 +82,6 @@ cache
 Plans/
 Plans
 **/Plans/
+
+# Git worktrees the Claude Code desktop app creates; never part of a commit.
+.claude/worktrees/
