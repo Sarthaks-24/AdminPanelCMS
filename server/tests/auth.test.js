@@ -227,7 +227,7 @@ describe('email-first registration', () => {
   it('supports explicitly configured open signup without consuming an invite', async () => {
     process.env.SIGNUP_MODE = 'open';
     const config = await request(app).get('/api/auth/config').expect(200);
-    expect(config.body).toEqual({ success: true, signupEnabled: true, signupMode: 'open', publicApiBase: null, turnstileSiteKey: null });
+    expect(config.body).toEqual({ success: true, signupEnabled: true, signupMode: 'open', publicApiBase: null, turnstileSiteKey: null, mailDelivery: 'enabled' });
     await signup({ email: 'open-signup@test.com' }).expect(200, { success: true, message: 'Check your email to complete registration' });
     expect(await User.exists({ email: 'open-signup@test.com' })).toBeTruthy();
     expect(await Invite.countDocuments()).toBe(0);
@@ -299,12 +299,12 @@ describe('email-first registration', () => {
     process.env.SIGNUP_MODE = 'anything-else';
     const response = await signup({}).expect(503);
     expect(response.body).toMatchObject({ success: false, error: 'signup_unavailable' });
-    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: false, signupMode: 'closed', publicApiBase: null, turnstileSiteKey: null });
+    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: false, signupMode: 'closed', publicApiBase: null, turnstileSiteKey: null, mailDelivery: 'enabled' });
   });
 
   it('defaults to closed when SIGNUP_MODE is unset', async () => {
     delete process.env.SIGNUP_MODE;
-    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: false, signupMode: 'closed', publicApiBase: null, turnstileSiteKey: null });
+    await request(app).get('/api/auth/config').expect(200, { success: true, signupEnabled: false, signupMode: 'closed', publicApiBase: null, turnstileSiteKey: null, mailDelivery: 'enabled' });
   });
 });
 

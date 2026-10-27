@@ -61,7 +61,10 @@ export default function DashboardHome() {
   const load = useCallback(async () => {
     setFatal(null);
     const results = await Promise.allSettled(SOURCES.map(([, path]) => api.get(path)));
-    const rejected = SOURCES.filter((_, index) => results[index].status === 'rejected');
+    // /resume answers 404 until a resume exists, unlike the list sections, which answer 200 with []. That is
+    // the ordinary state of a new account, not a section that failed to load, so it must not raise the banner.
+    const missing = (index) => results[index].status === 'rejected' && results[index].reason?.response?.status === 404;
+    const rejected = SOURCES.filter((_, index) => results[index].status === 'rejected' && !missing(index));
     if (rejected.length === SOURCES.length) {
       setFatal(describeApiError(results[0].reason, { fallback: 'Your dashboard could not load.' }));
       setData(null);

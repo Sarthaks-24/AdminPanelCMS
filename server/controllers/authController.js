@@ -122,7 +122,9 @@ async function signupConfig(_req, res, next) {
   try {
     const mode = await getSignupMode();
     const open = Boolean(mode) && !isStorageFull();
-    return res.json({ success: true, signupEnabled: open, signupMode: open ? mode : 'closed', publicApiBase: publicApiBase(), turnstileSiteKey: turnstile.siteKey() });
+    // The signup page promises an email with a link. When delivery is off that promise is false, and the
+    // page says so instead (Signup.jsx), because the link comes straight back in the signup response.
+    return res.json({ success: true, signupEnabled: open, signupMode: open ? mode : 'closed', publicApiBase: publicApiBase(), turnstileSiteKey: turnstile.siteKey(), mailDelivery: mailer.mailDeliveryDisabled() ? 'disabled' : 'enabled' });
   } catch (error) { return next(error); }
 }
 

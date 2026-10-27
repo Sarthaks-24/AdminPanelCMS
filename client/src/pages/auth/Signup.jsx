@@ -75,6 +75,8 @@ export default function Signup() {
       ? (config.unknown ? 'We could not reach the registration service. Try again in a moment.' : 'Registration is closed right now.')
       : inviteMode
         ? 'Registration is invite-only right now. Have a code? Enter it below.'
+        : config?.mailDelivery === 'disabled'
+        ? 'Free during the beta. You’ll choose a password on the next step.'
         : 'Free during the beta. You’ll verify your email next.';
 
   return (
@@ -102,7 +104,9 @@ export default function Signup() {
           </div>
           <Turnstile ref={captchaRef} siteKey={siteKey} onToken={setCaptchaToken} action="signup" />
           <button className={buttonClass} disabled={loading}>{loading ? 'Sending your link…' : 'Create account'}</button>
-          <p className="text-xs leading-5 text-t-muted">No password yet: we email you a link, and you choose your password when you open it.</p>
+          <p className="text-xs leading-5 text-t-muted">{config?.mailDelivery === 'disabled'
+            ? 'This deployment does not send email, so you go straight to choosing a password — your address is recorded but not verified.'
+            : 'No password yet: we email you a link, and you choose your password when you open it.'}</p>
           {inviteMode && (
             <p className="text-xs leading-5 text-t-muted">
               No code yet? Email <a className="font-medium text-t-accent hover:underline" href={supportMailto(`Invite request for ${SITE.name}`)}>{SITE.support.email}</a> and we&rsquo;ll send one when there&rsquo;s room.
