@@ -8,7 +8,7 @@
 # Everything stateful besides MongoDB is in process memory: run exactly ONE replica (docs/DEPLOYMENT.md).
 # Node 22 LTS (Node 20 reached end of life on 2026-04-30). Pinned to the multi-arch index digest of
 # node:22-alpine as published on 2026-10-12; Dependabot (docker ecosystem) proposes digest bumps.
-FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+FROM node:25-alpine@sha256:bdf2cca6fe3dabd014ea60163eca3f0f7015fbd5c7ee1b0e9ccb4ced6eb02ef4
 
 # tini forwards SIGTERM to node as PID 1 so the server's drain-on-SIGTERM handler runs on every deploy.
 RUN apk add --no-cache tini
