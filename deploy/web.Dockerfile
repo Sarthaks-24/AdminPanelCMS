@@ -40,7 +40,7 @@ RUN cd client \
  && node ../deploy/headers-to-caddy.mjs dist/_headers > /repo/headers.caddy
 
 # Caddy 2.10 pinned by its multi-arch index digest (2026-10-12); Dependabot can propose bumps.
-FROM caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+FROM caddy:2.11.8-alpine@sha256:f6228111e5fafa1a5238258d0858e103f10599b8d1659a146e7726681a002bb9
 COPY --from=build /repo/client/dist /srv
 COPY --from=build /repo/headers.caddy /etc/caddy/headers.caddy
 COPY deploy/Caddyfile /etc/caddy/Caddyfile
